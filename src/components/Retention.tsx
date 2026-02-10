@@ -2,6 +2,7 @@ import { useState } from 'react';
 import LTVSummary from './retention/LTVSummary';
 import CohortTables from './retention/CohortTables';
 import CohortEvolution from './retention/CohortEvolution';
+import LastRefreshed from './LastRefreshed';
 
 type RetentionTab = 'ltv' | 'cohort-tables' | 'cohort-evolution';
 
@@ -44,6 +45,9 @@ export default function Retention() {
       {activeTab === 'ltv' && <LTVSummary />}
       {activeTab === 'cohort-tables' && <CohortTables />}
       {activeTab === 'cohort-evolution' && <CohortEvolution />}
+      <div className="flex justify-end mt-2">
+        <LastRefreshed offsetMinutes={22} />
+      </div>
     </div>
   );
 }

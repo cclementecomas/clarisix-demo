@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { TrendingUp, TrendingDown, Users, DollarSign, Activity, BarChart3 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell } from 'recharts';
 import InfoTooltip from './InfoTooltip';
+import LastRefreshed from './LastRefreshed';
 import {
   subscriptionKPIs, subscriptionPlans, mrrMovements, churnReasons,
 } from '../data/subscriptionsData';
@@ -288,6 +289,9 @@ export default function Subscriptions() {
           </div>
         </>
       )}
+      <div className="flex justify-end">
+        <LastRefreshed offsetMinutes={7} />
+      </div>
     </div>
   );
 }

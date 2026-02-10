@@ -1,9 +1,10 @@
-import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { ChevronRight } from 'lucide-react';
 import type { TrendRow, TrendMetricOption } from '../../data/trendsData';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import { fc } from '../../utils/currency';
 import SelectionStats from '../deepdive/SelectionStats';
+import LastRefreshed from '../LastRefreshed';
 
 interface TrendsPivotTableProps {
   title: string;
@@ -74,39 +75,12 @@ function getRectCells(
   return cells;
 }
 
-function formatRefreshTime(date: Date): string {
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-
-  if (diffMins < 1) return 'Just now';
-  if (diffMins < 60) return `${diffMins}m ago`;
-
-  const hours = date.getHours();
-  const minutes = date.getMinutes();
-  const ampm = hours >= 12 ? 'PM' : 'AM';
-  const h = hours % 12 || 12;
-  const m = minutes.toString().padStart(2, '0');
-
-  const isToday = date.toDateString() === now.toDateString();
-  if (isToday) return `Today at ${h}:${m} ${ampm}`;
-
-  const month = date.toLocaleString('en-US', { month: 'short' });
-  return `${month} ${date.getDate()} at ${h}:${m} ${ampm}`;
-}
-
 export default function TrendsPivotTable({ title, periods, rows, metricInfo }: TrendsPivotTableProps) {
   const { currency } = useCurrency();
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [selectedCells, setSelectedCells] = useState<SelectedCell[]>([]);
   const [showHint, setShowHint] = useState(true);
   const [hasInteracted, setHasInteracted] = useState(false);
-
-  const lastRefreshed = useMemo(() => {
-    const d = new Date();
-    d.setMinutes(d.getMinutes() - 14);
-    return d;
-  }, []);
 
   const dragStart = useRef<CellPos | null>(null);
   const isDragging = useRef(false);
@@ -334,9 +308,7 @@ export default function TrendsPivotTable({ title, periods, rows, metricInfo }: T
       </div>
 
       <div className="px-4 py-2 border-t border-gray-100 flex items-center justify-end">
-        <span className="text-[11px] text-gray-400 tracking-wide">
-          Last refreshed: {formatRefreshTime(lastRefreshed)}
-        </span>
+        <LastRefreshed offsetMinutes={14} />
       </div>
     </div>
   );

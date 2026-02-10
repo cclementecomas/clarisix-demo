@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { Search, Plus } from 'lucide-react';
 import { connectors, categories, type ConnectorCategory } from '../data/connectorsData';
 import ConnectorCard from './connectors/ConnectorCard';
+import LastRefreshed from './LastRefreshed';
 
 type FilterTab = 'All' | ConnectorCategory;
 
@@ -107,6 +108,10 @@ export default function Connectors() {
               </div>
             </div>
           ))}
+        </div>
+
+        <div className="px-5 pb-4 flex justify-end border-t border-gray-100 pt-3">
+          <LastRefreshed offsetMinutes={5} />
         </div>
       </div>
     </div>

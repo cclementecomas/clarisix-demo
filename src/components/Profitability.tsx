@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ChevronDown, ChevronRight, Info, Table2, TrendingUp } from 'lucide-react';
 import { profitabilityData, ProfitabilityMetric } from '../data/profitabilityData';
 import InfoTooltip from './InfoTooltip';
+import LastRefreshed from './LastRefreshed';
 import { useCurrency, CURRENCY_SYMBOLS, CONVERSION_RATES } from '../contexts/CurrencyContext';
 import { convert } from '../utils/currency';
 
@@ -263,8 +264,9 @@ export default function Profitability() {
               <span>Ratios & percentages</span>
             </div>
           </div>
-          <div className="text-gray-500">
-            All amounts in {currency} | Generated {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+          <div className="flex items-center gap-4 text-gray-500">
+            <span>All amounts in {currency}</span>
+            <LastRefreshed offsetMinutes={16} />
           </div>
         </div>
       </div>

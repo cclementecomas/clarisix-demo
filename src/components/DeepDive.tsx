@@ -15,6 +15,7 @@ import {
 } from '../data/deepdiveData';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { fc } from '../utils/currency';
+import LastRefreshed from './LastRefreshed';
 
 type Row = Record<string, unknown>;
 
@@ -159,6 +160,9 @@ export default function DeepDive() {
         columnDefs={asinCols}
         pinnedBottomRowData={asinTotals}
       />
+      <div className="flex justify-end">
+        <LastRefreshed offsetMinutes={9} />
+      </div>
     </div>
   );
 }

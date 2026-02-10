@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Customized, LabelList } from 'recharts';
 import { salesOverviewByGranularity, type Granularity, type SalesDataPoint } from '../data/dashboardData';
 import InfoTooltip from './InfoTooltip';
+import LastRefreshed from './LastRefreshed';
 import { useCurrency, type Currency } from '../contexts/CurrencyContext';
 import { fc, tickFmt } from '../utils/currency';
 
@@ -234,6 +235,9 @@ export default function SalesOverview() {
             />
           </BarChart>
         </ResponsiveContainer>
+      </div>
+      <div className="flex justify-end mt-3">
+        <LastRefreshed offsetMinutes={12} />
       </div>
     </div>
   );

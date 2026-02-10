@@ -3,6 +3,7 @@ import AdSpendRunRate from './advertising/AdSpendRunRate';
 import PerformanceByAdType from './advertising/PerformanceByAdType';
 import PerformanceByCategory from './advertising/PerformanceByCategory';
 import AdvertisingTable from './advertising/AdvertisingTable';
+import LastRefreshed from './LastRefreshed';
 
 export default function AdvertisingOverview() {
   return (
@@ -14,6 +15,9 @@ export default function AdvertisingOverview() {
       </div>
       <PerformanceByCategory />
       <AdvertisingTable />
+      <div className="flex justify-end">
+        <LastRefreshed offsetMinutes={18} />
+      </div>
     </div>
   );
 }
