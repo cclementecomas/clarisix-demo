@@ -1,0 +1,152 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --cx-primary: #0E5A8A;
+  --cx-primary-active: #0B4B72;
+  --cx-primary-tint: #E6F3FA;
+  --cx-secondary: #6D28D9;
+  --cx-accent: #4B9DCC;
+  --cx-success: #166534;
+  --cx-warning: #92400E;
+  --cx-error: #991B1B;
+  --cx-info: #0B4B72;
+  --cx-n0: #FFFFFF;
+  --cx-n50: #F7FAFC;
+  --cx-n100: #EEF2F6;
+  --cx-n200: #DCE3EA;
+  --cx-n300: #C7D0DA;
+  --cx-n400: #93A4B8;
+  --cx-n500: #64748B;
+  --cx-n600: #475569;
+  --cx-n700: #334155;
+  --cx-n800: #1F2937;
+  --cx-n900: #0B1220;
+  --cx-d1: #0E5A8A;
+  --cx-d2: #4B9DCC;
+  --cx-d3: #0F766E;
+  --cx-d4: #166534;
+  --cx-d5: #C68900;
+  --cx-d6: #D55E00;
+  --cx-d7: #6D28D9;
+  --cx-d8: #BE185D;
+  --cx-benchmark: #475569;
+}
+
+@layer base {
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+@layer utilities {
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #C7D0DA;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #93A4B8;
+}
+
+@keyframes fadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-slide-in {
+  animation: fadeSlideIn 0.2s ease-out;
+}
+
+@keyframes gentlePulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.02);
+  }
+}
+
+.animate-gentle-pulse {
+  animation: gentlePulse 2s ease-in-out infinite;
+}
+
+@keyframes cellGlow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(75, 157, 204, 0);
+  }
+  50% {
+    box-shadow: 0 0 0 3px rgba(75, 157, 204, 0.3);
+  }
+}
+
+.animate-cell-glow {
+  animation: cellGlow 2s ease-in-out infinite;
+}
+
+.recharts-cartesian-grid-horizontal line,
+.recharts-cartesian-grid-vertical line {
+  stroke-opacity: 0.6;
+}
+
+@keyframes clarisix-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.clarisix-spinner {
+  animation: clarisix-spin 1.2s linear infinite;
+}
+
+.table-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1rem;
+  gap: 0.75rem;
+}
+
+.table-loader span {
+  color: #94a3b8;
+  font-size: 14px;
+}
+
+.table-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(2px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  border-radius: 8px;
+  z-index: 10;
+}
