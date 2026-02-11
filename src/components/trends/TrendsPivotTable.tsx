@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { ChevronRight } from 'lucide-react';
 import type { TrendRow, TrendMetricOption } from '../../data/trendsData';
 import { useCurrency } from '../../contexts/CurrencyContext';
