@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import { ArrowUp, ArrowDown, ChevronRight, ChevronsUpDown } from 'lucide-react';
+import { ArrowUp, ArrowDown, ChevronRight, ChevronsUpDown, Download } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import ColumnToggle from './ColumnToggle';
 import SelectionStats from './SelectionStats';
 import InfoTooltip from '../InfoTooltip';
@@ -88,6 +89,19 @@ function formatCell(col: ColumnDef, value: unknown, row: any): string | React.Re
   if (col.valueFormatter) return col.valueFormatter({ value, row });
   if (value == null) return '';
   return String(value);
+}
+
+function formatCellStr(col: ColumnDef, value: unknown, row: any): string {
+  const result = formatCell(col, value, row);
+  return typeof result === 'string' ? result : String(value ?? '');
+}
+
+function formatSubFieldStr(sf: NonNullable<ColumnDef['subFields']>[number], value: unknown, row: any): string {
+  if (sf.formatter) {
+    const result = sf.formatter({ value, row });
+    return typeof result === 'string' ? result : String(value ?? '');
+  }
+  return String(value ?? '');
 }
 
 function getCellStyle(col: ColumnDef, value: unknown, row: any): Record<string, string> {
@@ -269,6 +283,89 @@ export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottom
 
   const pinnedCol = visibleCols.find((c) => c.pinned === 'left');
 
+  const exportToExcel = useCallback(() => {
+    // Build header row
+    const headers: string[] = [];
+    for (const col of visibleCols) {
+      headers.push(col.headerName);
+      const subs = filterSubFields(col.subFields);
+      if (subs) {
+        for (const sf of subs) {
+          headers.push(`${col.headerName} ${sf.label ?? sf.field}`);
+        }
+      }
+    }
+
+    // Build a data row from a row object
+    const buildRow = (row: any, labelOverride?: { col: ColumnDef; value: string }) => {
+      const cells: (string | number)[] = [];
+      for (const col of visibleCols) {
+        const value = labelOverride && col === labelOverride.col ? labelOverride.value : row[col.field];
+        // Use raw numeric value for numeric fields, formatted string for text fields
+        if (typeof value === 'number') {
+          cells.push(value);
+        } else {
+          cells.push(formatCellStr(col, value, row));
+        }
+        const subs = filterSubFields(col.subFields);
+        if (subs) {
+          for (const sf of subs) {
+            const subVal = row[sf.field];
+            if (typeof subVal === 'number') {
+              cells.push(subVal);
+            } else {
+              cells.push(formatSubFieldStr(sf, subVal, row));
+            }
+          }
+        }
+      }
+      return cells;
+    };
+
+    const rows: (string | number)[][] = [headers];
+
+    // Data rows (with child rows)
+    for (const row of sortedData) {
+      rows.push(buildRow(row));
+
+      if (hasChildren) {
+        const rowKey = row[rowKeyField!] as string;
+        const children = childRowsMap![rowKey];
+        if (children?.length) {
+          for (const child of children) {
+            const pinnedDef = visibleCols.find((c) => c.pinned === 'left');
+            const childLabel = childLabelField ? child[childLabelField] : child[pinnedDef?.field ?? ''];
+            rows.push(buildRow(child, pinnedDef ? { col: pinnedDef, value: `  ${childLabel}` } : undefined));
+          }
+        }
+      }
+    }
+
+    // Totals row
+    if (pinnedBottomRowData?.length) {
+      for (const row of pinnedBottomRowData) {
+        rows.push(buildRow(row));
+      }
+    }
+
+    // Create workbook
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+
+    // Auto-size columns based on content
+    ws['!cols'] = headers.map((h, i) => {
+      let maxLen = h.length;
+      for (const row of rows) {
+        const cellLen = String(row[i] ?? '').length;
+        if (cellLen > maxLen) maxLen = cellLen;
+      }
+      return { wch: Math.min(maxLen + 2, 30) };
+    });
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, title.slice(0, 31)); // Sheet name max 31 chars
+    XLSX.writeFile(wb, `${title.replace(/\s+/g, '_')}.xlsx`);
+  }, [visibleCols, filterSubFields, sortedData, hasChildren, childRowsMap, rowKeyField, childLabelField, pinnedBottomRowData, title]);
+
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm relative">
       {showHint && (
@@ -312,6 +409,13 @@ export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottom
               }
             </button>
           )}
+          <button
+            onClick={exportToExcel}
+            className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold border border-gray-200 rounded-lg text-gray-500 hover:text-cx-500 hover:border-cx-300 transition-colors"
+          >
+            <Download className="w-3.5 h-3.5" />
+            Export
+          </button>
           <div className="flex items-center gap-1 border border-gray-200 rounded-lg overflow-hidden">
             <button
               onClick={() => setShowPoP((p) => !p)}
