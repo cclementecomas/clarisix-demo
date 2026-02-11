@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import { ArrowUp, ArrowDown } from 'lucide-react';
+import { ArrowUp, ArrowDown, ChevronRight, ChevronsUpDown } from 'lucide-react';
 import ColumnToggle from './ColumnToggle';
 import SelectionStats from './SelectionStats';
 import InfoTooltip from '../InfoTooltip';
@@ -35,6 +35,9 @@ interface DeepDiveTableProps {
   rowData: any[];
   columnDefs: ColumnDef[];
   pinnedBottomRowData?: any[];
+  childRowsMap?: Record<string, any[]>;
+  rowKeyField?: string;
+  childLabelField?: string;
 }
 
 const percentCellStyle = (params: { value: unknown; row?: any }): Record<string, string> => {
@@ -115,10 +118,12 @@ function getRectCells(
   return cells;
 }
 
-export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottomRowData }: DeepDiveTableProps) {
+export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottomRowData, childRowsMap, rowKeyField, childLabelField }: DeepDiveTableProps) {
   const [selectedCells, setSelectedCells] = useState<SelectedCell[]>([]);
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>(null);
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const hasChildren = !!childRowsMap && !!rowKeyField;
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => {
     return new Set(columnDefs.filter((c) => !c.hide).map((c) => c.field));
   });
@@ -287,6 +292,26 @@ export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottom
         </div>
         <div className="flex items-center gap-3">
           <SelectionStats values={selectedValues} />
+          {hasChildren && (
+            <button
+              onClick={() => {
+                const allKeys = sortedData.map((r) => r[rowKeyField!] as string).filter((k) => childRowsMap![k]);
+                const allExpanded = allKeys.every((k) => expandedRows.has(k));
+                if (allExpanded) {
+                  setExpandedRows(new Set());
+                } else {
+                  setExpandedRows(new Set(allKeys));
+                }
+              }}
+              className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold border border-gray-200 rounded-lg text-gray-500 hover:text-cx-500 hover:border-cx-300 transition-colors"
+            >
+              <ChevronsUpDown className="w-3.5 h-3.5" />
+              {sortedData.map((r) => r[rowKeyField!] as string).filter((k) => childRowsMap![k]).every((k) => expandedRows.has(k))
+                ? 'Collapse All'
+                : 'Expand All'
+              }
+            </button>
+          )}
           <div className="flex items-center gap-1 border border-gray-200 rounded-lg overflow-hidden">
             <button
               onClick={() => setShowPoP((p) => !p)}
@@ -354,61 +379,147 @@ export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottom
             </tr>
           </thead>
           <tbody>
-            {sortedData.map((row, rowIdx) => (
-              <tr
-                key={rowIdx}
-                className={`border-b border-slate-50 hover:bg-cx-50/50 transition-colors ${
-                  rowIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'
-                }`}
-              >
-                {visibleCols.map((col, colIdx) => {
-                  const value = row[col.field];
-                  const isPinned = col.pinned === 'left';
-                  const cellKey = `${rowIdx}-${colIdx}`;
-                  const isSelected = selectedCellKeys.has(cellKey);
-                  const style = getCellStyle(col, value, row);
-                  const isHintCell = showHint && !isPinned && ((rowIdx === 0 && colIdx === 1) || (rowIdx === 1 && colIdx === 2));
+            {sortedData.flatMap((row, rowIdx) => {
+              const rowKey = hasChildren ? (row[rowKeyField!] as string) : '';
+              const isExpanded = hasChildren && expandedRows.has(rowKey);
+              const children = hasChildren ? childRowsMap![rowKey] : undefined;
+              const canExpand = hasChildren && !!children?.length;
 
-                  return (
-                    <td
-                      key={col.field}
-                      onMouseDown={(e) => handleMouseDown(e, rowIdx, colIdx)}
-                      onMouseEnter={() => handleMouseEnter(rowIdx, colIdx)}
-                      className={`px-2.5 py-1.5 tabular-nums select-none overflow-hidden text-ellipsis transition-all ${
-                        isPinned ? `sticky left-0 z-10 font-semibold ${rowIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}` : 'cursor-cell'
-                      } ${isSelected ? 'bg-cx-100 ring-[1.5px] ring-inset ring-cx-500' : ''} ${
-                        col.subFields ? 'whitespace-normal' : 'whitespace-nowrap'
-                      } ${isHintCell ? 'animate-cell-glow' : ''}`}
-                      style={style}
-                    >
-                      {(() => {
-                        const filtered = filterSubFields(col.subFields);
-                        return filtered && filtered.length > 0 ? (
-                          <div className="space-y-px">
-                            <div className="font-semibold text-[13px] leading-none">{formatCell(col, value, row)}</div>
-                            {filtered.map((subField) => {
-                              const subValue = row[subField.field];
-                              const subStyle = subField.cellStyle ? subField.cellStyle({ value: subValue, row }) : {};
-                              const formattedSub = subField.formatter
-                                ? subField.formatter({ value: subValue, row })
-                                : String(subValue ?? '');
-                              return (
-                                <div key={subField.field} className="flex items-center gap-1 text-[10px] leading-none">
-                                  {subField.label && <span className="text-gray-400 font-medium w-5 shrink-0">{subField.label}</span>}
-                                  <span className="font-semibold tabular-nums" style={subStyle}>{formattedSub}</span>
-                                </div>
-                              );
-                            })}
+              const parentRow = (
+                <tr
+                  key={rowIdx}
+                  className={`border-b border-slate-50 hover:bg-cx-50/50 transition-colors ${
+                    rowIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'
+                  }`}
+                >
+                  {visibleCols.map((col, colIdx) => {
+                    const value = row[col.field];
+                    const isPinned = col.pinned === 'left';
+                    const cellKey = `${rowIdx}-${colIdx}`;
+                    const isSelected = selectedCellKeys.has(cellKey);
+                    const style = getCellStyle(col, value, row);
+                    const isHintCell = showHint && !isPinned && ((rowIdx === 0 && colIdx === 1) || (rowIdx === 1 && colIdx === 2));
+
+                    return (
+                      <td
+                        key={col.field}
+                        onMouseDown={(e) => handleMouseDown(e, rowIdx, colIdx)}
+                        onMouseEnter={() => handleMouseEnter(rowIdx, colIdx)}
+                        className={`px-2.5 py-1.5 tabular-nums select-none overflow-hidden text-ellipsis transition-all ${
+                          isPinned ? `sticky left-0 z-10 font-semibold ${rowIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}` : 'cursor-cell'
+                        } ${isSelected ? 'bg-cx-100 ring-[1.5px] ring-inset ring-cx-500' : ''} ${
+                          col.subFields ? 'whitespace-normal' : 'whitespace-nowrap'
+                        } ${isHintCell ? 'animate-cell-glow' : ''}`}
+                        style={style}
+                      >
+                        {isPinned && canExpand ? (
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setExpandedRows((prev) => {
+                                  const next = new Set(prev);
+                                  if (next.has(rowKey)) next.delete(rowKey);
+                                  else next.add(rowKey);
+                                  return next;
+                                });
+                              }}
+                              className="w-4 h-4 flex items-center justify-center rounded hover:bg-gray-200 transition-colors flex-shrink-0"
+                            >
+                              <ChevronRight className={`w-3 h-3 text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`} />
+                            </button>
+                            <span className="truncate">{formatCell(col, value, row)}</span>
                           </div>
                         ) : (
-                          formatCell(col, value, row)
-                        );
-                      })()}
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
+                          (() => {
+                            const filtered = filterSubFields(col.subFields);
+                            return filtered && filtered.length > 0 ? (
+                              <div className="space-y-px">
+                                <div className="font-semibold text-[13px] leading-none">{formatCell(col, value, row)}</div>
+                                {filtered.map((subField) => {
+                                  const subValue = row[subField.field];
+                                  const subStyle = subField.cellStyle ? subField.cellStyle({ value: subValue, row }) : {};
+                                  const formattedSub = subField.formatter
+                                    ? subField.formatter({ value: subValue, row })
+                                    : String(subValue ?? '');
+                                  return (
+                                    <div key={subField.field} className="flex items-center gap-1 text-[10px] leading-none">
+                                      {subField.label && <span className="text-gray-400 font-medium w-5 shrink-0">{subField.label}</span>}
+                                      <span className="font-semibold tabular-nums" style={subStyle}>{formattedSub}</span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              formatCell(col, value, row)
+                            );
+                          })()
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+
+              if (!isExpanded || !children) return [parentRow];
+
+              const childRows = children.map((child, ci) => (
+                <tr
+                  key={`${rowIdx}-child-${ci}`}
+                  className="border-b border-slate-50 bg-cx-50/30 hover:bg-cx-50/60 transition-colors"
+                >
+                  {visibleCols.map((col) => {
+                    const isPinned = col.pinned === 'left';
+                    const childLabel = childLabelField ? child[childLabelField] : child[col.field];
+                    const value = col.field === rowKeyField ? childLabel : col.field === 'title' ? child.title : child[col.field];
+                    const style = getCellStyle(col, value, child);
+
+                    return (
+                      <td
+                        key={col.field}
+                        className={`px-2.5 py-1.5 tabular-nums select-none overflow-hidden text-ellipsis text-[12px] ${
+                          isPinned ? 'sticky left-0 z-10 bg-cx-50/30' : ''
+                        } ${col.subFields ? 'whitespace-normal' : 'whitespace-nowrap'}`}
+                        style={style}
+                      >
+                        {isPinned ? (
+                          <div className="flex items-center gap-1 pl-5">
+                            <span className="text-gray-400 text-[10px]">└</span>
+                            <span className="truncate text-gray-600 font-medium">{String(value ?? '')}</span>
+                          </div>
+                        ) : (
+                          (() => {
+                            const filtered = filterSubFields(col.subFields);
+                            return filtered && filtered.length > 0 ? (
+                              <div className="space-y-px">
+                                <div className="font-medium text-[12px] leading-none text-gray-700">{formatCell(col, value, child)}</div>
+                                {filtered.map((subField) => {
+                                  const subValue = child[subField.field];
+                                  const subStyle = subField.cellStyle ? subField.cellStyle({ value: subValue, row: child }) : {};
+                                  const formattedSub = subField.formatter
+                                    ? subField.formatter({ value: subValue, row: child })
+                                    : String(subValue ?? '');
+                                  return (
+                                    <div key={subField.field} className="flex items-center gap-1 text-[10px] leading-none">
+                                      {subField.label && <span className="text-gray-400 font-medium w-5 shrink-0">{subField.label}</span>}
+                                      <span className="font-semibold tabular-nums" style={subStyle}>{formattedSub}</span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <span className="text-gray-700">{formatCell(col, value, child)}</span>
+                            );
+                          })()
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ));
+
+              return [parentRow, ...childRows];
+            })}
           </tbody>
           {pinnedBottomRowData && pinnedBottomRowData.length > 0 && (
             <tfoot className="sticky bottom-0 z-20">

@@ -53,6 +53,11 @@ export interface AsinRow extends MetricFields {
   title: string;
 }
 
+export interface SkuRow extends MetricFields {
+  sku: string;
+  title: string;
+}
+
 export const marketplaceData: MarketplaceRow[] = [
   {
     marketplace: 'Germany',
@@ -493,3 +498,65 @@ export const asinData: AsinRow[] = [
     sessions: 4600, sessionsPoP: -8.40, sessionsDiffLY: -4.80,
   },
 ];
+
+function splitMetrics(parent: MetricFields, ratio1: number): [MetricFields, MetricFields] {
+  const r2 = 1 - ratio1;
+  const jitter = (base: number, spread = 2) => base + (Math.random() - 0.5) * spread;
+  const split = (v: number) => Math.round(v * ratio1);
+  const m1: MetricFields = {
+    sales: split(parent.sales), salesPoP: jitter(parent.salesPoP), salesDiffLY: jitter(parent.salesDiffLY),
+    salesShare: +(parent.salesShare * ratio1).toFixed(2), salesSharePoP: jitter(parent.salesSharePoP, 1), salesShareDiffLY: jitter(parent.salesShareDiffLY, 1),
+    units: split(parent.units), unitsPoP: jitter(parent.unitsPoP), unitsDiffLY: jitter(parent.unitsDiffLY),
+    adSpend: split(parent.adSpend), adSpendPoP: jitter(parent.adSpendPoP), adSpendDiffLY: jitter(parent.adSpendDiffLY),
+    adSales: split(parent.adSales), adSalesPoP: jitter(parent.adSalesPoP), adSalesDiffLY: jitter(parent.adSalesDiffLY),
+    roas: +jitter(parent.roas, 0.4).toFixed(2), roasPoP: jitter(parent.roasPoP), roasDiffLY: jitter(parent.roasDiffLY),
+    acos: +jitter(parent.acos, 2).toFixed(2), acosPoP: jitter(parent.acosPoP), acosDiffLY: jitter(parent.acosDiffLY),
+    tacos: +jitter(parent.tacos, 1).toFixed(2), tacosPoP: jitter(parent.tacosPoP), tacosDiffLY: jitter(parent.tacosDiffLY),
+    bboxWinRate: +jitter(parent.bboxWinRate, 2).toFixed(1), bboxWinRatePoP: jitter(parent.bboxWinRatePoP, 0.8), bboxWinRateDiffLY: jitter(parent.bboxWinRateDiffLY, 0.8),
+    adReliance: +jitter(parent.adReliance, 3).toFixed(2), adReliancePoP: jitter(parent.adReliancePoP), adRelianceDiffLY: jitter(parent.adRelianceDiffLY),
+    cvr: +jitter(parent.cvr, 1).toFixed(2), cvrPoP: jitter(parent.cvrPoP, 0.5), cvrDiffLY: jitter(parent.cvrDiffLY, 0.5),
+    pageViews: split(parent.pageViews), pageViewsPoP: jitter(parent.pageViewsPoP), pageViewsDiffLY: jitter(parent.pageViewsDiffLY),
+    sessions: split(parent.sessions), sessionsPoP: jitter(parent.sessionsPoP), sessionsDiffLY: jitter(parent.sessionsDiffLY),
+  };
+  const m2: MetricFields = {
+    sales: parent.sales - m1.sales, salesPoP: jitter(parent.salesPoP), salesDiffLY: jitter(parent.salesDiffLY),
+    salesShare: +(parent.salesShare * r2).toFixed(2), salesSharePoP: jitter(parent.salesSharePoP, 1), salesShareDiffLY: jitter(parent.salesShareDiffLY, 1),
+    units: parent.units - m1.units, unitsPoP: jitter(parent.unitsPoP), unitsDiffLY: jitter(parent.unitsDiffLY),
+    adSpend: parent.adSpend - m1.adSpend, adSpendPoP: jitter(parent.adSpendPoP), adSpendDiffLY: jitter(parent.adSpendDiffLY),
+    adSales: parent.adSales - m1.adSales, adSalesPoP: jitter(parent.adSalesPoP), adSalesDiffLY: jitter(parent.adSalesDiffLY),
+    roas: +jitter(parent.roas, 0.4).toFixed(2), roasPoP: jitter(parent.roasPoP), roasDiffLY: jitter(parent.roasDiffLY),
+    acos: +jitter(parent.acos, 2).toFixed(2), acosPoP: jitter(parent.acosPoP), acosDiffLY: jitter(parent.acosDiffLY),
+    tacos: +jitter(parent.tacos, 1).toFixed(2), tacosPoP: jitter(parent.tacosPoP), tacosDiffLY: jitter(parent.tacosDiffLY),
+    bboxWinRate: +jitter(parent.bboxWinRate, 2).toFixed(1), bboxWinRatePoP: jitter(parent.bboxWinRatePoP, 0.8), bboxWinRateDiffLY: jitter(parent.bboxWinRateDiffLY, 0.8),
+    adReliance: +jitter(parent.adReliance, 3).toFixed(2), adReliancePoP: jitter(parent.adReliancePoP), adRelianceDiffLY: jitter(parent.adRelianceDiffLY),
+    cvr: +jitter(parent.cvr, 1).toFixed(2), cvrPoP: jitter(parent.cvrPoP, 0.5), cvrDiffLY: jitter(parent.cvrDiffLY, 0.5),
+    pageViews: parent.pageViews - m1.pageViews, pageViewsPoP: jitter(parent.pageViewsPoP), pageViewsDiffLY: jitter(parent.pageViewsDiffLY),
+    sessions: parent.sessions - m1.sessions, sessionsPoP: jitter(parent.sessionsPoP), sessionsDiffLY: jitter(parent.sessionsDiffLY),
+  };
+  return [m1, m2];
+}
+
+const skuPairs: [string, string, string, number][] = [
+  ['B08K3XTRY7', 'SKU-EP-ML-36', 'SKU-EP-ML-72', 0.6],
+  ['B09MLNHK7P', 'SKU-MP-NB-L', 'SKU-MP-NB-M', 0.6],
+  ['B07XQPNHZ2', 'SKU-CN-740-BK', 'SKU-CN-740-SV', 0.6],
+  ['B08FJ2KXCN', 'SKU-CN-G7X-BK', 'SKU-CN-G7X-SV', 0.6],
+  ['B09GKP4HLM', 'SKU-LK-ALOE-BK', 'SKU-LK-ALOE-TN', 0.6],
+  ['B08NWDV37K', 'SKU-NL-D3K2-50', 'SKU-NL-D3K2-30', 0.6],
+  ['B07YHNHT1C', 'SKU-SP-UH-15P', 'SKU-SP-UH-15', 0.6],
+  ['B09TPLX2NQ', 'SKU-AK-N3-WH', 'SKU-AK-N3-BK', 0.6],
+  ['B08LMWKP4J', 'SKU-AF-SP-15P', 'SKU-AF-SP-15', 0.6],
+  ['B09HJQRN6V', 'SKU-OS-UTO-GY', 'SKU-OS-UTO-BK', 0.6],
+];
+
+export const skuDataByAsin: Record<string, SkuRow[]> = {};
+
+for (const [asin, sku1, sku2, ratio] of skuPairs) {
+  const parent = asinData.find((r) => r.asin === asin);
+  if (!parent) continue;
+  const [m1, m2] = splitMetrics(parent, ratio);
+  skuDataByAsin[asin] = [
+    { sku: sku1, title: `${parent.title} — Variant A`, ...m1 },
+    { sku: sku2, title: `${parent.title} — Variant B`, ...m2 },
+  ];
+}

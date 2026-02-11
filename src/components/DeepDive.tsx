@@ -12,6 +12,7 @@ import {
   marketplaceData,
   categoryData,
   asinData,
+  skuDataByAsin,
 } from '../data/deepdiveData';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { fc } from '../utils/currency';
@@ -159,6 +160,9 @@ export default function DeepDive() {
         rowData={asinData}
         columnDefs={asinCols}
         pinnedBottomRowData={asinTotals}
+        childRowsMap={skuDataByAsin}
+        rowKeyField="asin"
+        childLabelField="sku"
       />
       <div className="flex justify-end">
         <LastRefreshed offsetMinutes={9} />
