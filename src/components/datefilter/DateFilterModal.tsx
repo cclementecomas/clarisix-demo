@@ -16,9 +16,9 @@ import {
 type Tab = 'quick' | 'relative' | 'range';
 
 const TAB_LABELS: { key: Tab; label: string }[] = [
+  { key: 'range', label: 'Date range' },
   { key: 'quick', label: 'Quick filters' },
   { key: 'relative', label: 'Relative filters' },
-  { key: 'range', label: 'Date range' },
 ];
 
 interface DateFilterModalProps {
@@ -28,7 +28,7 @@ interface DateFilterModalProps {
 }
 
 export default function DateFilterModal({ open, onClose, onApply }: DateFilterModalProps) {
-  const [activeTab, setActiveTab] = useState<Tab>('quick');
+  const [activeTab, setActiveTab] = useState<Tab>('range');
   const [quickPreset, setQuickPreset] = useState('Last month');
 
   const [relativeValue, setRelativeValue] = useState(30);
@@ -170,7 +170,7 @@ export default function DateFilterModal({ open, onClose, onApply }: DateFilterMo
 
   return (
     <div className="absolute top-full right-0 mt-2 z-50" ref={modalRef}>
-      <div className="w-[420px] bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden animate-fade-slide-in">
+      <div className="w-[420px] max-h-[calc(100vh-100px)] overflow-y-auto bg-white rounded-2xl shadow-2xl border border-gray-100 animate-fade-slide-in">
         <div className="flex border-b border-gray-100">
           {TAB_LABELS.map(({ key, label }) => (
             <button
