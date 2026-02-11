@@ -95,7 +95,7 @@ export const homeAlerts: HomeAlert[] = [
     severity: 'critical',
     category: 'inventory',
     title: '3 ASINs at risk of stockout',
-    description: 'B08K3XTRY7, B09MLNHK7P, and B07XQPNHZ2 will run out within 7 days based on current velocity.',
+    description: 'B0DEMO001X, B0DEMO002X, and B0DEMO003X will run out within 7 days based on current velocity.',
     timestamp: '2 hours ago',
     navSection: 'Inventory',
     navSub: 'Overview',
@@ -104,7 +104,7 @@ export const homeAlerts: HomeAlert[] = [
     id: 'a2',
     severity: 'critical',
     category: 'customer',
-    title: 'Negative review spike on B08K3XTRY7',
+    title: 'Negative review spike on B0DEMO001X',
     description: '5 one-star reviews in the last 48 hours — average rating dropped from 4.6 to 4.3.',
     timestamp: '5 hours ago',
     navSection: 'Customer Experience',
@@ -125,7 +125,7 @@ export const homeAlerts: HomeAlert[] = [
     severity: 'warning',
     category: 'content',
     title: '2 ASINs below content threshold',
-    description: 'B09TPLX2NQ (58/100) and B08LMWKP4J (64/100) dropped below the 70-point content score target.',
+    description: 'B0DEMO008X (58/100) and B0DEMO009X (64/100) dropped below the 70-point content score target.',
     timestamp: '1 day ago',
     navSection: 'Content',
     navSub: 'Content App Tracking',
@@ -229,13 +229,13 @@ export const salesByMarketplace = [
 ];
 
 export const salesByCategory = [
-  { name: 'Soft Picks', value: 28940, previous: 26500 },
-  { name: 'Lunch Boxes', value: 22180, previous: 23800 },
-  { name: 'Compact Camera', value: 18670, previous: 17200 },
-  { name: 'Bridge Camera', value: 15320, previous: 16100 },
-  { name: 'Crossbody Bags', value: 12890, previous: 11400 },
-  { name: 'Supplements', value: 11540, previous: 12200 },
-  { name: 'Phone Cases', value: 9870, previous: 9100 },
+  { name: 'Personal Care', value: 28940, previous: 26500 },
+  { name: 'Home & Kitchen', value: 22180, previous: 23800 },
+  { name: 'Electronics Pro', value: 18670, previous: 17200 },
+  { name: 'Electronics Lite', value: 15320, previous: 16100 },
+  { name: 'Fashion Bags', value: 12890, previous: 11400 },
+  { name: 'Wellness', value: 11540, previous: 12200 },
+  { name: 'Phone Accessories', value: 9870, previous: 9100 },
   { name: 'Chargers', value: 7650, previous: 8200 },
   { name: 'Screen Protectors', value: 5420, previous: 4900 },
   { name: 'Travel Kits', value: 4310, previous: 4700 },
@@ -250,45 +250,45 @@ export interface ASINDataItem {
 }
 
 export const salesByASIN: ASINDataItem[] = [
-  { name: 'B08K3XTRY7', productName: 'TePe EasyPick Dental Picks M/L', value: 14520, previous: 13200, skus: [
-    { name: 'SKU-EP-ML-36', value: 8710, previous: 7900 },
-    { name: 'SKU-EP-ML-72', value: 5810, previous: 5300 },
+  { name: 'B0DEMO001X', productName: 'Everyday Essentials Pack M/L', value: 14520, previous: 13200, skus: [
+    { name: 'SKU-01A', value: 8710, previous: 7900 },
+    { name: 'SKU-01B', value: 5810, previous: 5300 },
   ]},
-  { name: 'B09MLNHK7P', productName: 'Mepal Bento Lunch Box Nordic Blue', value: 12340, previous: 13100, skus: [
-    { name: 'SKU-MP-NB-L', value: 7400, previous: 7800 },
-    { name: 'SKU-MP-NB-M', value: 4940, previous: 5300 },
+  { name: 'B0DEMO002X', productName: 'Premium Container Set Blue', value: 12340, previous: 13100, skus: [
+    { name: 'SKU-02A', value: 7400, previous: 7800 },
+    { name: 'SKU-02B', value: 4940, previous: 5300 },
   ]},
-  { name: 'B07XQPNHZ2', productName: 'Canon PowerShot SX740 HS Black', value: 11890, previous: 10800, skus: [
-    { name: 'SKU-CN-740-BK', value: 7130, previous: 6500 },
-    { name: 'SKU-CN-740-SV', value: 4760, previous: 4300 },
+  { name: 'B0DEMO003X', productName: 'Smart Device Pro 740 Black', value: 11890, previous: 10800, skus: [
+    { name: 'SKU-03A', value: 7130, previous: 6500 },
+    { name: 'SKU-03B', value: 4760, previous: 4300 },
   ]},
-  { name: 'B08FJ2KXCN', productName: 'Canon PowerShot G7 X Mark III', value: 9760, previous: 10400, skus: [
-    { name: 'SKU-CN-G7X-BK', value: 5860, previous: 6200 },
-    { name: 'SKU-CN-G7X-SV', value: 3900, previous: 4200 },
+  { name: 'B0DEMO004X', productName: 'Smart Device Lite X3', value: 9760, previous: 10400, skus: [
+    { name: 'SKU-04A', value: 5860, previous: 6200 },
+    { name: 'SKU-04B', value: 3900, previous: 4200 },
   ]},
-  { name: 'B09GKP4HLM', productName: 'Liebeskind Berlin Aloe Crossbody S', value: 8430, previous: 7600, skus: [
-    { name: 'SKU-LK-ALOE-BK', value: 5060, previous: 4560 },
-    { name: 'SKU-LK-ALOE-TN', value: 3370, previous: 3040 },
+  { name: 'B0DEMO005X', productName: 'Classic Carry Bag Small', value: 8430, previous: 7600, skus: [
+    { name: 'SKU-05A', value: 5060, previous: 4560 },
+    { name: 'SKU-05B', value: 3370, previous: 3040 },
   ]},
-  { name: 'B08NWDV37K', productName: 'Nature Love Vitamin D3+K2 Drops', value: 7290, previous: 7800, skus: [
-    { name: 'SKU-NL-D3K2-50', value: 4370, previous: 4680 },
-    { name: 'SKU-NL-D3K2-30', value: 2920, previous: 3120 },
+  { name: 'B0DEMO006X', productName: 'Daily Wellness Drops 50ml', value: 7290, previous: 7800, skus: [
+    { name: 'SKU-06A', value: 4370, previous: 4680 },
+    { name: 'SKU-06B', value: 2920, previous: 3120 },
   ]},
-  { name: 'B07YHNHT1C', productName: 'Spigen Ultra Hybrid iPhone Case', value: 6180, previous: 5700, skus: [
-    { name: 'SKU-SP-UH-15P', value: 3710, previous: 3420 },
-    { name: 'SKU-SP-UH-15', value: 2470, previous: 2280 },
+  { name: 'B0DEMO007X', productName: 'Protective Cover Ultra', value: 6180, previous: 5700, skus: [
+    { name: 'SKU-07A', value: 3710, previous: 3420 },
+    { name: 'SKU-07B', value: 2470, previous: 2280 },
   ]},
-  { name: 'B09TPLX2NQ', productName: 'Anker Nano III 30W USB-C Charger', value: 5540, previous: 5900, skus: [
-    { name: 'SKU-AK-N3-WH', value: 3320, previous: 3540 },
-    { name: 'SKU-AK-N3-BK', value: 2220, previous: 2360 },
+  { name: 'B0DEMO008X', productName: 'Fast Charger 30W Compact', value: 5540, previous: 5900, skus: [
+    { name: 'SKU-08A', value: 3320, previous: 3540 },
+    { name: 'SKU-08B', value: 2220, previous: 2360 },
   ]},
-  { name: 'B08LMWKP4J', productName: 'amFilm Glass Screen Protector 2-Pack', value: 4870, previous: 4500, skus: [
-    { name: 'SKU-AF-SP-15P', value: 2920, previous: 2700 },
-    { name: 'SKU-AF-SP-15', value: 1950, previous: 1800 },
+  { name: 'B0DEMO009X', productName: 'Clear Shield 2-Pack', value: 4870, previous: 4500, skus: [
+    { name: 'SKU-09A', value: 2920, previous: 2700 },
+    { name: 'SKU-09B', value: 1950, previous: 1800 },
   ]},
-  { name: 'B09HJQRN6V', productName: 'Osprey Ultralight Travel Organizer', value: 3920, previous: 4100, skus: [
-    { name: 'SKU-OS-UTO-GY', value: 2350, previous: 2460 },
-    { name: 'SKU-OS-UTO-BK', value: 1570, previous: 1640 },
+  { name: 'B0DEMO010X', productName: 'Compact Travel Pouch', value: 3920, previous: 4100, skus: [
+    { name: 'SKU-10A', value: 2350, previous: 2460 },
+    { name: 'SKU-10B', value: 1570, previous: 1640 },
   ]},
 ];
 
@@ -296,11 +296,12 @@ export const filterOptions = {
   accounts: ['All Accounts', 'Account 1', 'Account 2'],
   marketplace: ['All Marketplaces', 'Amazon DE', 'Amazon FR', 'Amazon UK', 'Amazon US'],
   brand: ['All Brands', 'Brand A', 'Brand B', 'Brand C'],
-  category: ['All Categories', 'Electronics', 'Supplements', 'Accessories'],
-  subcategory: ['All Subcategories', 'Compact', 'Bridge', 'DSLR'],
+  category: ['All Categories', 'Electronics', 'Wellness', 'Accessories'],
+  subcategory: ['All Subcategories', 'Pro', 'Lite', 'Standard'],
   tag: ['All Tags', 'Bestseller', 'New', 'Seasonal'],
-  asin: ['All ASINs', 'B08K3XTRY7', 'B09MLNHK7P', 'B07XQPNHZ2'],
-  sku: ['All SKUs', 'SKU-EP-ML-36', 'SKU-EP-ML-72', 'SKU-MP-NB-L', 'SKU-CN-740-BK', 'SKU-CN-G7X-BK'],
+  asin: ['All ASINs', 'B0DEMO001X', 'B0DEMO002X', 'B0DEMO003X'],
+  sku: ['All SKUs', 'SKU-01A', 'SKU-01B', 'SKU-02A', 'SKU-03A', 'SKU-04A'],
+
 };
 
 export const menuItems = [

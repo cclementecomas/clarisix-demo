@@ -52,7 +52,7 @@ export const dimensionOptions: TrendDimensionOption[] = [
 const dimensionValues: Record<TrendDimension, string[]> = {
   marketplace: ['Belgium', 'France', 'Germany', 'Ireland', 'Italy', 'Netherlands', 'Spain', 'UK', 'United States'],
   brand: ['AquaPure', 'FreshTech', 'NovaBright', 'EcoBlend', 'ZenCore'],
-  category: ['Soft Picks', 'Lunch Boxes', 'Compact Camera', 'Bridge Camera', 'Crossbody Bags', 'Supplements'],
+  category: ['Personal Care', 'Home & Kitchen', 'Electronics Pro', 'Electronics Lite', 'Fashion Bags', 'Wellness'],
   subcategory: ['Premium', 'Standard', 'Economy', 'Deluxe', 'Mini', 'Pro'],
 };
 

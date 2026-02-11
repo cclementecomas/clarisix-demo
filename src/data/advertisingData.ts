@@ -176,18 +176,18 @@ export interface CategoryAdPerformance {
 }
 
 export const categoryAdData: CategoryAdPerformance[] = [
-  { category: 'LUNCH', adSpend: 15.88, adSales: 11.00 },
-  { category: 'SOFT-PICKS', adSpend: 9.81, adSales: 9.92 },
-  { category: 'NA', adSpend: 8.63, adSales: 8.82 },
-  { category: 'Potties', adSpend: 6.11, adSales: 8.62 },
-  { category: 'INTERDENTAL BRUSH', adSpend: 5.89, adSales: 5.20 },
-  { category: 'HYDRATION', adSpend: 5.04, adSales: 3.99 },
-  { category: 'TODDLER - DRINKING', adSpend: 4.46, adSales: 3.84 },
-  { category: 'Original', adSpend: 3.70, adSales: 3.58 },
-  { category: 'FPA', adSpend: 3.09, adSales: 3.46 },
-  { category: 'FLOSSERS', adSpend: 2.88, adSales: 2.27 },
-  { category: 'SONIC TB', adSpend: 2.78, adSales: 2.20 },
-  { category: 'ELECTRIC TB', adSpend: 2.20, adSales: 2.17 },
+  { category: 'HOME & KITCHEN', adSpend: 15.88, adSales: 11.00 },
+  { category: 'PERSONAL CARE', adSpend: 9.81, adSales: 9.92 },
+  { category: 'GENERAL', adSpend: 8.63, adSales: 8.82 },
+  { category: 'BABY & CHILD', adSpend: 6.11, adSales: 8.62 },
+  { category: 'ORAL CARE', adSpend: 5.89, adSales: 5.20 },
+  { category: 'WELLNESS', adSpend: 5.04, adSales: 3.99 },
+  { category: 'KIDS ESSENTIALS', adSpend: 4.46, adSales: 3.84 },
+  { category: 'CLASSIC LINE', adSpend: 3.70, adSales: 3.58 },
+  { category: 'PREMIUM LINE', adSpend: 3.09, adSales: 3.46 },
+  { category: 'OUTDOOR', adSpend: 2.88, adSales: 2.27 },
+  { category: 'ELECTRONICS A', adSpend: 2.78, adSales: 2.20 },
+  { category: 'ELECTRONICS B', adSpend: 2.20, adSales: 2.17 },
 ];
 
 export interface AdvertisingBrandRow {
@@ -206,12 +206,12 @@ export interface AdvertisingBrandRow {
 }
 
 export const advertisingBrandData: AdvertisingBrandRow[] = [
-  { brand: 'GUM', impressions: 84773819, impressionsPP: 108046590, impressionsChangePP: -21.54, clicks: 349636, clicksPP: 325401, clicksChangePP: 7.45, adSpend: 301300, adSpendPP: 285437, adSpendChangePP: 5.56, adSales: 915475, adSalesPP: 830000 },
-  { brand: 'BBox', impressions: 94091643, impressionsPP: 138874800, impressionsChangePP: -32.25, clicks: 404825, clicksPP: 504271, clicksChangePP: -19.72, adSpend: 225957, adSpendPP: 321790, adSpendChangePP: -29.78, adSales: 597913, adSalesPP: 936000 },
-  { brand: 'Baby Brezza', impressions: 6895975, impressionsPP: 8751323, impressionsChangePP: -21.20, clicks: 50536, clicksPP: 60733, clicksChangePP: -16.79, adSpend: 43772, adSpendPP: 54539, adSpendChangePP: -19.74, adSales: 480112, adSalesPP: 542000 },
-  { brand: 'My Carry Potty', impressions: 7397598, impressionsPP: 482692, impressionsChangePP: 1432.57, clicks: 79256, clicksPP: 5307, clicksChangePP: 1393.42, adSpend: 665680, adSpendPP: 3043, adSpendChangePP: 2058.40, adSales: 323193, adSalesPP: 13000 },
-  { brand: 'Snuggle Puppy', impressions: 8684452, impressionsPP: 3781095, impressionsChangePP: 129.68, clicks: 42988, clicksPP: 23534, clicksChangePP: 82.66, adSpend: 43996, adSpendPP: 25781, adSpendChangePP: 70.65, adSales: 168576, adSalesPP: 122000 },
-  { brand: 'Krampouz', impressions: 1347783, impressionsPP: 0, impressionsChangePP: 0, clicks: 10694, clicksPP: 0, clicksChangePP: 0, adSpend: 5471, adSpendPP: 0, adSpendChangePP: 0, adSales: 123459, adSalesPP: 0 },
+  { brand: 'Alpha Home', impressions: 84773819, impressionsPP: 108046590, impressionsChangePP: -21.54, clicks: 349636, clicksPP: 325401, clicksChangePP: 7.45, adSpend: 301300, adSpendPP: 285437, adSpendChangePP: 5.56, adSales: 915475, adSalesPP: 830000 },
+  { brand: 'BrightLife', impressions: 94091643, impressionsPP: 138874800, impressionsChangePP: -32.25, clicks: 404825, clicksPP: 504271, clicksChangePP: -19.72, adSpend: 225957, adSpendPP: 321790, adSpendChangePP: -29.78, adSales: 597913, adSalesPP: 936000 },
+  { brand: 'ClearPath', impressions: 6895975, impressionsPP: 8751323, impressionsChangePP: -21.20, clicks: 50536, clicksPP: 60733, clicksChangePP: -16.79, adSpend: 43772, adSpendPP: 54539, adSpendChangePP: -19.74, adSales: 480112, adSalesPP: 542000 },
+  { brand: 'DailyGlow', impressions: 7397598, impressionsPP: 482692, impressionsChangePP: 1432.57, clicks: 79256, clicksPP: 5307, clicksChangePP: 1393.42, adSpend: 665680, adSpendPP: 3043, adSpendChangePP: 2058.40, adSales: 323193, adSalesPP: 13000 },
+  { brand: 'EverFresh', impressions: 8684452, impressionsPP: 3781095, impressionsChangePP: 129.68, clicks: 42988, clicksPP: 23534, clicksChangePP: 82.66, adSpend: 43996, adSpendPP: 25781, adSpendChangePP: 70.65, adSales: 168576, adSalesPP: 122000 },
+  { brand: 'FlexiCore', impressions: 1347783, impressionsPP: 0, impressionsChangePP: 0, clicks: 10694, clicksPP: 0, clicksChangePP: 0, adSpend: 5471, adSpendPP: 0, adSpendChangePP: 0, adSales: 123459, adSalesPP: 0 },
 ];
 
 export const advertisingBrandTotals: AdvertisingBrandRow = {

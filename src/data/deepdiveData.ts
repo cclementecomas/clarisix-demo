@@ -207,7 +207,7 @@ export const marketplaceData: MarketplaceRow[] = [
 
 export const categoryData: CategoryRow[] = [
   {
-    category: 'Soft Picks',
+    category: 'Personal Care',
     sales: 142300, salesPoP: -8.31, salesDiffLY: 10.74,
     salesShare: 28.37, salesSharePoP: 1.40, salesShareDiffLY: 2.80,
     units: 4820, unitsPoP: -6.20, unitsDiffLY: 10.80,
@@ -223,7 +223,7 @@ export const categoryData: CategoryRow[] = [
     sessions: 33940, sessionsPoP: -6.40, sessionsDiffLY: 12.60,
   },
   {
-    category: 'Lunch Boxes',
+    category: 'Home & Kitchen',
     sales: 108700, salesPoP: -9.72, salesDiffLY: -6.13,
     salesShare: 21.68, salesSharePoP: -0.80, salesShareDiffLY: -1.42,
     units: 3640, unitsPoP: -8.40, unitsDiffLY: -6.91,
@@ -239,7 +239,7 @@ export const categoryData: CategoryRow[] = [
     sessions: 30850, sessionsPoP: -8.40, sessionsDiffLY: -4.20,
   },
   {
-    category: 'Compact Camera',
+    category: 'Electronics Pro',
     sales: 89200, salesPoP: -7.18, salesDiffLY: 8.25,
     salesShare: 17.79, salesSharePoP: 0.60, salesShareDiffLY: 1.24,
     units: 1240, unitsPoP: -5.34, unitsDiffLY: 5.08,
@@ -255,7 +255,7 @@ export const categoryData: CategoryRow[] = [
     sessions: 14420, sessionsPoP: -5.20, sessionsDiffLY: 8.60,
   },
   {
-    category: 'Bridge Camera',
+    category: 'Electronics Lite',
     sales: 64800, salesPoP: -5.95, salesDiffLY: -8.99,
     salesShare: 12.92, salesSharePoP: 0.20, salesShareDiffLY: -0.86,
     units: 520, unitsPoP: -4.80, unitsDiffLY: -10.34,
@@ -271,7 +271,7 @@ export const categoryData: CategoryRow[] = [
     sessions: 8125, sessionsPoP: -4.20, sessionsDiffLY: -8.40,
   },
   {
-    category: 'Crossbody Bags',
+    category: 'Fashion Bags',
     sales: 48900, salesPoP: -4.49, salesDiffLY: 16.15,
     salesShare: 9.75, salesSharePoP: 0.40, salesShareDiffLY: 1.62,
     units: 1630, unitsPoP: -3.80, unitsDiffLY: 18.12,
@@ -287,7 +287,7 @@ export const categoryData: CategoryRow[] = [
     sessions: 13470, sessionsPoP: -4.60, sessionsDiffLY: 16.20,
   },
   {
-    category: 'Supplements',
+    category: 'Wellness',
     sales: 28400, salesPoP: -14.20, salesDiffLY: -10.13,
     salesShare: 5.66, salesSharePoP: -0.60, salesShareDiffLY: -0.82,
     units: 890, unitsPoP: -12.40, unitsDiffLY: -11.88,
@@ -303,7 +303,7 @@ export const categoryData: CategoryRow[] = [
     sessions: 9570, sessionsPoP: -12.40, sessionsDiffLY: -6.80,
   },
   {
-    category: 'Phone Cases',
+    category: 'Phone Accessories',
     sales: 12400, salesPoP: -6.06, salesDiffLY: 14.81,
     salesShare: 2.47, salesSharePoP: 0.12, salesShareDiffLY: 0.38,
     units: 1240, unitsPoP: -4.60, unitsDiffLY: 14.81,
@@ -338,7 +338,7 @@ export const categoryData: CategoryRow[] = [
 
 export const asinData: AsinRow[] = [
   {
-    asin: 'B08K3XTRY7', title: 'Oral Care Soft Picks 120ct',
+    asin: 'B0DEMO001X', title: 'Everyday Essentials Pack 120ct',
     sales: 68400, salesPoP: -5.13, salesDiffLY: 11.76,
     salesShare: 13.64, salesSharePoP: 0.80, salesShareDiffLY: 1.42,
     units: 2340, unitsPoP: -4.20, unitsDiffLY: 11.43,
@@ -354,7 +354,7 @@ export const asinData: AsinRow[] = [
     sessions: 18400, sessionsPoP: -4.80, sessionsDiffLY: 10.20,
   },
   {
-    asin: 'B09MLNHK7P', title: 'Premium Lunch Box Set',
+    asin: 'B0DEMO002X', title: 'Premium Container Set',
     sales: 52100, salesPoP: -10.79, salesDiffLY: -8.27,
     salesShare: 10.39, salesSharePoP: -0.60, salesShareDiffLY: -0.82,
     units: 1740, unitsPoP: -9.40, unitsDiffLY: -9.38,
@@ -370,7 +370,7 @@ export const asinData: AsinRow[] = [
     sessions: 15200, sessionsPoP: -8.40, sessionsDiffLY: -6.40,
   },
   {
-    asin: 'B07XQPNHZ2', title: 'Compact Digital Camera 20MP',
+    asin: 'B0DEMO003X', title: 'Smart Device Pro 20X',
     sales: 48900, salesPoP: -5.60, salesDiffLY: 10.88,
     salesShare: 9.75, salesSharePoP: 0.40, salesShareDiffLY: 0.96,
     units: 680, unitsPoP: -4.20, unitsDiffLY: 9.68,
@@ -386,7 +386,7 @@ export const asinData: AsinRow[] = [
     sessions: 8200, sessionsPoP: -4.60, sessionsDiffLY: 6.40,
   },
   {
-    asin: 'B08FJ2KXCN', title: 'Leather Crossbody Bag',
+    asin: 'B0DEMO004X', title: 'Classic Carry Bag',
     sales: 38200, salesPoP: -4.74, salesDiffLY: 16.46,
     salesShare: 7.62, salesSharePoP: 0.30, salesShareDiffLY: 1.18,
     units: 1270, unitsPoP: -3.60, unitsDiffLY: 17.59,
@@ -402,7 +402,7 @@ export const asinData: AsinRow[] = [
     sessions: 11600, sessionsPoP: -4.40, sessionsDiffLY: 12.40,
   },
   {
-    asin: 'B09GKP4HLM', title: 'Bridge Camera 40x Zoom',
+    asin: 'B0DEMO005X', title: 'Smart Device Lite 40X',
     sales: 35600, salesPoP: -5.82, salesDiffLY: -9.18,
     salesShare: 7.10, salesSharePoP: 0.10, salesShareDiffLY: -0.64,
     units: 285, unitsPoP: -4.40, unitsDiffLY: -10.94,
@@ -418,7 +418,7 @@ export const asinData: AsinRow[] = [
     sessions: 4800, sessionsPoP: -4.20, sessionsDiffLY: -8.40,
   },
   {
-    asin: 'B08NWDV37K', title: 'Oral Care Soft Picks 60ct',
+    asin: 'B0DEMO006X', title: 'Everyday Essentials Pack 60ct',
     sales: 34200, salesPoP: -5.52, salesDiffLY: 11.04,
     salesShare: 6.82, salesSharePoP: 0.20, salesShareDiffLY: 0.74,
     units: 1860, unitsPoP: -4.80, unitsDiffLY: 10.71,
@@ -434,7 +434,7 @@ export const asinData: AsinRow[] = [
     sessions: 12400, sessionsPoP: -5.20, sessionsDiffLY: 8.60,
   },
   {
-    asin: 'B07YHNHT1C', title: 'Vitamin D3 5000IU 180ct',
+    asin: 'B0DEMO007X', title: 'Daily Wellness Capsules 180ct',
     sales: 22800, salesPoP: -14.29, salesDiffLY: -10.24,
     salesShare: 4.55, salesSharePoP: -0.40, salesShareDiffLY: -0.48,
     units: 720, unitsPoP: -12.80, unitsDiffLY: -11.11,
@@ -450,7 +450,7 @@ export const asinData: AsinRow[] = [
     sessions: 8100, sessionsPoP: -10.40, sessionsDiffLY: -6.80,
   },
   {
-    asin: 'B09TPLX2NQ', title: 'Kids Lunch Box Insulated',
+    asin: 'B0DEMO008X', title: 'Kids Container Insulated',
     sales: 21400, salesPoP: -13.71, salesDiffLY: -9.32,
     salesShare: 4.27, salesSharePoP: -0.30, salesShareDiffLY: -0.38,
     units: 1070, unitsPoP: -11.60, unitsDiffLY: -9.32,
@@ -466,7 +466,7 @@ export const asinData: AsinRow[] = [
     sessions: 9400, sessionsPoP: -10.60, sessionsDiffLY: -6.40,
   },
   {
-    asin: 'B08LMWKP4J', title: 'Phone Case Ultra Slim',
+    asin: 'B0DEMO009X', title: 'Protective Cover Slim',
     sales: 12400, salesPoP: -6.06, salesDiffLY: 14.81,
     salesShare: 2.47, salesSharePoP: 0.12, salesShareDiffLY: 0.38,
     units: 1240, unitsPoP: -4.60, unitsDiffLY: 14.81,
@@ -482,7 +482,7 @@ export const asinData: AsinRow[] = [
     sessions: 7200, sessionsPoP: -5.60, sessionsDiffLY: 8.40,
   },
   {
-    asin: 'B09HJQRN6V', title: 'Travel Organizer Kit',
+    asin: 'B0DEMO010X', title: 'Compact Travel Pouch',
     sales: 6800, salesPoP: -12.82, salesDiffLY: -5.56,
     salesShare: 1.36, salesSharePoP: -0.14, salesShareDiffLY: -0.06,
     units: 340, unitsPoP: -10.80, unitsDiffLY: -5.56,
@@ -537,16 +537,16 @@ function splitMetrics(parent: MetricFields, ratio1: number): [MetricFields, Metr
 }
 
 const skuPairs: [string, string, string, number][] = [
-  ['B08K3XTRY7', 'SKU-EP-ML-36', 'SKU-EP-ML-72', 0.6],
-  ['B09MLNHK7P', 'SKU-MP-NB-L', 'SKU-MP-NB-M', 0.6],
-  ['B07XQPNHZ2', 'SKU-CN-740-BK', 'SKU-CN-740-SV', 0.6],
-  ['B08FJ2KXCN', 'SKU-CN-G7X-BK', 'SKU-CN-G7X-SV', 0.6],
-  ['B09GKP4HLM', 'SKU-LK-ALOE-BK', 'SKU-LK-ALOE-TN', 0.6],
-  ['B08NWDV37K', 'SKU-NL-D3K2-50', 'SKU-NL-D3K2-30', 0.6],
-  ['B07YHNHT1C', 'SKU-SP-UH-15P', 'SKU-SP-UH-15', 0.6],
-  ['B09TPLX2NQ', 'SKU-AK-N3-WH', 'SKU-AK-N3-BK', 0.6],
-  ['B08LMWKP4J', 'SKU-AF-SP-15P', 'SKU-AF-SP-15', 0.6],
-  ['B09HJQRN6V', 'SKU-OS-UTO-GY', 'SKU-OS-UTO-BK', 0.6],
+  ['B0DEMO001X', 'SKU-01A', 'SKU-01B', 0.6],
+  ['B0DEMO002X', 'SKU-02A', 'SKU-02B', 0.6],
+  ['B0DEMO003X', 'SKU-03A', 'SKU-03B', 0.6],
+  ['B0DEMO004X', 'SKU-04A', 'SKU-04B', 0.6],
+  ['B0DEMO005X', 'SKU-05A', 'SKU-05B', 0.6],
+  ['B0DEMO006X', 'SKU-06A', 'SKU-06B', 0.6],
+  ['B0DEMO007X', 'SKU-07A', 'SKU-07B', 0.6],
+  ['B0DEMO008X', 'SKU-08A', 'SKU-08B', 0.6],
+  ['B0DEMO009X', 'SKU-09A', 'SKU-09B', 0.6],
+  ['B0DEMO010X', 'SKU-10A', 'SKU-10B', 0.6],
 ];
 
 export const skuDataByAsin: Record<string, SkuRow[]> = {};
