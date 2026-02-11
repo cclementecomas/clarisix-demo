@@ -43,18 +43,33 @@ export default function HomeAlerts({ onAlertClick }: HomeAlertsProps) {
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-      <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+      <div className={`flex items-center justify-between px-5 py-4 border-b ${visibleAlerts.length > 0 ? 'border-red-100 bg-gradient-to-r from-red-50/60 to-amber-50/40' : 'border-gray-100'}`}>
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center">
-            <Bell className="w-4 h-4 text-amber-600" />
+          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${visibleAlerts.length > 0 ? 'bg-red-100 animate-pulse' : 'bg-green-50'}`}>
+            {visibleAlerts.length > 0
+              ? <Bell className="w-4 h-4 text-red-600" />
+              : <CheckCircle2 className="w-4 h-4 text-green-500" />
+            }
           </div>
           <div>
-            <h2 className="text-sm font-semibold text-gray-900">Action Items</h2>
-            <p className="text-xs text-gray-500">
-              {visibleAlerts.length === 0
-                ? 'All clear — nothing needs attention'
-                : `${criticalCount > 0 ? `${criticalCount} critical` : ''}${criticalCount > 0 && warningCount > 0 ? ', ' : ''}${warningCount > 0 ? `${warningCount} warning` : ''}`}
-            </p>
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-semibold text-gray-900">Action Items</h2>
+              {criticalCount > 0 && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 text-[10px] font-bold animate-pulse">
+                  {criticalCount} critical
+                </span>
+              )}
+              {warningCount > 0 && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold">
+                  {warningCount} warning
+                </span>
+              )}
+            </div>
+            {visibleAlerts.length > 0 && (
+              <p className="text-xs text-red-600/70 font-medium">
+                Needs your attention
+              </p>
+            )}
           </div>
         </div>
         {visibleAlerts.length > 0 && (
@@ -64,8 +79,9 @@ export default function HomeAlerts({ onAlertClick }: HomeAlertsProps) {
 
       {visibleAlerts.length === 0 ? (
         <div className="px-5 py-8 text-center">
-          <CheckCircle2 className="w-8 h-8 text-green-400 mx-auto mb-2" />
-          <p className="text-sm text-gray-500">No action items right now.</p>
+          <span className="text-3xl mb-2 block">🎉</span>
+          <p className="text-sm font-semibold text-gray-700">Zero fires. Zero drama.</p>
+          <p className="text-xs text-gray-400 mt-1">Your store is running like a well-oiled machine. Go grab a coffee.</p>
         </div>
       ) : (
         <div className="divide-y divide-gray-50">
