@@ -7,17 +7,21 @@ import { fc } from '../utils/currency';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-export default function KPICards() {
+interface KPICardsProps {
+  onCardClick?: (section: string, sub: string) => void;
+}
+
+export default function KPICards({ onCardClick }: KPICardsProps) {
   return (
     <div className="grid grid-cols-3 gap-3">
       {kpiData.map((kpi, idx) => (
-        <KPICard key={kpi.label} kpi={kpi} idx={idx} />
+        <KPICard key={kpi.label} kpi={kpi} idx={idx} onCardClick={onCardClick} />
       ))}
     </div>
   );
 }
 
-function KPICard({ kpi, idx }: { kpi: (typeof kpiData)[number]; idx: number }) {
+function KPICard({ kpi, idx, onCardClick }: { kpi: (typeof kpiData)[number]; idx: number; onCardClick?: (section: string, sub: string) => void }) {
   const { currency } = useCurrency();
   const isPositive = kpi.popPositive;
   const sparkData = kpi.sparkline.map((v, i) => ({
@@ -43,9 +47,12 @@ function KPICard({ kpi, idx }: { kpi: (typeof kpiData)[number]; idx: number }) {
     ? fc(kpi.rawValue, currency)
     : kpi.value;
 
+  const isClickable = !!onCardClick && !!kpi.navSection;
+
   return (
     <div
-      className={`${bgColor} rounded-xl border ${borderColor} p-4 pb-2 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col`}
+      onClick={isClickable ? () => onCardClick(kpi.navSection, kpi.navSub) : undefined}
+      className={`${bgColor} rounded-xl border ${borderColor} p-4 pb-2 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col ${isClickable ? 'cursor-pointer' : ''}`}
     >
       <div className="flex items-center justify-between mb-1">
         <p className={`text-[10px] font-bold uppercase tracking-widest ${labelColor}`}>

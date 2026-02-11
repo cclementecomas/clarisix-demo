@@ -13,6 +13,7 @@ import {
   PanelLeftClose,
   Cable,
   Building2,
+  House,
 } from 'lucide-react';
 import { menuItems, filterOptions } from '../data/dashboardData';
 
@@ -114,7 +115,26 @@ export default function Sidebar({
         <AccountSelector />
 
         <nav className="flex-1 py-3 overflow-y-auto overflow-x-hidden">
-          <div className="px-3 mb-2">
+          <button
+            onClick={() => onNavigate('home')}
+            className={`w-full flex items-center gap-3 px-5 py-2.5 text-sm font-medium transition-all duration-200 group relative ${
+              currentPage === 'home'
+                ? 'text-white bg-white/[0.08]'
+                : 'text-gray-400 hover:text-gray-200 hover:bg-white/[0.04]'
+            }`}
+          >
+            {currentPage === 'home' && (
+              <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-cx-300 rounded-r-full" />
+            )}
+            <House
+              className={`w-[18px] h-[18px] flex-shrink-0 ${
+                currentPage === 'home' ? 'text-cx-300' : 'text-gray-500 group-hover:text-gray-400'
+              }`}
+            />
+            <span className="flex-1 text-left">Home</span>
+          </button>
+
+          <div className="px-3 mt-3 mb-2">
             <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest px-2">
               Performance
             </span>

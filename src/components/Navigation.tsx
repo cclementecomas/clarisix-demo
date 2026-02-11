@@ -174,7 +174,7 @@ export default function Navigation({ activeSection, activeSub, sidebarCollapsed,
             </button>
           )}
           <h1 className="text-sm font-semibold text-gray-900">
-            {currentPage === 'settings' ? 'Settings' : currentPage === 'connectors' ? 'Connectors' : activeSection}
+            {currentPage === 'home' ? 'Home' : currentPage === 'settings' ? 'Settings' : currentPage === 'connectors' ? 'Connectors' : activeSection}
           </h1>
           {currentPage === 'dashboard' && (
             <>
@@ -184,7 +184,7 @@ export default function Navigation({ activeSection, activeSub, sidebarCollapsed,
           )}
         </div>
         <div className="flex items-center gap-2">
-          {currentPage === 'dashboard' && (
+          {(currentPage === 'dashboard' || currentPage === 'home') && (
             <>
               <div className="flex items-center gap-2 text-sm">
                 <span className="text-gray-400 font-medium">From</span>
@@ -226,7 +226,7 @@ export default function Navigation({ activeSection, activeSub, sidebarCollapsed,
         </div>
       </div>
 
-      {currentPage === 'dashboard' && (
+      {(currentPage === 'dashboard' || currentPage === 'home') && (
         <div className="flex items-center px-6 py-2 bg-gray-50/50 gap-2 flex-wrap">
           <MultiSelectFilter label="Marketplace" options={filterOptions.marketplace} />
           <MultiSelectFilter label="Brand" options={filterOptions.brand} />

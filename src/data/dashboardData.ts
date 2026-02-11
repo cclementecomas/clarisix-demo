@@ -9,6 +9,8 @@ export const kpiData = [
     lyChange: 14.56,
     lyPositive: true,
     sparkline: [68, 72, 65, 78, 82, 74, 88, 91, 85, 95, 102, 110],
+    navSection: 'Sales',
+    navSub: 'Overview',
   },
   {
     label: 'TACOS',
@@ -19,6 +21,8 @@ export const kpiData = [
     lyChange: -8.32,
     lyPositive: true,
     sparkline: [24, 22, 25, 21, 20, 23, 19, 21, 18, 19, 18, 18],
+    navSection: 'Advertising',
+    navSub: 'Overview',
   },
   {
     label: 'Profitability',
@@ -30,6 +34,8 @@ export const kpiData = [
     lyChange: 22.41,
     lyPositive: true,
     sparkline: [18, 20, 17, 22, 24, 21, 26, 28, 25, 29, 30, 31],
+    navSection: 'Profitability',
+    navSub: 'Overview',
   },
   {
     label: 'Out of Stock',
@@ -40,6 +46,8 @@ export const kpiData = [
     lyChange: 12.80,
     lyPositive: false,
     sparkline: [2.8, 3.1, 2.5, 3.4, 3.0, 3.6, 3.2, 3.8, 3.5, 4.0, 3.9, 4.2],
+    navSection: 'Inventory',
+    navSub: 'Overview',
   },
   {
     label: 'Content Score',
@@ -50,6 +58,8 @@ export const kpiData = [
     lyChange: 6.10,
     lyPositive: true,
     sparkline: [72, 74, 76, 75, 78, 80, 79, 82, 84, 83, 86, 87],
+    navSection: 'Content',
+    navSub: 'Content App Tracking',
   },
   {
     label: 'Customer Experience',
@@ -60,6 +70,8 @@ export const kpiData = [
     lyChange: 4.55,
     lyPositive: true,
     sparkline: [4.1, 4.0, 4.2, 4.1, 4.3, 4.2, 4.4, 4.3, 4.5, 4.4, 4.5, 4.6],
+    navSection: 'Customer Experience',
+    navSub: 'Ratings and Reviews',
   },
 ];
 

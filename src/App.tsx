@@ -19,13 +19,18 @@ import Footer from './components/Footer';
 import { SectionLoader } from './components/ClarisixSpinner';
 import { menuItems } from './data/dashboardData';
 
+function HomePage({ onCardClick }: { onCardClick: (section: string, sub: string) => void }) {
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
+      <ClarisixScore />
+      <KPICards onCardClick={onCardClick} />
+    </div>
+  );
+}
+
 function OverviewPage() {
   return (
     <>
-      <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
-        <ClarisixScore />
-        <KPICards />
-      </div>
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_3fr] gap-6">
         <BudgetTracker />
         <SalesOverview />
@@ -39,7 +44,7 @@ export default function App() {
   const [activeSection, setActiveSection] = useState('Sales');
   const [activeSub, setActiveSub] = useState('Overview');
   const [collapsed, setCollapsed] = useState(false);
-  const [currentPage, setCurrentPage] = useState('dashboard');
+  const [currentPage, setCurrentPage] = useState('home');
   const [sectionLoading, setSectionLoading] = useState(false);
   const prevKey = useRef('');
 
@@ -60,11 +65,20 @@ export default function App() {
     setActiveSub(menu?.defaultSub ?? menu?.subItems[0] ?? '');
   };
 
+  const handleKPIClick = (section: string, sub: string) => {
+    setCurrentPage('dashboard');
+    setActiveSection(section);
+    setActiveSub(sub);
+  };
+
   const renderContent = () => {
     if (sectionLoading) {
       return <SectionLoader message="Loading data..." />;
     }
 
+    if (currentPage === 'home') {
+      return <HomePage onCardClick={handleKPIClick} />;
+    }
     if (currentPage === 'settings') {
       return <Settings />;
     }
