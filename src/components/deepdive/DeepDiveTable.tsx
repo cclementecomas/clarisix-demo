@@ -363,7 +363,12 @@ export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottom
 
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, title.slice(0, 31)); // Sheet name max 31 chars
-    XLSX.writeFile(wb, `${title.replace(/\s+/g, '_')}.xlsx`);
+
+    // Filename: clarisix_<table>_<YYYY-MM-DD>_<initials>.xlsx
+    const date = new Date().toISOString().slice(0, 10);
+    const initials = 'am'; // TODO: derive from logged-in user (Alex Morgan)
+    const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/(^_|_$)/g, '');
+    XLSX.writeFile(wb, `clarisix_${slug}_${date}_${initials}.xlsx`);
   }, [visibleCols, filterSubFields, sortedData, hasChildren, childRowsMap, rowKeyField, childLabelField, pinnedBottomRowData, title]);
 
   return (
