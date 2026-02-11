@@ -31,8 +31,8 @@ export default function ClarisixScore() {
 
   return (
     <>
-      <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-        <div className="flex items-center justify-between mb-4">
+      <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm flex flex-col">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Clarisix Score</h2>
             <InfoTooltip content="A single number (0-100) that reflects how ready your brand is to grow today." />
@@ -45,7 +45,7 @@ export default function ClarisixScore() {
             Share
           </button>
         </div>
-        <div className="flex items-center justify-center">
+        <div className="flex-1 flex items-center justify-center">
           <div className="relative">
             <svg width="160" height="160" viewBox="0 0 160 160" className="transform -rotate-90">
               <circle
