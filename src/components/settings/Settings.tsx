@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import {
   User,
+  Users,
   Shield,
   CreditCard,
   FileText,
   AlertTriangle,
 } from 'lucide-react';
 import PreferencesSection from './PreferencesSection';
+import TeamSection from './TeamSection';
 import SecuritySection from './SecuritySection';
 import SubscriptionSection from './SubscriptionSection';
 import InvoicesSection from './InvoicesSection';
@@ -14,6 +16,7 @@ import DangerZoneSection from './DangerZoneSection';
 
 const tabs = [
   { id: 'preferences', label: 'Preferences', icon: User },
+  { id: 'team', label: 'Team', icon: Users },
   { id: 'security', label: 'Security', icon: Shield },
   { id: 'subscription', label: 'Subscription', icon: CreditCard },
   { id: 'invoices', label: 'Invoices', icon: FileText },
@@ -29,6 +32,8 @@ export default function Settings() {
     switch (activeTab) {
       case 'preferences':
         return <PreferencesSection />;
+      case 'team':
+        return <TeamSection />;
       case 'security':
         return <SecuritySection />;
       case 'subscription':
