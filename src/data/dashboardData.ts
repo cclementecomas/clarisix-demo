@@ -241,17 +241,55 @@ export const salesByCategory = [
   { name: 'Travel Kits', value: 4310, previous: 4700 },
 ];
 
-export const salesByASIN = [
-  { name: 'B08K3XTRY7', value: 14520, previous: 13200 },
-  { name: 'B09MLNHK7P', value: 12340, previous: 13100 },
-  { name: 'B07XQPNHZ2', value: 11890, previous: 10800 },
-  { name: 'B08FJ2KXCN', value: 9760, previous: 10400 },
-  { name: 'B09GKP4HLM', value: 8430, previous: 7600 },
-  { name: 'B08NWDV37K', value: 7290, previous: 7800 },
-  { name: 'B07YHNHT1C', value: 6180, previous: 5700 },
-  { name: 'B09TPLX2NQ', value: 5540, previous: 5900 },
-  { name: 'B08LMWKP4J', value: 4870, previous: 4500 },
-  { name: 'B09HJQRN6V', value: 3920, previous: 4100 },
+export interface ASINDataItem {
+  name: string;
+  productName: string;
+  value: number;
+  previous: number;
+  skus: { name: string; value: number; previous: number }[];
+}
+
+export const salesByASIN: ASINDataItem[] = [
+  { name: 'B08K3XTRY7', productName: 'TePe EasyPick Dental Picks M/L', value: 14520, previous: 13200, skus: [
+    { name: 'SKU-EP-ML-36', value: 8710, previous: 7900 },
+    { name: 'SKU-EP-ML-72', value: 5810, previous: 5300 },
+  ]},
+  { name: 'B09MLNHK7P', productName: 'Mepal Bento Lunch Box Nordic Blue', value: 12340, previous: 13100, skus: [
+    { name: 'SKU-MP-NB-L', value: 7400, previous: 7800 },
+    { name: 'SKU-MP-NB-M', value: 4940, previous: 5300 },
+  ]},
+  { name: 'B07XQPNHZ2', productName: 'Canon PowerShot SX740 HS Black', value: 11890, previous: 10800, skus: [
+    { name: 'SKU-CN-740-BK', value: 7130, previous: 6500 },
+    { name: 'SKU-CN-740-SV', value: 4760, previous: 4300 },
+  ]},
+  { name: 'B08FJ2KXCN', productName: 'Canon PowerShot G7 X Mark III', value: 9760, previous: 10400, skus: [
+    { name: 'SKU-CN-G7X-BK', value: 5860, previous: 6200 },
+    { name: 'SKU-CN-G7X-SV', value: 3900, previous: 4200 },
+  ]},
+  { name: 'B09GKP4HLM', productName: 'Liebeskind Berlin Aloe Crossbody S', value: 8430, previous: 7600, skus: [
+    { name: 'SKU-LK-ALOE-BK', value: 5060, previous: 4560 },
+    { name: 'SKU-LK-ALOE-TN', value: 3370, previous: 3040 },
+  ]},
+  { name: 'B08NWDV37K', productName: 'Nature Love Vitamin D3+K2 Drops', value: 7290, previous: 7800, skus: [
+    { name: 'SKU-NL-D3K2-50', value: 4370, previous: 4680 },
+    { name: 'SKU-NL-D3K2-30', value: 2920, previous: 3120 },
+  ]},
+  { name: 'B07YHNHT1C', productName: 'Spigen Ultra Hybrid iPhone Case', value: 6180, previous: 5700, skus: [
+    { name: 'SKU-SP-UH-15P', value: 3710, previous: 3420 },
+    { name: 'SKU-SP-UH-15', value: 2470, previous: 2280 },
+  ]},
+  { name: 'B09TPLX2NQ', productName: 'Anker Nano III 30W USB-C Charger', value: 5540, previous: 5900, skus: [
+    { name: 'SKU-AK-N3-WH', value: 3320, previous: 3540 },
+    { name: 'SKU-AK-N3-BK', value: 2220, previous: 2360 },
+  ]},
+  { name: 'B08LMWKP4J', productName: 'amFilm Glass Screen Protector 2-Pack', value: 4870, previous: 4500, skus: [
+    { name: 'SKU-AF-SP-15P', value: 2920, previous: 2700 },
+    { name: 'SKU-AF-SP-15', value: 1950, previous: 1800 },
+  ]},
+  { name: 'B09HJQRN6V', productName: 'Osprey Ultralight Travel Organizer', value: 3920, previous: 4100, skus: [
+    { name: 'SKU-OS-UTO-GY', value: 2350, previous: 2460 },
+    { name: 'SKU-OS-UTO-BK', value: 1570, previous: 1640 },
+  ]},
 ];
 
 export const filterOptions = {
@@ -262,6 +300,7 @@ export const filterOptions = {
   subcategory: ['All Subcategories', 'Compact', 'Bridge', 'DSLR'],
   tag: ['All Tags', 'Bestseller', 'New', 'Seasonal'],
   asin: ['All ASINs', 'B08K3XTRY7', 'B09MLNHK7P', 'B07XQPNHZ2'],
+  sku: ['All SKUs', 'SKU-EP-ML-36', 'SKU-EP-ML-72', 'SKU-MP-NB-L', 'SKU-CN-740-BK', 'SKU-CN-G7X-BK'],
 };
 
 export const menuItems = [

@@ -234,6 +234,7 @@ export default function Navigation({ activeSection, activeSub, sidebarCollapsed,
           <MultiSelectFilter label="Subcategory" options={filterOptions.subcategory} />
           <MultiSelectFilter label="Tag" options={filterOptions.tag} />
           <MultiSelectFilter label="ASIN" options={filterOptions.asin} />
+          <MultiSelectFilter label="SKU" options={filterOptions.sku} />
         </div>
       )}
     </header>
