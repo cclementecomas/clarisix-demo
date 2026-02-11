@@ -39,17 +39,17 @@ export default function UserDropdown({ onNavigate }: UserDropdownProps) {
           open ? 'ring-cx-300' : ''
         }`}
       >
-        <UserAvatar name="Demo User" size={32} />
+        <UserAvatar name="Alex Morgan" size={32} />
       </button>
 
       {open && (
         <div className="absolute top-full right-0 mt-2 w-72 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden z-50">
           <div className="p-4 bg-gradient-to-br from-gray-50 to-white border-b border-gray-100">
             <div className="flex items-center gap-3">
-              <UserAvatar name="Demo User" size={44} />
+              <UserAvatar name="Alex Morgan" size={44} />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-900 truncate">Demo User</p>
-                <p className="text-xs text-gray-500 truncate">demo@clarisix.com</p>
+                <p className="text-sm font-semibold text-gray-900 truncate">Alex Morgan</p>
+                <p className="text-xs text-gray-500 truncate">alex.morgan@clarisix.com</p>
               </div>
             </div>
             <div className="mt-3 flex items-center gap-1.5 text-xs">

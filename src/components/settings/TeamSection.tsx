@@ -37,7 +37,7 @@ interface PendingInvite {
 }
 
 const initialMembers: TeamMember[] = [
-  { id: '1', name: 'Alex Morgan', email: 'alex.morgan@company.com', role: 'Admin', status: 'active', lastActive: 'Now', isCurrentUser: true },
+  { id: '1', name: 'Alex Morgan', email: 'alex.morgan@clarisix.com', role: 'Admin', status: 'active', lastActive: 'Now', isCurrentUser: true },
   { id: '2', name: 'Sarah Chen', email: 'sarah.chen@company.com', role: 'Editor', status: 'active', lastActive: '2 hours ago' },
   { id: '3', name: 'James Wilson', email: 'james.wilson@company.com', role: 'Viewer', status: 'deactivated', lastActive: '3 weeks ago' },
   { id: '4', name: 'Maria Garcia', email: 'maria.garcia@company.com', role: 'Editor', status: 'active', lastActive: 'Yesterday' },
