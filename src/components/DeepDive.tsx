@@ -130,7 +130,7 @@ export default function DeepDive() {
   const asinCols = useMemo<ColumnDef[]>(
     () => [
       { field: 'asin', headerName: 'ASIN', pinned: 'left', width: 130 },
-      { field: 'title', headerName: 'Title', width: 200 },
+      { field: 'title', headerName: 'Title', width: 280 },
       ...metrics,
     ],
     [metrics]

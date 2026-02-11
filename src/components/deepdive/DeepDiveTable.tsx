@@ -348,13 +348,15 @@ export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottom
           style={{ fontFamily: "'Inter', system-ui, sans-serif", tableLayout: 'fixed' }}
         >
           <colgroup>
-            {visibleCols.map((col, i) => {
-              const isPinned = col.pinned === 'left';
-              const count = visibleCols.length;
-              const pinnedWidth = isPinned ? '14%' : undefined;
-              const flexWidth = !isPinned ? `${86 / (count - (pinnedCol ? 1 : 0))}%` : undefined;
-              return <col key={i} style={{ width: pinnedWidth || flexWidth }} />;
-            })}
+            {(() => {
+              const nonPinned = visibleCols.filter((c) => c.pinned !== 'left');
+              const totalWeight = nonPinned.reduce((sum, c) => sum + (c.width ?? 130), 0);
+              return visibleCols.map((col, i) => {
+                const isPinned = col.pinned === 'left';
+                const w = isPinned ? '14%' : `${((col.width ?? 130) / totalWeight) * 86}%`;
+                return <col key={i} style={{ width: w }} />;
+              });
+            })()}
           </colgroup>
           <thead className="sticky top-0 z-20">
             <tr className="bg-slate-50 border-b-2 border-slate-200">
