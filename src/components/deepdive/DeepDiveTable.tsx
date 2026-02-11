@@ -348,6 +348,10 @@ export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottom
       }
     }
 
+    // Disclaimer
+    rows.push([]);
+    rows.push([`Generated with clarisix.com — Data proprietary to Account 1`]);
+
     // Create workbook
     const ws = XLSX.utils.aoa_to_sheet(rows);
 
