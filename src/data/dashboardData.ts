@@ -75,6 +75,73 @@ export const kpiData = [
   },
 ];
 
+export type AlertSeverity = 'critical' | 'warning' | 'info';
+export type AlertCategory = 'inventory' | 'advertising' | 'customer' | 'content';
+
+export interface HomeAlert {
+  id: string;
+  severity: AlertSeverity;
+  category: AlertCategory;
+  title: string;
+  description: string;
+  timestamp: string;
+  navSection: string;
+  navSub: string;
+}
+
+export const homeAlerts: HomeAlert[] = [
+  {
+    id: 'a1',
+    severity: 'critical',
+    category: 'inventory',
+    title: '3 ASINs at risk of stockout',
+    description: 'B08K3XTRY7, B09MLNHK7P, and B07XQPNHZ2 will run out within 7 days based on current velocity.',
+    timestamp: '2 hours ago',
+    navSection: 'Inventory',
+    navSub: 'Overview',
+  },
+  {
+    id: 'a2',
+    severity: 'critical',
+    category: 'customer',
+    title: 'Negative review spike on B08K3XTRY7',
+    description: '5 one-star reviews in the last 48 hours — average rating dropped from 4.6 to 4.3.',
+    timestamp: '5 hours ago',
+    navSection: 'Customer Experience',
+    navSub: 'Ratings and Reviews',
+  },
+  {
+    id: 'a3',
+    severity: 'warning',
+    category: 'advertising',
+    title: 'Ad budget overspend',
+    description: 'Advertising spend is at 112% of the planned budget for this period ($3,204 of $2,880).',
+    timestamp: '1 day ago',
+    navSection: 'Advertising',
+    navSub: 'Overview',
+  },
+  {
+    id: 'a4',
+    severity: 'warning',
+    category: 'content',
+    title: '2 ASINs below content threshold',
+    description: 'B09TPLX2NQ (58/100) and B08LMWKP4J (64/100) dropped below the 70-point content score target.',
+    timestamp: '1 day ago',
+    navSection: 'Content',
+    navSub: 'Content App Tracking',
+  },
+  {
+    id: 'a5',
+    severity: 'info',
+    category: 'advertising',
+    title: 'TACOS improved by 1.7pp',
+    description: 'Total advertising cost of sales decreased from 20.1% to 18.4% compared to the previous period.',
+    timestamp: '3 days ago',
+    navSection: 'Advertising',
+    navSub: 'Overview',
+  },
+];
+
 export const budgetData = [
   { day: 1, actual: 0, forecast: 0 },
   { day: 3, actual: 320, forecast: 310 },

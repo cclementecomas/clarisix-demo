@@ -4,8 +4,8 @@ import ShareScoreModal from './ShareScoreModal';
 import InfoTooltip from './InfoTooltip';
 
 const SCORE = 74;
-const RADIUS = 80;
-const STROKE_WIDTH = 12;
+const RADIUS = 64;
+const STROKE_WIDTH = 10;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
 export default function ClarisixScore() {
@@ -31,10 +31,10 @@ export default function ClarisixScore() {
 
   return (
     <>
-      <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-        <div className="flex items-center justify-between mb-6">
+      <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-1.5">
-            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Clarisix Score</h2>
+            <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Clarisix Score</h2>
             <InfoTooltip content="A single number (0-100) that reflects how ready your brand is to grow today." />
           </div>
           <button
@@ -47,18 +47,18 @@ export default function ClarisixScore() {
         </div>
         <div className="flex items-center justify-center">
           <div className="relative">
-            <svg width="200" height="200" viewBox="0 0 200 200" className="transform -rotate-90">
+            <svg width="160" height="160" viewBox="0 0 160 160" className="transform -rotate-90">
               <circle
-                cx="100"
-                cy="100"
+                cx="80"
+                cy="80"
                 r={RADIUS}
                 fill="none"
                 stroke="#EEF2F6"
                 strokeWidth={STROKE_WIDTH}
               />
               <circle
-                cx="100"
-                cy="100"
+                cx="80"
+                cy="80"
                 r={RADIUS}
                 fill="none"
                 stroke={colors.stroke}
@@ -70,7 +70,7 @@ export default function ClarisixScore() {
               />
             </svg>
             <div className="absolute inset-0 flex items-center justify-center">
-              <span className={`text-5xl font-bold ${colors.text} tabular-nums`}>
+              <span className={`text-4xl font-bold ${colors.text} tabular-nums`}>
                 {animatedScore > 0 ? SCORE : 0}
               </span>
             </div>

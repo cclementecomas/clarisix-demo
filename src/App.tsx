@@ -17,14 +17,18 @@ import Trends from './components/Trends';
 import ComingSoon from './components/ComingSoon';
 import Footer from './components/Footer';
 import { SectionLoader } from './components/ClarisixSpinner';
+import HomeAlerts from './components/HomeAlerts';
 import { menuItems } from './data/dashboardData';
 
 function HomePage({ onCardClick }: { onCardClick: (section: string, sub: string) => void }) {
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
-      <ClarisixScore />
-      <KPICards onCardClick={onCardClick} />
-    </div>
+    <>
+      <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-5">
+        <ClarisixScore />
+        <KPICards onCardClick={onCardClick} />
+      </div>
+      <HomeAlerts onAlertClick={onCardClick} />
+    </>
   );
 }
 

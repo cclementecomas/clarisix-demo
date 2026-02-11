@@ -136,7 +136,7 @@ export default function Sidebar({
 
           <div className="px-3 mt-3 mb-2">
             <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest px-2">
-              Performance
+              Modules
             </span>
           </div>
           {menuItems.map((item) => {
