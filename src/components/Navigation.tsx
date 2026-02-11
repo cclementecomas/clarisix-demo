@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { ChevronDown, Calendar, Menu } from 'lucide-react';
+import { ChevronDown, Calendar, Menu, Check, X } from 'lucide-react';
 import { filterOptions } from '../data/dashboardData';
 import DateFilterModal from './datefilter/DateFilterModal';
 import UserDropdown from './UserDropdown';
@@ -10,35 +10,91 @@ import {
 } from '../utils/dateRanges';
 import { useCurrency, type Currency, CURRENCY_SYMBOLS } from '../contexts/CurrencyContext';
 
-function FilterDropdown({ label, options }: { label: string; options: string[] }) {
+function MultiSelectFilter({ label, options }: { label: string; options: string[] }) {
+  const allOption = options[0];
+  const selectableOptions = options.slice(1);
   const [open, setOpen] = useState(false);
-  const [selected, setSelected] = useState(options[0]);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  const isAll = selected.size === 0;
+
+  const toggleOption = (opt: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(opt)) {
+        next.delete(opt);
+      } else {
+        next.add(opt);
+      }
+      return next;
+    });
+  };
+
+  const clearAll = () => {
+    setSelected(new Set());
+  };
+
+  const displayLabel = isAll
+    ? 'All'
+    : selected.size === 1
+      ? [...selected][0]
+      : `${selected.size} selected`;
 
   return (
     <div className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:border-cx-300 hover:text-cx-700 transition-all duration-200"
+        className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white border rounded-lg hover:border-cx-300 hover:text-cx-700 transition-all duration-200 ${
+          !isAll ? 'border-cx-300 text-cx-700' : 'border-gray-200 text-gray-600'
+        }`}
       >
         <span className="text-gray-400 text-xs uppercase tracking-wide">{label}</span>
-        <span className="text-gray-800 ml-1">{selected === options[0] ? 'All' : selected}</span>
-        <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
+        <span className="text-gray-800 ml-1">{displayLabel}</span>
+        {!isAll && (
+          <button
+            onClick={(e) => { e.stopPropagation(); clearAll(); }}
+            className="ml-0.5 p-0.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            <X className="w-3 h-3" />
+          </button>
+        )}
+        <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute top-full left-0 mt-1 z-20 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[180px]">
-            {options.map((opt) => (
-              <button
-                key={opt}
-                onClick={() => { setSelected(opt); setOpen(false); }}
-                className={`block w-full text-left px-3 py-1.5 text-sm hover:bg-cx-50 transition-colors ${
-                  selected === opt ? 'text-cx-700 bg-cx-50 font-medium' : 'text-gray-700'
-                }`}
-              >
-                {opt}
-              </button>
-            ))}
+          <div className="absolute top-full left-0 mt-1 z-20 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[200px] max-h-[280px] overflow-y-auto">
+            <button
+              onClick={clearAll}
+              className={`flex items-center gap-2 w-full text-left px-3 py-1.5 text-sm hover:bg-cx-50 transition-colors ${
+                isAll ? 'text-cx-700 bg-cx-50 font-medium' : 'text-gray-700'
+              }`}
+            >
+              <span className="w-4 h-4 flex items-center justify-center">
+                {isAll && <Check className="w-3.5 h-3.5 text-cx-500" />}
+              </span>
+              {allOption}
+            </button>
+            <div className="border-t border-gray-100 my-1" />
+            {selectableOptions.map((opt) => {
+              const isChecked = selected.has(opt);
+              return (
+                <button
+                  key={opt}
+                  onClick={() => toggleOption(opt)}
+                  className={`flex items-center gap-2 w-full text-left px-3 py-1.5 text-sm hover:bg-cx-50 transition-colors ${
+                    isChecked ? 'text-cx-700 font-medium' : 'text-gray-700'
+                  }`}
+                >
+                  <span className={`w-4 h-4 flex items-center justify-center rounded border transition-colors ${
+                    isChecked ? 'bg-cx-500 border-cx-500' : 'border-gray-300'
+                  }`}>
+                    {isChecked && <Check className="w-3 h-3 text-white" />}
+                  </span>
+                  {opt}
+                </button>
+              );
+            })}
           </div>
         </>
       )}
@@ -172,13 +228,12 @@ export default function Navigation({ activeSection, activeSub, sidebarCollapsed,
 
       {currentPage === 'dashboard' && (
         <div className="flex items-center px-6 py-2 bg-gray-50/50 gap-2 flex-wrap">
-          <FilterDropdown label="Account" options={filterOptions.accounts} />
-          <FilterDropdown label="Marketplace" options={filterOptions.marketplace} />
-          <FilterDropdown label="Brand" options={filterOptions.brand} />
-          <FilterDropdown label="Category" options={filterOptions.category} />
-          <FilterDropdown label="Subcategory" options={filterOptions.subcategory} />
-          <FilterDropdown label="Tag" options={filterOptions.tag} />
-          <FilterDropdown label="ASIN" options={filterOptions.asin} />
+          <MultiSelectFilter label="Marketplace" options={filterOptions.marketplace} />
+          <MultiSelectFilter label="Brand" options={filterOptions.brand} />
+          <MultiSelectFilter label="Category" options={filterOptions.category} />
+          <MultiSelectFilter label="Subcategory" options={filterOptions.subcategory} />
+          <MultiSelectFilter label="Tag" options={filterOptions.tag} />
+          <MultiSelectFilter label="ASIN" options={filterOptions.asin} />
         </div>
       )}
     </header>
