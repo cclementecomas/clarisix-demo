@@ -332,8 +332,8 @@ export const menuItems = [
   {
     label: 'Content',
     icon: 'FileText',
-    subItems: ['Content App Tracking'],
-    defaultSub: 'Content App Tracking',
+    subItems: ['Tracker', 'Content App Tracking'],
+    defaultSub: 'Tracker',
   },
   {
     label: 'Customer Experience',
