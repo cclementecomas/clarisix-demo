@@ -320,7 +320,7 @@ export const menuItems = [
   {
     label: 'Inventory',
     icon: 'Package',
-    subItems: ['Overview'],
+    subItems: ['Overview', 'Replenishment', 'Performance'],
     defaultSub: 'Overview',
   },
   {

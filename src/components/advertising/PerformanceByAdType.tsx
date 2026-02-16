@@ -1,7 +1,7 @@
 import { adTypeData } from '../../data/advertisingData';
 import InfoTooltip from '../InfoTooltip';
 
-const BAR_COLORS = ['#0F766E', '#4B9DCC', '#A8D4EC'];
+const BAR_COLORS = ['#0E5A8A', '#3889B8', '#A8D4EC'];
 
 export default function PerformanceByAdType() {
   const maxSpend = Math.max(...adTypeData.map((d) => d.adSpend));
