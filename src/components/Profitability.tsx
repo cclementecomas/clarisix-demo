@@ -125,7 +125,7 @@ export default function Profitability() {
               <h2 className="text-2xl font-bold text-gray-900">Profitability Statement</h2>
               <InfoTooltip />
             </div>
-            <p className="text-sm text-gray-600 mt-1">Financial performance overview and key metrics</p>
+            <p className="text-sm text-gray-600 mt-1">CFO-level 43-line P&L waterfall from Gross Revenue to Net Operating Profit</p>
           </div>
           <button className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm">
             <span>Export to Excel</span>
@@ -200,7 +200,9 @@ export default function Profitability() {
             </tr>
           </thead>
           <tbody>
-            {profitabilityData.map((metric, index) => {
+            {profitabilityData.filter((metric) =>
+              !metric.parentGroup || expandedRows.has(metric.parentGroup)
+            ).map((metric, index) => {
               const { rowClasses, labelClasses, cellClasses } = getRowStyles(metric);
               const indent = metric.indent || 0;
 

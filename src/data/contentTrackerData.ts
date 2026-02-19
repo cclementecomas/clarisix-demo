@@ -259,6 +259,38 @@ export interface MarketplaceBreakdown {
   issueCount: number;
 }
 
+// ─── Content Score Trend ────────────────────────────────────────────────────
+
+export interface ContentScoreWeek {
+  week: string;
+  score: number;
+  perfectPct: number;
+  partialPct: number;
+  mismatchPct: number;
+}
+
+export const contentScoreTrend: ContentScoreWeek[] = (() => {
+  const r2 = seededRandom(123);
+  const weeks: ContentScoreWeek[] = [];
+  let score = 62; // start lower, trend upward over 12 weeks
+
+  for (let i = 11; i >= 0; i--) {
+    const weekDate = new Date(2026, 1, 16 - i * 7);
+    const label = `W${weekDate.toISOString().slice(5, 10).replace('-', '/')}`;
+
+    // Gradual upward trend with some noise
+    score = Math.min(100, Math.max(40, score + (r2() * 6 - 1.5)));
+    const s = Math.round(score * 10) / 10;
+
+    const perfectPct = Math.round(Math.min(100, s * 0.85 + r2() * 10) * 10) / 10;
+    const mismatchPct = Math.round(Math.max(0, (100 - s) * 0.6 + r2() * 5) * 10) / 10;
+    const partialPct = Math.round((100 - perfectPct - mismatchPct) * 10) / 10;
+
+    weeks.push({ week: label, score: s, perfectPct, partialPct, mismatchPct });
+  }
+  return weeks;
+})();
+
 export const marketplaceBreakdown: MarketplaceBreakdown[] = (() => {
   const grouped: Record<string, ContentProduct[]> = {};
   contentProducts.forEach((p) => {

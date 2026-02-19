@@ -1,5 +1,8 @@
 import { useState, useMemo } from 'react';
-import { ChevronRight, ChevronDown, Download, CheckCircle2, ExternalLink, Filter } from 'lucide-react';
+import { ChevronRight, ChevronDown, Download, CheckCircle2, Filter } from 'lucide-react';
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
+} from 'recharts';
 import * as XLSX from 'xlsx';
 import InfoTooltip from './InfoTooltip';
 import LastRefreshed from './LastRefreshed';
@@ -9,6 +12,7 @@ import {
   fieldMatchRates,
   caseBatches,
   marketplaceBreakdown,
+  contentScoreTrend,
 } from '../data/contentTrackerData';
 import type { ContentProduct, FieldComparison } from '../data/contentTrackerData';
 
@@ -149,6 +153,9 @@ export default function ContentTracker() {
         ))}
       </div>
 
+      {/* Content Score Trend */}
+      <ContentScoreChart />
+
       {/* Field Match Rates + Marketplace Breakdown */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <FieldMatchRatesPanel />
@@ -255,10 +262,75 @@ export default function ContentTracker() {
   );
 }
 
+// ─── Content Score Trend ────────────────────────────────────────────────────
+
+function ContentScoreChart() {
+  const latest = contentScoreTrend[contentScoreTrend.length - 1];
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-1.5">
+          <h3 className="text-sm font-semibold text-gray-900">Content Score Tracker</h3>
+          <InfoTooltip />
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[9px] text-gray-400 uppercase font-bold">Current</span>
+            <span className="text-sm font-extrabold text-cx-700">{latest.score}%</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-2.5 h-0.5 bg-gray-300 rounded" style={{ borderTop: '2px dashed #C7D0DA' }} />
+            <span className="text-[9px] text-gray-400">90% Target</span>
+          </div>
+        </div>
+      </div>
+      <ResponsiveContainer width="100%" height={220}>
+        <AreaChart data={contentScoreTrend} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+          <defs>
+            <linearGradient id="contentScoreGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#0E5A8A" stopOpacity={0.25} />
+              <stop offset="100%" stopColor="#0E5A8A" stopOpacity={0.02} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" stroke="#EEF2F6" vertical={false} />
+          <XAxis dataKey="week" tick={{ fontSize: 10, fill: '#93A4B8' }} />
+          <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: '#93A4B8' }} tickFormatter={(v) => `${v}%`} />
+          <ReferenceLine y={90} stroke="#C7D0DA" strokeDasharray="4 4" label={{ value: '90%', position: 'right', fontSize: 10, fill: '#93A4B8' }} />
+          <Tooltip
+            content={({ active, payload, label }) => {
+              if (!active || !payload?.length) return null;
+              const d = payload[0].payload as typeof contentScoreTrend[0];
+              return (
+                <div className="bg-gray-900 text-white text-[10px] px-3 py-2 rounded-lg shadow-xl">
+                  <p className="font-semibold mb-1">{label}</p>
+                  <p>Overall Score: <span className="font-bold">{d.score}%</span></p>
+                  <p className="text-green-300">Perfect: {d.perfectPct}%</p>
+                  <p className="text-yellow-300">Partial: {d.partialPct}%</p>
+                  <p className="text-red-300">Mismatch: {d.mismatchPct}%</p>
+                </div>
+              );
+            }}
+          />
+          <Area
+            type="monotone"
+            dataKey="score"
+            stroke="#0E5A8A"
+            strokeWidth={2.5}
+            fill="url(#contentScoreGrad)"
+            dot={{ r: 3, fill: '#0E5A8A', strokeWidth: 0 }}
+            activeDot={{ r: 5, fill: '#0E5A8A', stroke: '#fff', strokeWidth: 2 }}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
 // ─── Field Match Rates ──────────────────────────────────────────────────────
 
 function FieldMatchRatesPanel() {
-  const maxRate = 100;
+  const maxRate = Math.max(...fieldMatchRates.map((f) => f.rate));
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
@@ -267,8 +339,8 @@ function FieldMatchRatesPanel() {
         <InfoTooltip />
       </div>
       <div className="space-y-3">
-        {fieldMatchRates.map((fm) => {
-          const color = matchColor(fm.rate);
+        {fieldMatchRates.map((fm, idx) => {
+          const opacity = 1 - idx * 0.08;
           return (
             <div key={fm.field}>
               <div className="flex items-center justify-between mb-1">
@@ -281,7 +353,7 @@ function FieldMatchRatesPanel() {
                     {' / '}
                     <span className="text-red-600 font-medium">{fm.mismatchCount}</span>
                   </span>
-                  <span className="text-[11px] font-semibold text-gray-800" style={{ color }}>
+                  <span className="text-[11px] font-semibold" style={{ color: `rgba(14, 90, 138, ${Math.max(opacity, 0.5)})` }}>
                     {fm.rate}%
                   </span>
                 </div>
@@ -289,7 +361,7 @@ function FieldMatchRatesPanel() {
               <div className="h-5 bg-gray-100 rounded-sm overflow-hidden">
                 <div
                   className="h-full rounded-sm transition-all duration-700 ease-out"
-                  style={{ width: `${(fm.rate / maxRate) * 100}%`, backgroundColor: color }}
+                  style={{ width: `${(fm.rate / maxRate) * 100}%`, backgroundColor: `rgba(14, 90, 138, ${opacity})` }}
                 />
               </div>
             </div>
@@ -320,7 +392,7 @@ function MarketplacePanel() {
         </div>
 
         {marketplaceBreakdown.map((mp, i) => {
-          const color = matchColor(mp.avgMatch);
+          const opacity = 1 - i * 0.12;
           return (
             <div
               key={mp.marketplace}
@@ -332,10 +404,10 @@ function MarketplacePanel() {
                   <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                     <div
                       className="h-full rounded-full transition-all duration-500"
-                      style={{ width: `${mp.avgMatch}%`, backgroundColor: color }}
+                      style={{ width: `${mp.avgMatch}%`, backgroundColor: `rgba(14, 90, 138, ${opacity})` }}
                     />
                   </div>
-                  <span className="text-[10px] font-semibold w-[36px] text-right" style={{ color }}>
+                  <span className="text-[10px] font-semibold w-[36px] text-right" style={{ color: `rgba(14, 90, 138, ${Math.max(opacity, 0.5)})` }}>
                     {mp.avgMatch}%
                   </span>
                 </div>
@@ -491,7 +563,6 @@ function ComparisonTable({
 
 function ComparisonRow({
   product,
-  rowKey,
   isExpanded,
   onToggle,
   selectedFields,
