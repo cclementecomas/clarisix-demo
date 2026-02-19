@@ -88,10 +88,21 @@ export interface PeriodSnapshot {
   metrics: Record<string, PeriodSnapshotMetric>;
 }
 
+/* ── Dynamic date helpers for Period Snapshot sublabels ──── */
+const _now = new Date();
+const _yesterday = new Date(_now);
+_yesterday.setDate(_yesterday.getDate() - 1);
+const _lastMonthEnd = new Date(_now.getFullYear(), _now.getMonth(), 0);
+const _lastMonthStart = new Date(_now.getFullYear(), _now.getMonth() - 1, 1);
+const _monthEnd = new Date(_now.getFullYear(), _now.getMonth() + 1, 0);
+
+const _df = (d: Date) => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+const _dfShort = (d: Date) => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' });
+
 export const periodSnapshots: PeriodSnapshot[] = [
   {
     label: 'Yesterday',
-    sublabel: '14 December 2029',
+    sublabel: _df(_yesterday),
     metrics: {
       Sales: { value: '719.83', rawValue: 719.83, change: 5.2, changePositive: true },
       TACOS: { value: '18.8%', change: -0.4, changePositive: true },
@@ -103,7 +114,7 @@ export const periodSnapshots: PeriodSnapshot[] = [
   },
   {
     label: 'Month to date',
-    sublabel: '1\u201315 December 2029',
+    sublabel: `1–${_dfShort(_yesterday)} ${_now.getFullYear()}`,
     metrics: {
       Sales: { value: '12,441.03', rawValue: 12441.03, change: -7.2, changePositive: false },
       TACOS: { value: '18.4%', change: -1.7, changePositive: true },
@@ -115,7 +126,7 @@ export const periodSnapshots: PeriodSnapshot[] = [
   },
   {
     label: 'This month (forecast)',
-    sublabel: '1\u201331 December 2029',
+    sublabel: `1–${_df(_monthEnd)}`,
     metrics: {
       Sales: { value: '25,838.10', rawValue: 25838.10, change: -0.2, changePositive: false },
       TACOS: { value: '18.4%', change: -1.7, changePositive: true },
@@ -127,7 +138,7 @@ export const periodSnapshots: PeriodSnapshot[] = [
   },
   {
     label: 'Last month',
-    sublabel: '1\u201330 November 2029',
+    sublabel: `1–${_df(_lastMonthEnd)}`,
     metrics: {
       Sales: { value: '25,878.53', rawValue: 25878.53, change: 15.1, changePositive: true },
       TACOS: { value: '19.8%', change: 0.6, changePositive: false },
@@ -139,7 +150,7 @@ export const periodSnapshots: PeriodSnapshot[] = [
   },
   {
     label: 'Year to date',
-    sublabel: '1 January – 15 December 2029',
+    sublabel: `1 January – ${_dfShort(_yesterday)} ${_now.getFullYear()}`,
     metrics: {
       Sales: { value: '298,412.60', rawValue: 298412.60, change: 14.6, changePositive: true },
       TACOS: { value: '18.9%', change: -2.1, changePositive: true },
