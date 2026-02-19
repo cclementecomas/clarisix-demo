@@ -16,6 +16,7 @@ import {
   House,
 } from 'lucide-react';
 import { menuItems, filterOptions } from '../data/dashboardData';
+import { useOnboarding } from '../contexts/OnboardingContext';
 
 const iconMap: Record<string, React.FC<{ className?: string }>> = {
   BarChart3,
@@ -38,6 +39,7 @@ interface SidebarProps {
 }
 
 function AccountSelector() {
+  const { setSelectedAccount } = useOnboarding();
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState(filterOptions.accounts[0]);
 
@@ -61,7 +63,7 @@ function AccountSelector() {
               {filterOptions.accounts.map((account) => (
                 <button
                   key={account}
-                  onClick={() => { setSelected(account); setOpen(false); }}
+                  onClick={() => { setSelected(account); setSelectedAccount(account); setOpen(false); }}
                   className={`block w-full text-left px-3 py-2 text-sm transition-colors ${
                     selected === account
                       ? 'text-cx-300 bg-white/[0.06] font-medium'

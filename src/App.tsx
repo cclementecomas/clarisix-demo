@@ -24,6 +24,10 @@ import ComingSoon from './components/ComingSoon';
 import Footer from './components/Footer';
 import { SectionLoader } from './components/ClarisixSpinner';
 import HomeAlerts from './components/HomeAlerts';
+import OnboardingGateway from './components/OnboardingGateway';
+import OnboardingWizard from './components/onboarding/OnboardingWizard';
+import { useOnboarding } from './contexts/OnboardingContext';
+import { OnboardingWizardProvider } from './contexts/OnboardingWizardContext';
 import { menuItems } from './data/dashboardData';
 
 function HomePage({ onCardClick }: { onCardClick: (section: string, sub: string) => void }) {
@@ -51,6 +55,10 @@ function OverviewPage() {
 }
 
 export default function App() {
+  const { onboardingState } = useOnboarding();
+  const isWizard = onboardingState.status === 'wizard';
+  const isOnboarding = onboardingState.status !== 'ready';
+
   const [activeSection, setActiveSection] = useState('Sales');
   const [activeSub, setActiveSub] = useState('Overview');
   const [collapsed, setCollapsed] = useState(false);
@@ -144,36 +152,48 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-50/80 flex">
-      <Sidebar
-        activeSection={activeSection}
-        activeSub={activeSub}
-        collapsed={collapsed}
-        onSectionChange={handleSectionChange}
-        onSubChange={setActiveSub}
-        onToggleCollapse={() => setCollapsed(!collapsed)}
-        onNavigate={setCurrentPage}
-        currentPage={currentPage}
-      />
+      {!isOnboarding && (
+        <Sidebar
+          activeSection={activeSection}
+          activeSub={activeSub}
+          collapsed={collapsed}
+          onSectionChange={handleSectionChange}
+          onSubChange={setActiveSub}
+          onToggleCollapse={() => setCollapsed(!collapsed)}
+          onNavigate={setCurrentPage}
+          currentPage={currentPage}
+        />
+      )}
 
       <div
         className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ease-in-out ${
-          collapsed ? 'ml-0' : 'ml-[240px]'
+          isOnboarding || collapsed ? 'ml-0' : 'ml-[240px]'
         }`}
       >
         <Navigation
           activeSection={activeSection}
           activeSub={activeSub}
-          sidebarCollapsed={collapsed}
+          sidebarCollapsed={isOnboarding || collapsed}
           onToggleSidebar={() => setCollapsed(!collapsed)}
           currentPage={currentPage}
           onNavigate={setCurrentPage}
+          isOnboarding={isOnboarding}
+          isWizard={isWizard}
         />
 
         <main className="flex-1 px-6 py-6 space-y-6">
-          {renderContent()}
+          {isWizard ? (
+            <OnboardingWizardProvider>
+              <OnboardingWizard />
+            </OnboardingWizardProvider>
+          ) : isOnboarding ? (
+            <OnboardingGateway />
+          ) : (
+            renderContent()
+          )}
         </main>
 
-        <Footer />
+        {!isOnboarding && <Footer />}
       </div>
     </div>
   );

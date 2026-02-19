@@ -13,6 +13,8 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",
     "@tailwindcss/vite": "^4.1.18",
+    "@types/canvas-confetti": "^1.9.0",
+    "canvas-confetti": "^1.9.4",
     "facehash": "^0.0.7",
     "lucide-react": "^0.563.0",
     "react": "^19.2.4",

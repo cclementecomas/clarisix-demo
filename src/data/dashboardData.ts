@@ -293,7 +293,7 @@ export const salesByASIN: ASINDataItem[] = [
 ];
 
 export const filterOptions = {
-  accounts: ['All Accounts', 'Account 1', 'Account 2'],
+  accounts: ['All Accounts', 'Onboarded Account', 'Connected Account', 'New Account'],
   marketplace: ['All Marketplaces', 'Amazon DE', 'Amazon FR', 'Amazon UK', 'Amazon US'],
   brand: ['All Brands', 'Brand A', 'Brand B', 'Brand C'],
   category: ['All Categories', 'Electronics', 'Wellness', 'Accessories'],

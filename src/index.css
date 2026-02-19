@@ -122,6 +122,33 @@
   animation: cellGlow 2s ease-in-out infinite;
 }
 
+@keyframes wizardSlideLeft {
+  from { opacity: 0; transform: translateX(40px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes wizardSlideRight {
+  from { opacity: 0; transform: translateX(-40px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.wizard-slide-left {
+  animation: wizardSlideLeft 0.3s ease-out;
+}
+
+.wizard-slide-right {
+  animation: wizardSlideRight 0.3s ease-out;
+}
+
+@keyframes wizardFadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.wizard-fade-in {
+  animation: wizardFadeIn 0.6s ease-out 0.5s both;
+}
+
 .recharts-cartesian-grid-horizontal line,
 .recharts-cartesian-grid-vertical line {
   stroke-opacity: 0.6;
@@ -134,6 +161,83 @@
 
 .clarisix-spinner {
   animation: clarisix-spin 1.2s linear infinite;
+}
+
+@keyframes logoRingPulse {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+}
+
+@keyframes confirmationPop {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  50% {
+    transform: scale(1.08);
+  }
+  70% {
+    transform: scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes confirmationFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes checkDraw {
+  0% {
+    stroke-dashoffset: 48;
+    opacity: 0;
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
+
+.confirmation-pop {
+  animation: confirmationPop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.confirmation-fade-up-1 {
+  animation: confirmationFadeUp 0.5s ease-out 0.3s both;
+}
+
+.confirmation-fade-up-2 {
+  animation: confirmationFadeUp 0.5s ease-out 0.5s both;
+}
+
+.confirmation-fade-up-3 {
+  animation: confirmationFadeUp 0.5s ease-out 0.7s both;
+}
+
+.confirmation-fade-up-4 {
+  animation: confirmationFadeUp 0.5s ease-out 0.9s both;
 }
 
 .table-loader {
