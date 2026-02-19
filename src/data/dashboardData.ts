@@ -90,18 +90,6 @@ export interface PeriodSnapshot {
 
 export const periodSnapshots: PeriodSnapshot[] = [
   {
-    label: 'Today',
-    sublabel: '15 December 2029',
-    metrics: {
-      Sales: { value: '694.06', rawValue: 694.06, change: -3.6, changePositive: false },
-      TACOS: { value: '19.1%', change: 1.6, changePositive: false },
-      Profitability: { value: '80.19', rawValue: 80.19, change: -44.1, changePositive: false },
-      'Out of Stock': { value: '4.2%', change: 0.0, changePositive: true },
-      'Content Score': { value: '87/100', change: 0.0, changePositive: true },
-      'Customer Experience': { value: '4.6/5', change: 0.0, changePositive: true },
-    },
-  },
-  {
     label: 'Yesterday',
     sublabel: '14 December 2029',
     metrics: {
@@ -147,6 +135,18 @@ export const periodSnapshots: PeriodSnapshot[] = [
       'Out of Stock': { value: '3.9%', change: -0.3, changePositive: true },
       'Content Score': { value: '86/100', change: 1.2, changePositive: true },
       'Customer Experience': { value: '4.5/5', change: 0.2, changePositive: true },
+    },
+  },
+  {
+    label: 'Year to date',
+    sublabel: '1 January – 15 December 2029',
+    metrics: {
+      Sales: { value: '298,412.60', rawValue: 298412.60, change: 14.6, changePositive: true },
+      TACOS: { value: '18.9%', change: -2.1, changePositive: true },
+      Profitability: { value: '89,523.78', rawValue: 89523.78, change: 22.4, changePositive: true },
+      'Out of Stock': { value: '3.6%', change: -0.8, changePositive: true },
+      'Content Score': { value: '87/100', change: 5.4, changePositive: true },
+      'Customer Experience': { value: '4.6/5', change: 2.3, changePositive: true },
     },
   },
 ];
