@@ -24,6 +24,7 @@ import ComingSoon from './components/ComingSoon';
 import Footer from './components/Footer';
 import { SectionLoader } from './components/ClarisixSpinner';
 import HomeAlerts from './components/HomeAlerts';
+import PeriodSnapshot from './components/PeriodSnapshot';
 import OnboardingGateway from './components/OnboardingGateway';
 import OnboardingWizard from './components/onboarding/OnboardingWizard';
 import { useOnboarding } from './contexts/OnboardingContext';
@@ -37,6 +38,7 @@ function HomePage({ onCardClick }: { onCardClick: (section: string, sub: string)
         <ClarisixScore />
         <KPICards onCardClick={onCardClick} />
       </div>
+      <PeriodSnapshot onCardClick={onCardClick} />
       <HomeAlerts onAlertClick={onCardClick} />
     </>
   );

@@ -75,6 +75,82 @@ export const kpiData = [
   },
 ];
 
+export interface PeriodSnapshotMetric {
+  value: number | string;
+  rawValue?: number;
+  change?: number;
+  changePositive?: boolean;
+}
+
+export interface PeriodSnapshot {
+  label: string;
+  sublabel: string;
+  metrics: Record<string, PeriodSnapshotMetric>;
+}
+
+export const periodSnapshots: PeriodSnapshot[] = [
+  {
+    label: 'Today',
+    sublabel: '15 December 2029',
+    metrics: {
+      Sales: { value: '694.06', rawValue: 694.06, change: -3.6, changePositive: false },
+      TACOS: { value: '19.1%', change: 1.6, changePositive: false },
+      Profitability: { value: '80.19', rawValue: 80.19, change: -44.1, changePositive: false },
+      'Out of Stock': { value: '4.2%', change: 0.0, changePositive: true },
+      'Content Score': { value: '87/100', change: 0.0, changePositive: true },
+      'Customer Experience': { value: '4.6/5', change: 0.0, changePositive: true },
+    },
+  },
+  {
+    label: 'Yesterday',
+    sublabel: '14 December 2029',
+    metrics: {
+      Sales: { value: '719.83', rawValue: 719.83, change: 5.2, changePositive: true },
+      TACOS: { value: '18.8%', change: -0.4, changePositive: true },
+      Profitability: { value: '143.42', rawValue: 143.42, change: 12.3, changePositive: true },
+      'Out of Stock': { value: '4.2%', change: 0.0, changePositive: true },
+      'Content Score': { value: '87/100', change: 0.0, changePositive: true },
+      'Customer Experience': { value: '4.6/5', change: 0.0, changePositive: true },
+    },
+  },
+  {
+    label: 'Month to date',
+    sublabel: '1\u201315 December 2029',
+    metrics: {
+      Sales: { value: '12,441.03', rawValue: 12441.03, change: -7.2, changePositive: false },
+      TACOS: { value: '18.4%', change: -1.7, changePositive: true },
+      Profitability: { value: '3,900.30', rawValue: 3900.30, change: -25.6, changePositive: false },
+      'Out of Stock': { value: '4.2%', change: 1.3, changePositive: false },
+      'Content Score': { value: '87/100', change: 2.8, changePositive: true },
+      'Customer Experience': { value: '4.6/5', change: 0.4, changePositive: true },
+    },
+  },
+  {
+    label: 'This month (forecast)',
+    sublabel: '1\u201331 December 2029',
+    metrics: {
+      Sales: { value: '25,838.10', rawValue: 25838.10, change: -0.2, changePositive: false },
+      TACOS: { value: '18.4%', change: -1.7, changePositive: true },
+      Profitability: { value: '9,580.21', rawValue: 9580.21, change: 4.6, changePositive: true },
+      'Out of Stock': { value: '4.2%', change: 1.3, changePositive: false },
+      'Content Score': { value: '87/100', change: 2.8, changePositive: true },
+      'Customer Experience': { value: '4.6/5', change: 0.4, changePositive: true },
+    },
+  },
+  {
+    label: 'Last month',
+    sublabel: '1\u201330 November 2029',
+    metrics: {
+      Sales: { value: '25,878.53', rawValue: 25878.53, change: 15.1, changePositive: true },
+      TACOS: { value: '19.8%', change: 0.6, changePositive: false },
+      Profitability: { value: '9,161.14', rawValue: 9161.14, change: -6.4, changePositive: false },
+      'Out of Stock': { value: '3.9%', change: -0.3, changePositive: true },
+      'Content Score': { value: '86/100', change: 1.2, changePositive: true },
+      'Customer Experience': { value: '4.5/5', change: 0.2, changePositive: true },
+    },
+  },
+];
+
 export type AlertSeverity = 'critical' | 'warning' | 'info';
 export type AlertCategory = 'inventory' | 'advertising' | 'customer' | 'content';
 

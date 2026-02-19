@@ -4,6 +4,7 @@ import { useWizard } from '../../contexts/OnboardingWizardContext';
 import ProgressBar from './ProgressBar';
 import WelcomeStep from './steps/WelcomeStep';
 import CompanyInfoStep from './steps/CompanyInfoStep';
+import PlanSelectionStep from './steps/PlanSelectionStep';
 import AmazonAccessStep from './steps/AmazonAccessStep';
 import PreferencesStep from './steps/PreferencesStep';
 import ConfirmationStep from './steps/ConfirmationStep';
@@ -28,7 +29,7 @@ export default function OnboardingWizard() {
   const { currentStep } = state;
 
   const handleNext = () => {
-    if (currentStep < 5) {
+    if (currentStep < 6) {
       setDirection('forward');
       setStep(currentStep + 1);
     }
@@ -45,18 +46,19 @@ export default function OnboardingWizard() {
     switch (currentStep) {
       case 1: return <WelcomeStep onNext={handleNext} />;
       case 2: return <CompanyInfoStep />;
-      case 3: return <AmazonAccessStep />;
-      case 4: return <PreferencesStep />;
-      case 5: return <ConfirmationStep />;
+      case 3: return <PlanSelectionStep />;
+      case 4: return <AmazonAccessStep />;
+      case 5: return <PreferencesStep />;
+      case 6: return <ConfirmationStep />;
       default: return null;
     }
   };
 
-  const showNavButtons = currentStep >= 2 && currentStep <= 4;
+  const showNavButtons = currentStep >= 2 && currentStep <= 5;
 
   return (
     <div className="flex-1 flex flex-col items-center min-h-[60vh] py-8">
-      <div className="w-full max-w-[640px] px-6">
+      <div className={`w-full px-6 ${currentStep === 3 ? 'max-w-[860px]' : 'max-w-[640px]'}`}>
         <ProgressBar currentStep={currentStep} furthestStep={state.furthestStep} />
 
         <div
@@ -66,8 +68,12 @@ export default function OnboardingWizard() {
           {renderStep()}
         </div>
 
-        {showNavButtons && (
-          <div className="flex items-center justify-between mt-8">
+        <WizardSupportFooter />
+      </div>
+
+      {showNavButtons && (
+        <div className="sticky bottom-0 w-full bg-white/90 backdrop-blur-sm border-t border-gray-100 py-3 px-6 z-20">
+          <div className={`flex items-center justify-between mx-auto ${currentStep === 3 ? 'max-w-[860px]' : 'max-w-[640px]'}`}>
             <button
               onClick={handleBack}
               className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
@@ -88,10 +94,8 @@ export default function OnboardingWizard() {
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
-        )}
-
-        <WizardSupportFooter />
-      </div>
+        </div>
+      )}
     </div>
   );
 }

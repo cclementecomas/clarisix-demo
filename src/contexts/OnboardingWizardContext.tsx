@@ -8,6 +8,8 @@ export interface WizardFormData {
   primaryCurrency: string;
   selectedAdTypes: string[];
   selectedTools: string[];
+  selectedPlan: string;
+  billingCycle: 'annual' | 'monthly';
   accessConfirmed: boolean;
   marketplaceChecklist: Record<string, boolean>;
   fiscalYearStart: number;
@@ -37,6 +39,8 @@ const DEFAULT_FORM_DATA: WizardFormData = {
   primaryCurrency: 'EUR',
   selectedAdTypes: [],
   selectedTools: [],
+  selectedPlan: '',
+  billingCycle: 'annual',
   accessConfirmed: false,
   marketplaceChecklist: {},
   fiscalYearStart: 1,
@@ -103,10 +107,12 @@ export function OnboardingWizardProvider({ children }: { children: ReactNode }) 
       case 2:
         return formData.companyName.trim().length > 0 && formData.selectedMarketplaces.length > 0 && formData.selectedAdTypes.length > 0;
       case 3:
-        return formData.accessConfirmed;
+        return formData.selectedPlan.length > 0;
       case 4:
-        return true;
+        return formData.accessConfirmed;
       case 5:
+        return true;
+      case 6:
         return true;
       default:
         return false;

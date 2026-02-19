@@ -74,6 +74,93 @@ export const toolOptions = [
   { id: 'none', label: 'None' },
 ];
 
+export interface PricingPlan {
+  id: string;
+  name: string;
+  monthlyPrice: number | null;
+  annualPrice: number | null;
+  description: string;
+  valueProp?: string;
+  features: string[];
+  highlighted?: boolean;
+  badge?: string;
+  joke?: boolean;
+}
+
+export const pricingPlans: PricingPlan[] = [
+  {
+    id: 'starter',
+    name: 'Starter',
+    annualPrice: 79,
+    monthlyPrice: 99,
+    description: 'For brands getting started with data-driven decisions',
+    valueProp: 'Unmatched value',
+    features: [
+      'Up to 5,000 orders/month',
+      '1 region (Americas or Europe, UK included)',
+      '1 seller account',
+      '100 ASINs',
+      '3 users',
+      'All 6 pillar overview dashboards',
+      'Period-over-period & YoY comparisons',
+    ],
+  },
+  {
+    id: 'growth',
+    name: 'Growth',
+    annualPrice: 199,
+    monthlyPrice: 249,
+    description: 'Full platform access for growing brands',
+    valueProp: 'Replaces a \u20AC600+/mo tool stack',
+    highlighted: true,
+    badge: 'Most Popular',
+    features: [
+      'Up to 25,000 orders/month',
+      'All regions (Americas + Europe)',
+      '2 seller accounts',
+      '500 ASINs',
+      '10 users',
+      'Full platform — all 6 pillars with full depth',
+      'DeepDive drill-downs with Excel export',
+      'Content Tracker with case assistant',
+      'Smart alerts',
+    ],
+  },
+  {
+    id: 'enterprise',
+    name: 'Enterprise',
+    annualPrice: 499,
+    monthlyPrice: null,
+    description: 'For large sellers and agencies',
+    valueProp: 'Replaces a \u20AC1,500+/mo tool stack',
+    features: [
+      'Up to 100,000 orders/month',
+      'Up to 5 seller accounts (custom above)',
+      '1,000 ASINs',
+      'Unlimited users',
+      'Everything in Growth',
+      'White-label exports',
+      'API access',
+      'Dedicated onboarding',
+      'Priority support',
+    ],
+  },
+  {
+    id: 'analog',
+    name: 'Analog',
+    annualPrice: 0,
+    monthlyPrice: 0,
+    description: 'For the truly old school',
+    joke: true,
+    features: [
+      'Paper-based analytics platform',
+      'Carrier pigeon alerts',
+      'Abacus-powered calculations',
+      'Zero server costs',
+    ],
+  },
+];
+
 export const sellerCentralSteps = [
   {
     title: 'Log in to Amazon Seller Central',
@@ -150,7 +237,8 @@ export const timelinePhases = [
 export const wizardStepsMeta = [
   { id: 1, label: 'Welcome' },
   { id: 2, label: 'Business' },
-  { id: 3, label: 'Connect' },
-  { id: 4, label: 'Preferences' },
-  { id: 5, label: 'Done' },
+  { id: 3, label: 'Plan' },
+  { id: 4, label: 'Connect' },
+  { id: 5, label: 'Preferences' },
+  { id: 6, label: 'Done' },
 ];

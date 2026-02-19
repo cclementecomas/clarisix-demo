@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { CheckCircle2, Circle } from 'lucide-react';
+import { CheckCircle2, Circle, ShieldCheck } from 'lucide-react';
 import { ClarisixSpinner } from '../../ClarisixSpinner';
 import { useWizard } from '../../../contexts/OnboardingWizardContext';
 
@@ -99,6 +99,17 @@ export default function ConfirmationStep() {
       </div>
 
       <div className="confirmation-fade-up-3">
+        <div className="max-w-[440px] mx-auto mb-8 px-5 py-4 bg-green-50 border border-green-200 rounded-xl">
+          <div className="flex items-start gap-3 text-left">
+            <ShieldCheck className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-green-800">No charges until your data is ready</p>
+              <p className="text-xs text-green-700 mt-1 leading-relaxed">
+                Your subscription only starts once all data is fully loaded and validated — saving you 1-2 days of waiting costs.
+              </p>
+            </div>
+          </div>
+        </div>
         <p className="text-sm text-gray-500 mb-8">
           Estimated time: core data available within 24-48 hours
         </p>
