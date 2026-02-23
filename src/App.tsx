@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import Sidebar from './components/Sidebar';
 import Navigation from './components/Navigation';
-import ClarisixScore from './components/ClarisixScore';
 import KPICards from './components/KPICards';
 import BudgetTracker from './components/BudgetTracker';
 import SalesOverview from './components/SalesOverview';
@@ -34,10 +33,7 @@ import { menuItems } from './data/dashboardData';
 function HomePage({ onCardClick }: { onCardClick: (section: string, sub: string) => void }) {
   return (
     <>
-      <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-5">
-        <ClarisixScore />
-        <KPICards onCardClick={onCardClick} />
-      </div>
+      <KPICards onCardClick={onCardClick} />
       <PeriodSnapshot onCardClick={onCardClick} />
       <HomeAlerts onAlertClick={onCardClick} />
     </>

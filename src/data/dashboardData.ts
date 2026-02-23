@@ -93,7 +93,6 @@ const _now = new Date();
 const _yesterday = new Date(_now);
 _yesterday.setDate(_yesterday.getDate() - 1);
 const _lastMonthEnd = new Date(_now.getFullYear(), _now.getMonth(), 0);
-const _lastMonthStart = new Date(_now.getFullYear(), _now.getMonth() - 1, 1);
 const _monthEnd = new Date(_now.getFullYear(), _now.getMonth() + 1, 0);
 
 const _df = (d: Date) => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });

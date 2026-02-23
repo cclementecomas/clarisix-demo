@@ -5,6 +5,7 @@ import { useCurrency } from '../contexts/CurrencyContext';
 import { fc } from '../utils/currency';
 
 const KPI_KEYS = ['Sales', 'TACOS', 'Profitability', 'Out of Stock', 'Content Score', 'Customer Experience'] as const;
+const PCT_KPIS = new Set(['TACOS', 'Out of Stock']);
 
 const NAV_MAP: Record<string, { section: string; sub: string }> = {
   Sales: { section: 'Sales', sub: 'Overview' },
@@ -180,7 +181,8 @@ function drawBrandedSnapshot(
 
       // Change %
       if (metric.change !== undefined) {
-        const changeStr = `${metric.change > 0 ? '+' : ''}${metric.change}%`;
+        const changeSuffix = PCT_KPIS.has(kpi) ? 'pp' : '%';
+        const changeStr = `${metric.change > 0 ? '+' : ''}${metric.change}${changeSuffix}`;
         ctx.fillStyle = isNeutral ? C.neutralChange : isPositive ? C.greenChange : C.redChange;
         ctx.font = '600 10px Inter, system-ui, sans-serif';
         ctx.fillText(changeStr, cx + 10, ry + 36);
@@ -366,8 +368,9 @@ export default function PeriodSnapshot({ onCardClick }: PeriodSnapshotProps) {
                   ? fc(metric.rawValue, currency)
                   : metric.value;
 
+                const changeSuffix = PCT_KPIS.has(kpi) ? 'pp' : '%';
                 const changeStr = metric.change !== undefined
-                  ? `${metric.change > 0 ? '+' : ''}${metric.change}%`
+                  ? `${metric.change > 0 ? '+' : ''}${metric.change}${changeSuffix}`
                   : '';
 
                 return (
