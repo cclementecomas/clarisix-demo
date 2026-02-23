@@ -225,6 +225,7 @@ export default function PeriodSnapshot({ onCardClick }: PeriodSnapshotProps) {
   const { currency } = useCurrency();
   const [sharing, setSharing] = useState(false);
   const [shareSuccess, setShareSuccess] = useState<string | null>(null);
+  const [activePeriod, setActivePeriod] = useState(0);
 
   // Pre-load logo on mount so it's ready when user clicks share
   useEffect(() => { preloadLogo(); }, []);
@@ -291,7 +292,7 @@ export default function PeriodSnapshot({ onCardClick }: PeriodSnapshotProps) {
       {/* Header bar */}
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100">
         <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider">Period Snapshot</h3>
-        <div className="flex items-center gap-1">
+        <div className="hidden md:flex items-center gap-1">
           {shareSuccess && (
             <span className="text-[11px] text-green-600 font-medium mr-1 animate-fade-slide-in">
               {shareSuccess === 'clipboard' ? 'Copied to clipboard!' : 'Image saved!'}
@@ -318,8 +319,68 @@ export default function PeriodSnapshot({ onCardClick }: PeriodSnapshotProps) {
         </div>
       </div>
 
-      {/* Table content */}
-      <div className="overflow-x-auto">
+      {/* Mobile: tabbed card layout */}
+      <div className="md:hidden">
+        {/* Period tabs */}
+        <div className="flex overflow-x-auto border-b border-gray-100 bg-gray-50/50">
+          {periodSnapshots.map((period, idx) => (
+            <button
+              key={period.label}
+              onClick={() => setActivePeriod(idx)}
+              className={`flex-shrink-0 px-4 py-2.5 text-[11px] font-bold transition-colors border-b-2 ${
+                activePeriod === idx
+                  ? 'text-cx-700 border-cx-500 bg-white'
+                  : 'text-gray-400 border-transparent hover:text-gray-600'
+              }`}
+            >
+              {period.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Period sublabel */}
+        <div className="px-4 py-2 bg-gray-50/30">
+          <p className="text-[10px] text-gray-400">{periodSnapshots[activePeriod].sublabel}</p>
+        </div>
+
+        {/* KPI cards for selected period */}
+        <div className="divide-y divide-gray-100">
+          {KPI_KEYS.map((kpi) => {
+            const metric = periodSnapshots[activePeriod].metrics[kpi];
+            if (!metric) return null;
+
+            const isPositive = metric.changePositive ?? true;
+            const isNeutral = metric.change === 0;
+            const colors = isNeutral
+              ? { bg: 'bg-gray-50/40', text: 'text-gray-800', change: 'text-gray-400' }
+              : { bg: isPositive ? 'bg-green-50/60' : 'bg-red-50/60', text: isPositive ? 'text-green-900' : 'text-red-900', change: isPositive ? 'text-green-700' : 'text-red-600' };
+
+            const displayValue = metric.rawValue !== undefined
+              ? fc(metric.rawValue, currency)
+              : metric.value;
+
+            const changeSuffix = PCT_KPIS.has(kpi) ? 'pp' : '%';
+            const changeStr = metric.change !== undefined
+              ? `${metric.change > 0 ? '+' : ''}${metric.change}${changeSuffix}`
+              : '';
+
+            return (
+              <div key={kpi} className={`flex items-center justify-between px-4 py-3 ${colors.bg}`}>
+                <span className="text-xs font-semibold text-gray-600">{kpi}</span>
+                <div className="text-right">
+                  <span className={`text-sm font-bold ${colors.text} tabular-nums`}>{displayValue}</span>
+                  {changeStr && (
+                    <p className={`text-[10px] font-semibold tabular-nums ${colors.change}`}>{changeStr}</p>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Desktop: table layout */}
+      <div className="hidden md:block overflow-x-auto">
         {/* Column headers */}
         <div className="grid grid-cols-[130px_repeat(5,1fr)] min-w-[780px]">
           <div className="p-2.5 bg-gray-50/50" />

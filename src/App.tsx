@@ -30,12 +30,18 @@ import { useOnboarding } from './contexts/OnboardingContext';
 import { OnboardingWizardProvider } from './contexts/OnboardingWizardContext';
 import { menuItems } from './data/dashboardData';
 
-function HomePage({ onCardClick }: { onCardClick: (section: string, sub: string) => void }) {
+function HomePage({ onCardClick, isEmbed }: { onCardClick: (section: string, sub: string) => void; isEmbed?: boolean }) {
   return (
     <>
       <KPICards onCardClick={onCardClick} />
       <PeriodSnapshot onCardClick={onCardClick} />
-      <HomeAlerts onAlertClick={onCardClick} />
+      {isEmbed ? (
+        <div className="hidden md:block">
+          <HomeAlerts onAlertClick={onCardClick} />
+        </div>
+      ) : (
+        <HomeAlerts onAlertClick={onCardClick} />
+      )}
     </>
   );
 }
@@ -185,7 +191,7 @@ export default function App() {
 
         <main className="flex-1 px-3 py-4 md:px-6 md:py-6 space-y-4 md:space-y-6">
           {isEmbed ? (
-            <HomePage onCardClick={handleKPIClick} />
+            <HomePage onCardClick={handleKPIClick} isEmbed />
           ) : isWizard ? (
             <OnboardingWizardProvider>
               <OnboardingWizard />

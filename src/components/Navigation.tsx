@@ -205,7 +205,7 @@ export default function Navigation({ activeSection, activeSub, sidebarCollapsed,
   }
 
   return (
-    <header className="bg-white border-b border-gray-100 sticky top-0 z-30">
+    <header className={`bg-white border-b border-gray-100 sticky top-0 z-30 ${isEmbed ? 'hidden md:block' : ''}`}>
       <div className="flex items-center justify-between px-3 md:px-6 py-2.5 border-b border-gray-50">
         <div className="flex items-center gap-3">
           {sidebarCollapsed && !isOnboarding && !isEmbed && (
