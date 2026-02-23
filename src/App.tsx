@@ -158,7 +158,7 @@ export default function App() {
   };
 
   return (
-    <div className={`min-h-screen bg-gray-50/80 flex ${isEmbed ? 'overflow-x-hidden' : ''}`}>
+    <div className={`min-h-screen bg-gray-50/80 flex ${isEmbed ? 'overflow-hidden max-w-[100vw]' : ''}`}>
       {!isOnboarding && !isEmbed && (
         <Sidebar
           activeSection={activeSection}
@@ -174,7 +174,7 @@ export default function App() {
 
       <div
         className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ease-in-out ${
-          isEmbed || isOnboarding || collapsed ? 'ml-0' : 'ml-[240px]'
+          isEmbed ? 'ml-0 w-full min-w-0' : isOnboarding || collapsed ? 'ml-0' : 'ml-[240px]'
         }`}
       >
         <Navigation
@@ -189,7 +189,7 @@ export default function App() {
           isEmbed={isEmbed}
         />
 
-        <main className="flex-1 px-3 py-4 md:px-6 md:py-6 space-y-4 md:space-y-6">
+        <main className={`flex-1 px-3 py-4 md:px-6 md:py-6 space-y-4 md:space-y-6 ${isEmbed ? 'min-w-0 max-w-full' : ''}`}>
           {isEmbed ? (
             <HomePage onCardClick={handleKPIClick} isEmbed />
           ) : isWizard ? (
