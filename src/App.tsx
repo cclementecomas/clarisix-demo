@@ -53,9 +53,11 @@ function OverviewPage() {
 }
 
 export default function App() {
+  const isEmbed = new URLSearchParams(window.location.search).has('embed');
+
   const { onboardingState } = useOnboarding();
-  const isWizard = onboardingState.status === 'wizard';
-  const isOnboarding = onboardingState.status !== 'ready';
+  const isWizard = !isEmbed && onboardingState.status === 'wizard';
+  const isOnboarding = !isEmbed && onboardingState.status !== 'ready';
 
   const [activeSection, setActiveSection] = useState('Sales');
   const [activeSub, setActiveSub] = useState('Overview');
@@ -82,6 +84,7 @@ export default function App() {
   };
 
   const handleKPIClick = (section: string, sub: string) => {
+    if (isEmbed) return;
     setCurrentPage('dashboard');
     setActiveSection(section);
     setActiveSub(sub);
@@ -150,7 +153,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-50/80 flex">
-      {!isOnboarding && (
+      {!isOnboarding && !isEmbed && (
         <Sidebar
           activeSection={activeSection}
           activeSub={activeSub}
@@ -165,13 +168,13 @@ export default function App() {
 
       <div
         className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ease-in-out ${
-          isOnboarding || collapsed ? 'ml-0' : 'ml-[240px]'
+          isEmbed || isOnboarding || collapsed ? 'ml-0' : 'ml-[240px]'
         }`}
       >
         <Navigation
           activeSection={activeSection}
           activeSub={activeSub}
-          sidebarCollapsed={isOnboarding || collapsed}
+          sidebarCollapsed={isEmbed || isOnboarding || collapsed}
           onToggleSidebar={() => setCollapsed(!collapsed)}
           currentPage={currentPage}
           onNavigate={setCurrentPage}
@@ -180,7 +183,9 @@ export default function App() {
         />
 
         <main className="flex-1 px-6 py-6 space-y-6">
-          {isWizard ? (
+          {isEmbed ? (
+            <HomePage onCardClick={handleKPIClick} />
+          ) : isWizard ? (
             <OnboardingWizardProvider>
               <OnboardingWizard />
             </OnboardingWizardProvider>
@@ -191,7 +196,7 @@ export default function App() {
           )}
         </main>
 
-        {!isOnboarding && <Footer />}
+        {!isOnboarding && !isEmbed && <Footer />}
       </div>
     </div>
   );
