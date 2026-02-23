@@ -152,7 +152,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50/80 flex">
+    <div className={`min-h-screen bg-gray-50/80 flex ${isEmbed ? 'overflow-x-hidden' : ''}`}>
       {!isOnboarding && !isEmbed && (
         <Sidebar
           activeSection={activeSection}
@@ -180,6 +180,7 @@ export default function App() {
           onNavigate={setCurrentPage}
           isOnboarding={isOnboarding}
           isWizard={isWizard}
+          isEmbed={isEmbed}
         />
 
         <main className="flex-1 px-3 py-4 md:px-6 md:py-6 space-y-4 md:space-y-6">

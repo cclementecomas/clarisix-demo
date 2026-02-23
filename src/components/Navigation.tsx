@@ -190,11 +190,12 @@ interface NavigationProps {
   onNavigate: (page: string) => void;
   isOnboarding?: boolean;
   isWizard?: boolean;
+  isEmbed?: boolean;
 }
 
 const defaultRange = resolveQuickPreset('Last month');
 
-export default function Navigation({ activeSection, activeSub, sidebarCollapsed, onToggleSidebar, currentPage, onNavigate, isOnboarding, isWizard }: NavigationProps) {
+export default function Navigation({ activeSection, activeSub, sidebarCollapsed, onToggleSidebar, currentPage, onNavigate, isOnboarding, isWizard, isEmbed }: NavigationProps) {
   const [dateFilterOpen, setDateFilterOpen] = useState(false);
   const [dateResult, setDateResult] = useState<DateFilterResult>(defaultRange);
   const closeDateFilter = useCallback(() => setDateFilterOpen(false), []);
@@ -207,7 +208,7 @@ export default function Navigation({ activeSection, activeSub, sidebarCollapsed,
     <header className="bg-white border-b border-gray-100 sticky top-0 z-30">
       <div className="flex items-center justify-between px-3 md:px-6 py-2.5 border-b border-gray-50">
         <div className="flex items-center gap-3">
-          {sidebarCollapsed && !isOnboarding && (
+          {sidebarCollapsed && !isOnboarding && !isEmbed && (
             <button
               onClick={onToggleSidebar}
               className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition-colors -ml-1"
@@ -280,7 +281,7 @@ export default function Navigation({ activeSection, activeSub, sidebarCollapsed,
       </div>
 
       {!isOnboarding && (currentPage === 'dashboard' || currentPage === 'home') && (
-        <div className="flex items-center px-3 md:px-6 py-2 bg-gray-50/50 gap-2 flex-wrap">
+        <div className={`flex items-center px-3 md:px-6 py-2 bg-gray-50/50 gap-2 flex-wrap ${isEmbed ? 'hidden md:flex' : ''}`}>
           <MultiSelectFilter label="Marketplace" options={filterOptions.marketplace} />
           <MultiSelectFilter label="Brand" options={filterOptions.brand} />
           <MultiSelectFilter label="Category" options={filterOptions.category} />
