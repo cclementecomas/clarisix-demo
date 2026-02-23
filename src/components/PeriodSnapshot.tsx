@@ -319,9 +319,9 @@ export default function PeriodSnapshot({ onCardClick }: PeriodSnapshotProps) {
       </div>
 
       {/* Table content */}
-      <div>
+      <div className="overflow-x-auto">
         {/* Column headers */}
-        <div className="grid grid-cols-[130px_repeat(5,1fr)]">
+        <div className="grid grid-cols-[130px_repeat(5,1fr)] min-w-[780px]">
           <div className="p-2.5 bg-gray-50/50" />
           {periodSnapshots.map((period) => (
             <div
@@ -342,7 +342,7 @@ export default function PeriodSnapshot({ onCardClick }: PeriodSnapshotProps) {
           return (
             <div
               key={kpi}
-              className={`grid grid-cols-[130px_repeat(5,1fr)] ${!isLast ? 'border-b border-gray-100/60' : ''}`}
+              className={`grid grid-cols-[130px_repeat(5,1fr)] min-w-[780px] ${!isLast ? 'border-b border-gray-100/60' : ''}`}
             >
               <div
                 className="p-2.5 flex items-center justify-between cursor-pointer group/label bg-gray-50/30 border-r border-gray-100"

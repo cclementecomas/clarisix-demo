@@ -205,7 +205,7 @@ export default function Navigation({ activeSection, activeSub, sidebarCollapsed,
 
   return (
     <header className="bg-white border-b border-gray-100 sticky top-0 z-30">
-      <div className="flex items-center justify-between px-6 py-2.5 border-b border-gray-50">
+      <div className="flex items-center justify-between px-3 md:px-6 py-2.5 border-b border-gray-50">
         <div className="flex items-center gap-3">
           {sidebarCollapsed && !isOnboarding && (
             <button
@@ -239,7 +239,7 @@ export default function Navigation({ activeSection, activeSub, sidebarCollapsed,
         <div className="flex items-center gap-2">
           {!isOnboarding && (currentPage === 'dashboard' || currentPage === 'home') && (
             <>
-              <div className="flex items-center gap-2 text-sm">
+              <div className="hidden md:flex items-center gap-2 text-sm">
                 <span className="text-gray-400 font-medium">From</span>
                 <span className="px-2.5 py-1 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 font-medium text-[13px]">
                   {formatDateShort(dateResult.primary.start)}
@@ -280,7 +280,7 @@ export default function Navigation({ activeSection, activeSub, sidebarCollapsed,
       </div>
 
       {!isOnboarding && (currentPage === 'dashboard' || currentPage === 'home') && (
-        <div className="flex items-center px-6 py-2 bg-gray-50/50 gap-2 flex-wrap">
+        <div className="flex items-center px-3 md:px-6 py-2 bg-gray-50/50 gap-2 flex-wrap">
           <MultiSelectFilter label="Marketplace" options={filterOptions.marketplace} />
           <MultiSelectFilter label="Brand" options={filterOptions.brand} />
           <MultiSelectFilter label="Category" options={filterOptions.category} />

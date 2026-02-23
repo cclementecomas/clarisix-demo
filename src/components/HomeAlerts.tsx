@@ -43,7 +43,7 @@ export default function HomeAlerts({ onAlertClick }: HomeAlertsProps) {
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-      <div className={`flex items-center justify-between px-5 py-4 border-b ${visibleAlerts.length > 0 ? 'border-red-100 bg-gradient-to-r from-red-50/60 to-amber-50/40' : 'border-gray-100'}`}>
+      <div className={`flex items-center justify-between px-3 md:px-5 py-4 border-b ${visibleAlerts.length > 0 ? 'border-red-100 bg-gradient-to-r from-red-50/60 to-amber-50/40' : 'border-gray-100'}`}>
         <div className="flex items-center gap-2.5">
           <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${visibleAlerts.length > 0 ? 'bg-red-100 animate-pulse' : 'bg-green-50'}`}>
             {visibleAlerts.length > 0
@@ -115,7 +115,7 @@ function AlertRow({
   return (
     <div
       onClick={onClick ? () => onClick(alert.navSection, alert.navSub) : undefined}
-      className={`flex items-start gap-3 px-5 py-3.5 hover:bg-gray-50/80 transition-colors ${onClick ? 'cursor-pointer' : ''} group`}
+      className={`flex items-start gap-3 px-3 md:px-5 py-3.5 hover:bg-gray-50/80 transition-colors ${onClick ? 'cursor-pointer' : ''} group`}
     >
       <div className={`w-7 h-7 rounded-lg ${sev.bg} flex items-center justify-center flex-shrink-0 mt-0.5`}>
         <SevIcon className={`w-3.5 h-3.5 ${sev.iconColor}`} />

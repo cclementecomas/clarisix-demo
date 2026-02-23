@@ -182,7 +182,7 @@ export default function App() {
           isWizard={isWizard}
         />
 
-        <main className="flex-1 px-6 py-6 space-y-6">
+        <main className="flex-1 px-3 py-4 md:px-6 md:py-6 space-y-4 md:space-y-6">
           {isEmbed ? (
             <HomePage onCardClick={handleKPIClick} />
           ) : isWizard ? (

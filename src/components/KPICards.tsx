@@ -13,7 +13,7 @@ interface KPICardsProps {
 
 export default function KPICards({ onCardClick }: KPICardsProps) {
   return (
-    <div className="grid grid-cols-3 gap-3">
+    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
       {kpiData.map((kpi, idx) => (
         <KPICard key={kpi.label} kpi={kpi} idx={idx} onCardClick={onCardClick} />
       ))}
