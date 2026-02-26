@@ -52,7 +52,7 @@ function KPICard({ kpi, idx, onCardClick }: { kpi: (typeof kpiData)[number]; idx
   return (
     <div
       onClick={isClickable ? () => onCardClick(kpi.navSection, kpi.navSub) : undefined}
-      className={`${bgColor} rounded-xl border ${borderColor} p-4 pb-2 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col ${isClickable ? 'cursor-pointer' : ''}`}
+      className={`${bgColor} rounded-xl border ${borderColor} p-3 pb-1.5 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col ${isClickable ? 'cursor-pointer' : ''} ${!isPositive ? 'animate-attention-blink' : ''}`}
     >
       <div className="flex items-center justify-between mb-1">
         <p className={`text-[10px] font-bold uppercase tracking-widest ${labelColor}`}>
@@ -62,10 +62,10 @@ function KPICard({ kpi, idx, onCardClick }: { kpi: (typeof kpiData)[number]; idx
       </div>
 
       <div className="flex items-center justify-center my-1">
-        <span className={`text-xl font-extrabold tracking-tight ${valueColor}`}>{displayValue}</span>
+        <span className={`text-2xl font-extrabold tracking-tight ${valueColor}`}>{displayValue}</span>
       </div>
 
-      <div className="flex-1 min-h-[48px] -mx-2">
+      <div className="flex-1 min-h-[40px] -mx-2">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={sparkData} margin={{ top: 2, right: 0, bottom: 0, left: 0 }}>
             <defs>

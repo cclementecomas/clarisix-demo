@@ -56,15 +56,65 @@ const dimensionValues: Record<TrendDimension, string[]> = {
   subcategory: ['Premium', 'Standard', 'Economy', 'Deluxe', 'Mini', 'Pro'],
 };
 
-const timePeriods: Record<TrendGranularity, string[]> = {
-  day: [
-    'Nov 1', 'Nov 2', 'Nov 3', 'Nov 4', 'Nov 5', 'Nov 6', 'Nov 7',
-    'Nov 8', 'Nov 9', 'Nov 10', 'Nov 11', 'Nov 12', 'Nov 13', 'Nov 14',
-  ],
-  week: ['40', '41', '42', '43', '44', '45', '46', '47', '48', '49', '50', '51', '52', '53'],
-  month: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-  quarter: ['Q1', 'Q2', 'Q3', 'Q4'],
-};
+const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** Compute time period labels dynamically from a date range + granularity */
+function computePeriods(start: Date, end: Date, granularity: TrendGranularity): string[] {
+  const periods: string[] = [];
+  const cur = new Date(start);
+
+  switch (granularity) {
+    case 'day': {
+      while (cur <= end) {
+        periods.push(`${SHORT_MONTHS[cur.getMonth()]} ${cur.getDate()}`);
+        cur.setDate(cur.getDate() + 1);
+      }
+      break;
+    }
+    case 'week': {
+      // ISO week number helper
+      const isoWeek = (d: Date) => {
+        const tmp = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+        tmp.setDate(tmp.getDate() + 3 - ((tmp.getDay() + 6) % 7));
+        const jan4 = new Date(tmp.getFullYear(), 0, 4);
+        return 1 + Math.round(((tmp.getTime() - jan4.getTime()) / 86400000 - 3 + ((jan4.getDay() + 6) % 7)) / 7);
+      };
+      const seen = new Set<string>();
+      while (cur <= end) {
+        const label = `W${isoWeek(cur)}`;
+        if (!seen.has(label)) {
+          seen.add(label);
+          periods.push(label);
+        }
+        cur.setDate(cur.getDate() + 1);
+      }
+      break;
+    }
+    case 'month': {
+      while (cur <= end) {
+        const label = `${SHORT_MONTHS[cur.getMonth()]} ${cur.getFullYear().toString().slice(2)}`;
+        if (!periods.includes(label)) {
+          periods.push(label);
+        }
+        cur.setMonth(cur.getMonth() + 1);
+      }
+      break;
+    }
+    case 'quarter': {
+      while (cur <= end) {
+        const q = Math.floor(cur.getMonth() / 3) + 1;
+        const label = `Q${q} ${cur.getFullYear().toString().slice(2)}`;
+        if (!periods.includes(label)) {
+          periods.push(label);
+        }
+        cur.setMonth(cur.getMonth() + 3);
+      }
+      break;
+    }
+  }
+
+  return periods;
+}
 
 function seededRandom(seed: number): () => number {
   let s = seed;
@@ -104,8 +154,16 @@ export function generateTrendData(
   metric: TrendMetric,
   dimension: TrendDimension,
   granularity: TrendGranularity,
+  dateRange?: { start: Date; end: Date },
 ): { periods: string[]; rows: TrendRow[] } {
-  const periods = timePeriods[granularity];
+  const periods = dateRange
+    ? computePeriods(dateRange.start, dateRange.end, granularity)
+    : computePeriods(
+        new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1),
+        new Date(new Date().getFullYear(), new Date().getMonth(), 0),
+        granularity,
+      );
+
   const dims = dimensionValues[dimension];
 
   const rows: TrendRow[] = dims.map((dim) => {
@@ -149,8 +207,4 @@ export function generateTrendData(
   rows.sort((a, b) => b.total - a.total);
 
   return { periods, rows };
-}
-
-export function getTimePeriods(granularity: TrendGranularity): string[] {
-  return timePeriods[granularity];
 }

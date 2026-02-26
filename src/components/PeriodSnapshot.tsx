@@ -290,7 +290,7 @@ export default function PeriodSnapshot({ onCardClick }: PeriodSnapshotProps) {
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
       {/* Header bar */}
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100">
+      <div className="flex items-center justify-between px-4 py-1.5 border-b border-gray-100">
         <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider">Period Snapshot</h3>
         <div className="hidden md:flex items-center gap-1">
           {shareSuccess && (
@@ -383,11 +383,11 @@ export default function PeriodSnapshot({ onCardClick }: PeriodSnapshotProps) {
       <div className="hidden md:block overflow-x-auto">
         {/* Column headers */}
         <div className="grid grid-cols-[130px_repeat(5,1fr)] min-w-[780px]">
-          <div className="p-2.5 bg-gray-50/50" />
+          <div className="py-1.5 px-2.5 bg-gray-50/50" />
           {periodSnapshots.map((period) => (
             <div
               key={period.label}
-              className="p-2.5 border-l border-gray-100 bg-gray-50/50"
+              className="py-1.5 px-2.5 border-l border-gray-100 bg-gray-50/50"
             >
               <p className="text-[11px] font-bold text-cx-700 leading-tight">{period.label}</p>
               <p className="text-[9px] text-gray-400 mt-0.5">{period.sublabel}</p>
@@ -406,7 +406,7 @@ export default function PeriodSnapshot({ onCardClick }: PeriodSnapshotProps) {
               className={`grid grid-cols-[130px_repeat(5,1fr)] min-w-[780px] ${!isLast ? 'border-b border-gray-100/60' : ''}`}
             >
               <div
-                className="p-2.5 flex items-center justify-between cursor-pointer group/label bg-gray-50/30 border-r border-gray-100"
+                className="py-1.5 px-2.5 flex items-center justify-between cursor-pointer group/label bg-gray-50/30 border-r border-gray-100"
                 onClick={() => onCardClick?.(nav.section, nav.sub)}
               >
                 <span className="text-[11px] font-semibold text-gray-600 group-hover/label:text-cx-600 transition-colors">
@@ -417,7 +417,7 @@ export default function PeriodSnapshot({ onCardClick }: PeriodSnapshotProps) {
 
               {periodSnapshots.map((period) => {
                 const metric = period.metrics[kpi];
-                if (!metric) return <div key={period.label} className="p-2.5 border-l border-gray-100" />;
+                if (!metric) return <div key={period.label} className="py-1.5 px-2.5 border-l border-gray-100" />;
 
                 const isPositive = metric.changePositive ?? true;
                 const isNeutral = metric.change === 0;
@@ -437,7 +437,7 @@ export default function PeriodSnapshot({ onCardClick }: PeriodSnapshotProps) {
                 return (
                   <div
                     key={period.label}
-                    className={`p-2.5 border-l ${colors.border} ${colors.bg} transition-colors`}
+                    className={`py-1.5 px-2.5 border-l ${colors.border} ${colors.bg} transition-colors`}
                   >
                     <span className={`text-sm font-bold ${colors.text} tabular-nums leading-tight`}>
                       {displayValue}

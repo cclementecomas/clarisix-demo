@@ -10,6 +10,10 @@ export default function SelectionStats({ values }: SelectionStatsProps) {
   const avg = sum / count;
   const min = Math.min(...values);
   const max = Math.max(...values);
+  const sorted = [...values].sort((a, b) => a - b);
+  const median = count % 2 === 1
+    ? sorted[Math.floor(count / 2)]
+    : (sorted[count / 2 - 1] + sorted[count / 2]) / 2;
 
   const fmt = (n: number) => {
     if (Math.abs(n) >= 1000) {
@@ -22,6 +26,7 @@ export default function SelectionStats({ values }: SelectionStatsProps) {
     { label: 'Count', value: count.toString() },
     { label: 'Sum', value: fmt(sum) },
     { label: 'Average', value: fmt(avg) },
+    { label: 'Median', value: fmt(median) },
     { label: 'Min', value: fmt(min) },
     { label: 'Max', value: fmt(max) },
   ];

@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { ChevronDown, Calendar, Menu, Check, X, Building2 } from 'lucide-react';
+import { ChevronDown, Calendar, Menu, Check, X, Building2, Search } from 'lucide-react';
 import { filterOptions } from '../data/dashboardData';
 import DateFilterModal from './datefilter/DateFilterModal';
 import UserDropdown from './UserDropdown';
@@ -10,12 +10,14 @@ import {
 } from '../utils/dateRanges';
 import { useCurrency, type Currency, CURRENCY_SYMBOLS } from '../contexts/CurrencyContext';
 import { useOnboarding } from '../contexts/OnboardingContext';
+import { useDateFilter } from '../contexts/DateFilterContext';
 
 function MultiSelectFilter({ label, options }: { label: string; options: string[] }) {
   const allOption = options[0];
   const selectableOptions = options.slice(1);
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [search, setSearch] = useState('');
 
   const isAll = selected.size === 0;
 
@@ -34,6 +36,15 @@ function MultiSelectFilter({ label, options }: { label: string; options: string[
   const clearAll = () => {
     setSelected(new Set());
   };
+
+  const closeDropdown = () => {
+    setOpen(false);
+    setSearch('');
+  };
+
+  const filteredOptions = search
+    ? selectableOptions.filter((opt) => opt.toLowerCase().includes(search.toLowerCase()))
+    : selectableOptions;
 
   const displayLabel = isAll
     ? 'All'
@@ -63,39 +74,66 @@ function MultiSelectFilter({ label, options }: { label: string; options: string[
       </button>
       {open && (
         <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute top-full left-0 mt-1 z-20 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[200px] max-h-[280px] overflow-y-auto">
-            <button
-              onClick={clearAll}
-              className={`flex items-center gap-2 w-full text-left px-3 py-1.5 text-sm hover:bg-cx-50 transition-colors ${
-                isAll ? 'text-cx-700 bg-cx-50 font-medium' : 'text-gray-700'
-              }`}
-            >
-              <span className="w-4 h-4 flex items-center justify-center">
-                {isAll && <Check className="w-3.5 h-3.5 text-cx-500" />}
-              </span>
-              {allOption}
-            </button>
-            <div className="border-t border-gray-100 my-1" />
-            {selectableOptions.map((opt) => {
-              const isChecked = selected.has(opt);
-              return (
-                <button
-                  key={opt}
-                  onClick={() => toggleOption(opt)}
-                  className={`flex items-center gap-2 w-full text-left px-3 py-1.5 text-sm hover:bg-cx-50 transition-colors ${
-                    isChecked ? 'text-cx-700 font-medium' : 'text-gray-700'
-                  }`}
-                >
-                  <span className={`w-4 h-4 flex items-center justify-center rounded border transition-colors ${
-                    isChecked ? 'bg-cx-500 border-cx-500' : 'border-gray-300'
-                  }`}>
-                    {isChecked && <Check className="w-3 h-3 text-white" />}
-                  </span>
-                  {opt}
-                </button>
-              );
-            })}
+          <div className="fixed inset-0 z-10" onClick={closeDropdown} />
+          <div className="absolute top-full left-0 mt-1 z-20 bg-white border border-gray-200 rounded-lg shadow-lg min-w-[200px] max-h-[320px] flex flex-col">
+            {/* Search input */}
+            <div className="sticky top-0 bg-white px-2.5 py-2 border-b border-gray-100">
+              <div className="relative">
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                <input
+                  autoFocus
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder={`Search ${label.toLowerCase()}...`}
+                  className="w-full pl-7 pr-2 py-1.5 text-sm bg-gray-50 border border-gray-200 rounded-md focus:outline-none focus:border-cx-300 focus:ring-1 focus:ring-cx-200 placeholder-gray-400"
+                />
+              </div>
+            </div>
+
+            <div className="overflow-y-auto py-1">
+              {/* "All" option — hidden when searching */}
+              {!search && (
+                <>
+                  <button
+                    onClick={clearAll}
+                    className={`flex items-center gap-2 w-full text-left px-3 py-1.5 text-sm hover:bg-cx-50 transition-colors ${
+                      isAll ? 'text-cx-700 bg-cx-50 font-medium' : 'text-gray-700'
+                    }`}
+                  >
+                    <span className="w-4 h-4 flex items-center justify-center">
+                      {isAll && <Check className="w-3.5 h-3.5 text-cx-500" />}
+                    </span>
+                    {allOption}
+                  </button>
+                  <div className="border-t border-gray-100 my-1" />
+                </>
+              )}
+
+              {filteredOptions.length === 0 ? (
+                <p className="px-3 py-2 text-sm text-gray-400">No results</p>
+              ) : (
+                filteredOptions.map((opt) => {
+                  const isChecked = selected.has(opt);
+                  return (
+                    <button
+                      key={opt}
+                      onClick={() => toggleOption(opt)}
+                      className={`flex items-center gap-2 w-full text-left px-3 py-1.5 text-sm hover:bg-cx-50 transition-colors ${
+                        isChecked ? 'text-cx-700 font-medium' : 'text-gray-700'
+                      }`}
+                    >
+                      <span className={`w-4 h-4 flex items-center justify-center rounded border transition-colors ${
+                        isChecked ? 'bg-cx-500 border-cx-500' : 'border-gray-300'
+                      }`}>
+                        {isChecked && <Check className="w-3 h-3 text-white" />}
+                      </span>
+                      {opt}
+                    </button>
+                  );
+                })
+              )}
+            </div>
           </div>
         </>
       )}
@@ -193,11 +231,9 @@ interface NavigationProps {
   isEmbed?: boolean;
 }
 
-const defaultRange = resolveQuickPreset('Last month');
-
 export default function Navigation({ activeSection, activeSub, sidebarCollapsed, onToggleSidebar, currentPage, onNavigate, isOnboarding, isWizard, isEmbed }: NavigationProps) {
   const [dateFilterOpen, setDateFilterOpen] = useState(false);
-  const [dateResult, setDateResult] = useState<DateFilterResult>(defaultRange);
+  const { dateResult, setDateResult } = useDateFilter();
   const closeDateFilter = useCallback(() => setDateFilterOpen(false), []);
 
   function handleDateApply(result: DateFilterResult) {
@@ -206,7 +242,7 @@ export default function Navigation({ activeSection, activeSub, sidebarCollapsed,
 
   return (
     <header className={`bg-white border-b border-gray-100 sticky top-0 z-30 ${isEmbed ? 'hidden md:block' : ''}`}>
-      <div className="flex items-center justify-between px-3 md:px-6 py-2.5 border-b border-gray-50">
+      <div className="flex items-center justify-between px-3 md:px-6 py-1.5 border-b border-gray-50">
         <div className="flex items-center gap-3">
           {sidebarCollapsed && !isOnboarding && !isEmbed && (
             <button
@@ -281,7 +317,7 @@ export default function Navigation({ activeSection, activeSub, sidebarCollapsed,
       </div>
 
       {!isOnboarding && (currentPage === 'dashboard' || currentPage === 'home') && (
-        <div className={`flex items-center px-3 md:px-6 py-2 bg-gray-50/50 gap-2 flex-wrap ${isEmbed ? 'hidden md:flex' : ''}`}>
+        <div className={`flex items-center px-3 md:px-6 py-1.5 bg-gray-50/50 gap-2 flex-wrap ${isEmbed ? 'hidden md:flex' : ''}`}>
           <MultiSelectFilter label="Marketplace" options={filterOptions.marketplace} />
           <MultiSelectFilter label="Brand" options={filterOptions.brand} />
           <MultiSelectFilter label="Category" options={filterOptions.category} />

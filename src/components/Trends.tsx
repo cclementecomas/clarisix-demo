@@ -9,6 +9,7 @@ import {
   type TrendGranularity,
 } from '../data/trendsData';
 import TrendsPivotTable from './trends/TrendsPivotTable';
+import { useDateFilter } from '../contexts/DateFilterContext';
 
 const granularityOptions: { value: TrendGranularity; label: string }[] = [
   { value: 'day', label: 'Day' },
@@ -71,17 +72,21 @@ export default function Trends() {
   const [metric, setMetric] = useState<TrendMetric>('adSpend');
   const [dimension, setDimension] = useState<TrendDimension>('marketplace');
   const [granularity, setGranularity] = useState<TrendGranularity>('week');
+  const { dateResult } = useDateFilter();
 
   const metricInfo = metricOptions.find(m => m.value === metric)!;
   const dimensionInfo = dimensionOptions.find(d => d.value === dimension)!;
 
   const { periods, rows } = useMemo(
-    () => generateTrendData(metric, dimension, granularity),
-    [metric, dimension, granularity],
+    () => generateTrendData(metric, dimension, granularity, {
+      start: dateResult.primary.start,
+      end: dateResult.primary.end,
+    }),
+    [metric, dimension, granularity, dateResult.primary.start, dateResult.primary.end],
   );
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 min-w-0">
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-3">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-4 flex-wrap">
