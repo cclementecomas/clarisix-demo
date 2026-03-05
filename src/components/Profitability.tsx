@@ -1,45 +1,79 @@
-import { useState, useCallback } from 'react';
-import { ChevronDown, ChevronRight, Info, Table2, TrendingUp, Download, Sheet } from 'lucide-react';
+import { useState, useCallback, useMemo } from 'react';
+import { ChevronRight, Info, TrendingUp, Download, Sheet, Calendar } from 'lucide-react';
 import { profitabilityData, ProfitabilityMetric } from '../data/profitabilityData';
 import InfoTooltip from './InfoTooltip';
 import LastRefreshed from './LastRefreshed';
-import { useCurrency, CURRENCY_SYMBOLS, CONVERSION_RATES } from '../contexts/CurrencyContext';
+import { useCurrency, CURRENCY_SYMBOLS } from '../contexts/CurrencyContext';
 import { convert } from '../utils/currency';
 import * as XLSX from 'xlsx';
 import { exportToGoogleSheets } from '../utils/exportSheets';
 
-type ColumnView = 'summary' | 'all';
-type ComparisonView = 'yoy' | 'none';
+type Granularity = 'monthly' | 'quarterly' | 'yearly';
+type SelectedYear = 2024 | 2025;
+
+interface PeriodColumn {
+  key: string;
+  label: string;
+  sublabel?: string;
+  priorKey?: string;
+}
+
+const MONTH_KEYS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+function getPeriodColumns(granularity: Granularity, year: SelectedYear): PeriodColumn[] {
+  if (granularity === 'monthly') {
+    return MONTH_KEYS.map((m, i) => ({
+      key: `${m}${year}`,
+      label: MONTH_LABELS[i],
+      sublabel: String(year),
+      priorKey: year === 2025 ? `${m}2024` : undefined,
+    }));
+  }
+  if (granularity === 'quarterly') {
+    return [1, 2, 3, 4].map((q) => ({
+      key: `q${q}${year}`,
+      label: `Q${q}`,
+      sublabel: String(year),
+      priorKey: year === 2025 ? `q${q}2024` : undefined,
+    }));
+  }
+  return [
+    { key: 'fy2023', label: 'FY2023' },
+    { key: 'fy2024', label: 'FY2024' },
+    { key: 'fy2025', label: 'FY2025' },
+  ];
+}
 
 export default function Profitability() {
   const { currency } = useCurrency();
-  const [columnView, setColumnView] = useState<ColumnView>('summary');
-  const [comparisonView, setComparisonView] = useState<ComparisonView>('yoy');
+  const [granularity, setGranularity] = useState<Granularity>('quarterly');
+  const [selectedYear, setSelectedYear] = useState<SelectedYear>(2025);
+  const [showYoY, setShowYoY] = useState(true);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [sheetsUrl, setSheetsUrl] = useState<string | null>(null);
 
-  const buildExportRows = useCallback((): (string | number)[][] => {
-    const headers = ['Line Item', "YTD '25", "YTD '24", "LTM '25", "PTM '24", "L3M '25", "P3M '24", 'Total', 'Nov 2024', 'Dec 2024', 'Jan 2025', 'Feb 2025'];
-    const keys: (keyof ProfitabilityMetric)[] = ['ytd25', 'ytd24', 'ltm25', 'ptm24', 'l3m25', 'p3m24', 'total', 'nov2024', 'dec2024', 'jan2025', 'feb2025'];
-    const rows: (string | number)[][] = [headers];
+  const columns = useMemo(() => getPeriodColumns(granularity, selectedYear), [granularity, selectedYear]);
 
+  const buildExportRows = useCallback((): (string | number)[][] => {
+    const headers = ['Line Item', ...columns.map((c) => c.label)];
+    const rows: (string | number)[][] = [headers];
     for (const metric of profitabilityData) {
       const indent = metric.indent || 0;
       const label = indent > 0 ? '  '.repeat(indent) + metric.label : metric.label;
       const cells: (string | number)[] = [label];
-      for (const key of keys) {
-        const val = metric[key];
+      for (const col of columns) {
+        const val = metric[col.key];
         if (typeof val === 'number') cells.push(val);
         else if (typeof val === 'string') cells.push(val);
         else cells.push('');
       }
       rows.push(cells);
     }
-
     rows.push([]);
     rows.push(['Generated with clarisix.com — Profitability Statement']);
     return rows;
-  }, []);
+  }, [columns]);
 
   const exportToExcel = useCallback(() => {
     const rows = buildExportRows();
@@ -155,13 +189,18 @@ export default function Profitability() {
     );
   };
 
-  const renderGrowthIndicator = (value: number | string) => {
-    if (typeof value === 'string' || value === 0) return null;
-
-    const isPositive = value > 0;
+  const renderYoYDelta = (metric: ProfitabilityMetric, col: PeriodColumn) => {
+    if (!showYoY || !col.priorKey || metric.type === 'percentage' || metric.type === 'growth') return null;
+    const current = metric[col.key];
+    const prior = metric[col.priorKey];
+    if (typeof current !== 'number' || typeof prior !== 'number' || prior === 0) return null;
+    const delta = ((current - prior) / Math.abs(prior)) * 100;
+    // For cost lines (negative = good), flip the color logic
+    const isCostLine = metric.type === 'currency' && (current < 0 || prior < 0);
+    const isGood = isCostLine ? delta <= 0 : delta >= 0;
     return (
-      <span className={`ml-2 text-xs font-medium ${isPositive ? 'text-green-700' : 'text-red-600'}`}>
-        {isPositive ? '▲' : '▼'} {Math.abs(value).toFixed(1)}%
+      <span className={`block text-[10px] font-medium leading-tight mt-0.5 ${isGood ? 'text-green-700' : 'text-red-600'}`}>
+        {delta > 0 ? '▲' : '▼'} {Math.abs(delta).toFixed(1)}% YoY
       </span>
     );
   };
@@ -216,27 +255,64 @@ export default function Profitability() {
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
-          <div className="relative">
-            <button
-              onClick={() => setColumnView(columnView === 'summary' ? 'all' : 'summary')}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:border-gray-400 transition-colors"
-            >
-              <Table2 className="w-4 h-4" />
-              <span>{columnView === 'summary' ? 'Summary columns' : 'All columns'}</span>
-              <ChevronDown className="w-4 h-4" />
-            </button>
+        {/* Controls bar */}
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Granularity segmented control */}
+          <div className="flex items-center bg-gray-100 rounded-lg p-0.5 gap-0.5">
+            {(['monthly', 'quarterly', 'yearly'] as Granularity[]).map((g) => (
+              <button
+                key={g}
+                onClick={() => setGranularity(g)}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all capitalize ${
+                  granularity === g
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {g}
+              </button>
+            ))}
           </div>
 
-          <div className="relative">
+          {/* Year picker — only for monthly/quarterly */}
+          {granularity !== 'yearly' && (
+            <div className="flex items-center bg-gray-100 rounded-lg p-0.5 gap-0.5">
+              {([2024, 2025] as SelectedYear[]).map((y) => (
+                <button
+                  key={y}
+                  onClick={() => setSelectedYear(y)}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
+                    selectedYear === y
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  {y}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* YoY toggle — only when comparison is possible */}
+          {(granularity !== 'yearly' && selectedYear === 2025) && (
             <button
-              onClick={() => setComparisonView(comparisonView === 'yoy' ? 'none' : 'yoy')}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:border-gray-400 transition-colors"
+              onClick={() => setShowYoY(!showYoY)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all ${
+                showYoY
+                  ? 'bg-cx-50 border-cx-300 text-cx-700'
+                  : 'bg-white border-gray-300 text-gray-500 hover:border-gray-400'
+              }`}
             >
-              <TrendingUp className="w-4 h-4" />
-              <span>{comparisonView === 'yoy' ? 'Year over year growth' : 'No comparison'}</span>
-              <ChevronDown className="w-4 h-4" />
+              <TrendingUp className="w-3.5 h-3.5" />
+              YoY
             </button>
+          )}
+
+          <div className="ml-auto flex items-center gap-1 text-xs text-gray-400">
+            <Calendar className="w-3.5 h-3.5" />
+            <span>
+              {granularity === 'monthly' ? `Monthly · ${selectedYear}` : granularity === 'quarterly' ? `Quarterly · ${selectedYear}` : 'Yearly · FY2023–FY2025'}
+            </span>
           </div>
         </div>
       </div>
@@ -248,45 +324,18 @@ export default function Profitability() {
               <th className="sticky left-0 z-10 bg-slate-700 px-4 py-3.5 text-left text-xs font-bold uppercase tracking-wider min-w-[280px]">
                 Line Item
               </th>
-              <th className="px-4 py-3.5 text-right text-xs font-bold uppercase tracking-wider whitespace-nowrap">
-                YTD '25
-              </th>
-              <th className="px-4 py-3.5 text-right text-xs font-bold uppercase tracking-wider whitespace-nowrap">
-                YTD '24
-              </th>
-              <th className="px-4 py-3.5 text-right text-xs font-bold uppercase tracking-wider whitespace-nowrap">
-                LTM '25
-              </th>
-              <th className="px-4 py-3.5 text-right text-xs font-bold uppercase tracking-wider whitespace-nowrap">
-                PTM '24
-              </th>
-              <th className="px-4 py-3.5 text-right text-xs font-bold uppercase tracking-wider whitespace-nowrap">
-                L3M '25
-              </th>
-              <th className="px-4 py-3.5 text-right text-xs font-bold uppercase tracking-wider whitespace-nowrap">
-                P3M '24
-              </th>
-              <th className="px-4 py-3.5 text-right text-xs font-bold uppercase tracking-wider whitespace-nowrap bg-slate-800">
-                Total
-              </th>
-              <th className="px-4 py-3.5 text-right text-xs font-bold uppercase tracking-wider whitespace-nowrap">
-                Nov 2024
-              </th>
-              <th className="px-4 py-3.5 text-right text-xs font-bold uppercase tracking-wider whitespace-nowrap">
-                Dec 2024
-              </th>
-              <th className="px-4 py-3.5 text-right text-xs font-bold uppercase tracking-wider whitespace-nowrap">
-                Jan 2025
-              </th>
-              <th className="px-4 py-3.5 text-right text-xs font-bold uppercase tracking-wider whitespace-nowrap">
-                Feb 2025
-              </th>
+              {columns.map((col) => (
+                <th key={col.key} className="px-4 py-3.5 text-right text-xs font-bold uppercase tracking-wider whitespace-nowrap">
+                  <div>{col.label}</div>
+                  {col.sublabel && <div className="text-[10px] font-normal text-slate-400 mt-0.5">{col.sublabel}</div>}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
             {profitabilityData.filter((metric) =>
               !metric.parentGroup || expandedRows.has(metric.parentGroup)
-            ).map((metric, index) => {
+            ).map((metric) => {
               const { rowClasses, labelClasses, cellClasses } = getRowStyles(metric);
               const indent = metric.indent || 0;
 
@@ -299,11 +348,7 @@ export default function Profitability() {
                           onClick={() => toggleRow(metric.label)}
                           className="text-gray-500 hover:text-gray-700 transition-colors"
                         >
-                          {expandedRows.has(metric.label) ? (
-                            <ChevronDown className="w-4 h-4" />
-                          ) : (
-                            <ChevronRight className="w-4 h-4" />
-                          )}
+                          <ChevronRight className={`w-4 h-4 transition-transform ${expandedRows.has(metric.label) ? 'rotate-90' : ''}`} />
                         </button>
                       )}
                       {!metric.isExpandable && metric.indent === 0 && <span className="w-4"></span>}
@@ -311,22 +356,23 @@ export default function Profitability() {
                       {metric.hasInfo && (
                         <Info className="w-3.5 h-3.5 text-gray-400" />
                       )}
-                      {metric.type === 'growth' && comparisonView === 'yoy' &&
-                        renderGrowthIndicator(metric.ytd25)}
                     </div>
                   </td>
 
-                  {renderCell(metric, 'ytd25', cellClasses)}
-                  {renderCell(metric, 'ytd24', cellClasses)}
-                  {renderCell(metric, 'ltm25', cellClasses)}
-                  {renderCell(metric, 'ptm24', cellClasses)}
-                  {renderCell(metric, 'l3m25', cellClasses)}
-                  {renderCell(metric, 'p3m24', cellClasses)}
-                  {renderCell(metric, 'total', `${cellClasses} ${metric.styleType === 'total' ? 'bg-slate-100 font-bold' : metric.styleType === 'header' ? 'bg-gray-200' : ''}`)}
-                  {renderCell(metric, 'nov2024', cellClasses)}
-                  {renderCell(metric, 'dec2024', cellClasses)}
-                  {renderCell(metric, 'jan2025', cellClasses)}
-                  {renderCell(metric, 'feb2025', cellClasses)}
+                  {columns.map((col) => {
+                    const value = metric[col.key];
+                    if (typeof value !== 'number' && typeof value !== 'string') {
+                      return <td key={col.key} className={cellClasses} />;
+                    }
+                    const isNegative = typeof value === 'number' && value < 0;
+                    const tdClasses = `${cellClasses} ${isNegative && metric.type === 'currency' ? 'text-red-700' : ''}`;
+                    return (
+                      <td key={col.key} className={tdClasses}>
+                        {formatValue(value, metric.type)}
+                        {renderYoYDelta(metric, col)}
+                      </td>
+                    );
+                  })}
                 </tr>
               );
             })}
@@ -349,6 +395,12 @@ export default function Profitability() {
               <span className="italic">Italics</span>
               <span>Ratios & percentages</span>
             </div>
+            {showYoY && granularity !== 'yearly' && selectedYear === 2025 && (
+              <div className="flex items-center gap-2">
+                <span className="text-green-700 font-medium">▲ / <span className="text-red-600">▼</span></span>
+                <span>YoY vs {selectedYear - 1}</span>
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-4 text-gray-500">
             <span>All amounts in {currency}</span>

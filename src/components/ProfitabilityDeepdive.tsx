@@ -272,54 +272,60 @@ export default function ProfitabilityDeepdive() {
 
   const columns: ColumnDef[] = useMemo(() => [
     { field: 'asin', headerName: 'ASIN', pinned: 'left', width: 130 },
-    { field: 'product', headerName: 'Product', width: 220 },
-    { field: 'category', headerName: 'Category', width: 120 },
-    // ── Revenue ──────────────────────────────────────────────────────────
-    { field: 'unitsSold', headerName: 'Units Sold', width: 110, valueFormatter: numberFormatter, subFields: pctSub('unitsSold') },
-    { field: 'avgPrice', headerName: 'Avg Price', width: 105, valueFormatter: cf, subFields: pctSub('avgPrice') },
-    { field: 'grossRevenue', headerName: 'Gross Revenue', width: 130, valueFormatter: cf, subFields: pctSub('grossRevenue') },
-    { field: 'refundsAndReturns', headerName: 'Refunds & Returns', width: 145, valueFormatter: cf, cellStyle: (): Record<string, string> => ({ color: '#991B1B' }), subFields: pctSub('refundsAndReturns') },
-    { field: 'netRevenue', headerName: 'Net Revenue', width: 125, valueFormatter: cf, subFields: pctSub('netRevenue') },
-    // ── COGS ─────────────────────────────────────────────────────────────
-    { field: 'netCogs', headerName: 'COGS', width: 110, valueFormatter: cf, subFields: pctSub('netCogs') },
-    // ── Gross Profit ─────────────────────────────────────────────────────
-    { field: 'grossProfit', headerName: 'Gross Profit', width: 125, valueFormatter: cf, cellStyle: profitCellStyle(currency), subFields: pctSub('grossProfit') },
-    { field: 'grossMargin', headerName: 'Gross Margin %', width: 130, valueFormatter: pctShareFormatter, cellStyle: marginCellStyle, subFields: ppSub('grossMargin') },
-    // ── Amazon Fees & Advertising ────────────────────────────────────────
-    { field: 'totalAmazonFees', headerName: 'Amazon Fees', width: 125, valueFormatter: cf, subFields: pctSub('totalAmazonFees') },
-    { field: 'totalAdvertising', headerName: 'Advertising', width: 120, valueFormatter: cf, subFields: pctSub('totalAdvertising') },
-    { field: 'totalReimbursements', headerName: 'Reimbursements', width: 135, valueFormatter: cf, cellStyle: reimbursementCellStyle, subFields: pctSub('totalReimbursements') },
-    // ── Contribution Profit ──────────────────────────────────────────────
-    { field: 'contributionProfit', headerName: 'Contribution Profit', width: 155, valueFormatter: cf, cellStyle: profitCellStyle(currency), subFields: pctSub('contributionProfit') },
-    { field: 'contributionMargin', headerName: 'Contrib. Margin %', width: 145, valueFormatter: pctShareFormatter, cellStyle: marginCellStyle, subFields: ppSub('contributionMargin') },
-    // ── Overheads & Net Operating Profit ─────────────────────────────────
-    { field: 'allocatedOverheads', headerName: 'Overheads', width: 115, valueFormatter: cf, subFields: pctSub('allocatedOverheads') },
-    { field: 'netOperatingProfit', headerName: 'Net Op. Profit', width: 135, valueFormatter: cf, cellStyle: profitCellStyle(currency), subFields: pctSub('netOperatingProfit') },
-    { field: 'netMargin', headerName: 'Net Margin %', width: 120, valueFormatter: pctShareFormatter, cellStyle: marginCellStyle, subFields: ppSub('netMargin') },
-    // ── Unit Economics ───────────────────────────────────────────────────
-    { field: 'profitPerUnit', headerName: 'Profit/Unit', width: 110, valueFormatter: cf, cellStyle: profitCellStyle(currency), subFields: pctSub('profitPerUnit') },
-    // ── Efficiency ───────────────────────────────────────────────────────
-    { field: 'acos', headerName: 'ACOS %', width: 100, valueFormatter: pctShareFormatter, cellStyle: acosCellStyle, subFields: ppSub('acos') },
-    { field: 'tacos', headerName: 'TACOS %', width: 100, valueFormatter: pctShareFormatter, cellStyle: acosCellStyle, subFields: ppSub('tacos') },
-    { field: 'roas', headerName: 'ROAS', width: 90, valueFormatter: (p: { value: unknown }) => { const v = p.value as number; return v != null ? `${v.toFixed(2)}x` : ''; }, subFields: pctSub('roas') },
-    // ── Returns ──────────────────────────────────────────────────────────
-    { field: 'returnRate', headerName: 'Return Rate %', width: 125, valueFormatter: pctShareFormatter, cellStyle: returnCellStyle, subFields: ppSub('returnRate') },
-    { field: 'refundRate', headerName: 'Refund Rate %', width: 125, valueFormatter: pctShareFormatter, cellStyle: returnCellStyle, subFields: ppSub('refundRate') },
-    // P&L waterfall action
-    { field: '_waterfall', headerName: 'P&L', width: 50, valueFormatter: ({ row }: { value: unknown; row: any }) => {
+    // P&L waterfall action — prominent, right after ASIN
+    { field: '_waterfall', headerName: 'P&L', width: 52, valueFormatter: ({ row }: { value: unknown; row: any }) => {
       if (row.asin === 'TOTAL' || row.sku) return '';
+      const isActive = waterfallProduct?.asin === row.asin;
       return (
         <button
           onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => { e.stopPropagation(); setWaterfallProduct((prev) => prev?.asin === row.asin ? null : row); }}
-          className="w-6 h-6 flex items-center justify-center rounded hover:bg-cx-100 transition-colors group"
+          className={`flex items-center justify-center gap-1 w-full px-1.5 py-0.5 rounded text-[10px] font-semibold transition-colors ${
+            isActive
+              ? 'bg-cx-500 text-white'
+              : 'bg-cx-50 text-cx-600 hover:bg-cx-100'
+          }`}
           title="View P&L Waterfall"
         >
-          <BarChart2 className="w-3.5 h-3.5 text-gray-300 group-hover:text-cx-500 transition-colors" />
+          <BarChart2 className="w-3 h-3" />
+          P&L
         </button>
       );
     }},
-  ], [currency, cf]);
+    { field: 'product', headerName: 'Product', width: 220 },
+    // ── Revenue ──────────────────────────────────────────────────────────
+    { field: 'unitsSold', headerName: 'Units Sold', width: 110, valueFormatter: numberFormatter, subFields: pctSub('unitsSold') },
+    { field: 'avgPrice', headerName: 'Avg Price', width: 105, valueFormatter: cf, subFields: pctSub('avgPrice'), hide: true },
+    { field: 'grossRevenue', headerName: 'Gross Revenue', width: 130, valueFormatter: cf, subFields: pctSub('grossRevenue') },
+    { field: 'refundsAndReturns', headerName: 'Refunds & Returns', width: 145, valueFormatter: cf, cellStyle: (): Record<string, string> => ({ color: '#991B1B' }), subFields: pctSub('refundsAndReturns'), hide: true },
+    { field: 'netRevenue', headerName: 'Net Revenue', width: 125, valueFormatter: cf, subFields: pctSub('netRevenue'), hide: true },
+    // ── COGS ─────────────────────────────────────────────────────────────
+    { field: 'netCogs', headerName: 'COGS', width: 110, valueFormatter: cf, subFields: pctSub('netCogs'), hide: true },
+    // ── Gross Profit ─────────────────────────────────────────────────────
+    { field: 'grossProfit', headerName: 'Gross Profit', width: 125, valueFormatter: cf, cellStyle: profitCellStyle(currency), subFields: pctSub('grossProfit'), hide: true },
+    { field: 'grossMargin', headerName: 'Gross Margin %', width: 130, valueFormatter: pctShareFormatter, cellStyle: marginCellStyle, subFields: ppSub('grossMargin') },
+    // ── Amazon Fees & Advertising ────────────────────────────────────────
+    { field: 'totalAmazonFees', headerName: 'Amazon Fees', width: 125, valueFormatter: cf, subFields: pctSub('totalAmazonFees'), hide: true },
+    { field: 'totalAdvertising', headerName: 'Advertising', width: 120, valueFormatter: cf, subFields: pctSub('totalAdvertising'), hide: true },
+    { field: 'totalReimbursements', headerName: 'Reimbursements', width: 135, valueFormatter: cf, cellStyle: reimbursementCellStyle, subFields: pctSub('totalReimbursements'), hide: true },
+    // ── Contribution Profit ──────────────────────────────────────────────
+    { field: 'contributionProfit', headerName: 'Contribution Profit', width: 155, valueFormatter: cf, cellStyle: profitCellStyle(currency), subFields: pctSub('contributionProfit') },
+    { field: 'contributionMargin', headerName: 'Contrib. Margin %', width: 145, valueFormatter: pctShareFormatter, cellStyle: marginCellStyle, subFields: ppSub('contributionMargin') },
+    // ── Overheads & Net Operating Profit ─────────────────────────────────
+    { field: 'allocatedOverheads', headerName: 'Overheads', width: 115, valueFormatter: cf, subFields: pctSub('allocatedOverheads'), hide: true },
+    { field: 'netOperatingProfit', headerName: 'Net Op. Profit', width: 135, valueFormatter: cf, cellStyle: profitCellStyle(currency), subFields: pctSub('netOperatingProfit'), hide: true },
+    { field: 'netMargin', headerName: 'Net Margin %', width: 120, valueFormatter: pctShareFormatter, cellStyle: marginCellStyle, subFields: ppSub('netMargin') },
+    // ── Unit Economics ───────────────────────────────────────────────────
+    { field: 'profitPerUnit', headerName: 'Profit/Unit', width: 110, valueFormatter: cf, cellStyle: profitCellStyle(currency), subFields: pctSub('profitPerUnit'), hide: true },
+    // ── Efficiency ───────────────────────────────────────────────────────
+    { field: 'category', headerName: 'Category', width: 120, hide: true },
+    { field: 'acos', headerName: 'ACOS %', width: 100, valueFormatter: pctShareFormatter, cellStyle: acosCellStyle, subFields: ppSub('acos'), hide: true },
+    { field: 'tacos', headerName: 'TACOS %', width: 100, valueFormatter: pctShareFormatter, cellStyle: acosCellStyle, subFields: ppSub('tacos'), hide: true },
+    { field: 'roas', headerName: 'ROAS', width: 90, valueFormatter: (p: { value: unknown }) => { const v = p.value as number; return v != null ? `${v.toFixed(2)}x` : ''; }, subFields: pctSub('roas'), hide: true },
+    // ── Returns ──────────────────────────────────────────────────────────
+    { field: 'returnRate', headerName: 'Return Rate %', width: 125, valueFormatter: pctShareFormatter, cellStyle: returnCellStyle, subFields: ppSub('returnRate'), hide: true },
+    { field: 'refundRate', headerName: 'Refund Rate %', width: 125, valueFormatter: pctShareFormatter, cellStyle: returnCellStyle, subFields: ppSub('refundRate'), hide: true },
+  ], [currency, cf, waterfallProduct]);
 
   // Flatten data for table
   const rows = useMemo(() =>
