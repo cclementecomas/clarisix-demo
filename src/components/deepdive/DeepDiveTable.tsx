@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import { ArrowUp, ArrowDown, ChevronRight, ChevronsUpDown, Download } from 'lucide-react';
+import { ArrowUp, ArrowDown, ChevronRight, ChevronsUpDown, Download, Sheet, MousePointer2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import ColumnToggle from './ColumnToggle';
 import SelectionStats from './SelectionStats';
@@ -7,6 +7,7 @@ import InfoTooltip from '../InfoTooltip';
 import { fc } from '../../utils/currency';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import type { Currency } from '../../contexts/CurrencyContext';
+import { exportToGoogleSheets } from '../../utils/exportSheets';
 
 export interface ColumnDef {
   field: string;
@@ -145,6 +146,9 @@ export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottom
   const [showLY, setShowLY] = useState(false);
   const [showHint, setShowHint] = useState(true);
   const [hasInteracted, setHasInteracted] = useState(false);
+  const [sheetsUrl, setSheetsUrl] = useState<string | null>(null);
+  const [selectMode, setSelectMode] = useState(false);
+  const touchStartPos = useRef<{ x: number; y: number } | null>(null);
 
   const filterSubFields = useCallback(
     (subFields?: ColumnDef['subFields']) => {
@@ -210,9 +214,38 @@ export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottom
   const visibleColsRef = useRef(visibleCols);
   visibleColsRef.current = visibleCols;
 
+  const handleCellTouchStart = useCallback((e: React.TouchEvent) => {
+    const t = e.touches[0];
+    touchStartPos.current = { x: t.clientX, y: t.clientY };
+  }, []);
+
+  const handleCellTouchEnd = useCallback(
+    (e: React.TouchEvent, rowIdx: number, colIdx: number) => {
+      if (!selectMode) return;
+      if (!touchStartPos.current) return;
+      const t = e.changedTouches[0];
+      const dx = t.clientX - touchStartPos.current.x;
+      const dy = t.clientY - touchStartPos.current.y;
+      if (Math.sqrt(dx * dx + dy * dy) > 10) return; // scroll, not tap
+      touchStartPos.current = null;
+      e.preventDefault();
+
+      const val = parseFloat(String(sortedDataRef.current[rowIdx]?.[visibleColsRef.current[colIdx]?.field]));
+      if (isNaN(val)) return;
+
+      setSelectedCells((prev) => {
+        const exists = prev.find((c) => c.rowIndex === rowIdx && c.colIndex === colIdx);
+        if (exists) return prev.filter((c) => !(c.rowIndex === rowIdx && c.colIndex === colIdx));
+        return [...prev, { rowIndex: rowIdx, colIndex: colIdx, value: val }];
+      });
+    },
+    [selectMode]
+  );
+
   const handleMouseDown = useCallback(
     (e: React.MouseEvent, rowIdx: number, colIdx: number) => {
       if (e.button !== 0) return;
+      if (!selectMode) return;
       e.preventDefault();
 
       if (!hasInteracted) {
@@ -240,11 +273,12 @@ export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottom
         });
       }
     },
-    [hasInteracted]
+    [hasInteracted, selectMode]
   );
 
   const handleMouseEnter = useCallback(
     (rowIdx: number, colIdx: number) => {
+      if (!selectMode) return;
       if (!isDragging.current || !dragStart.current) return;
       const cells = getRectCells(
         dragStart.current,
@@ -275,6 +309,7 @@ export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottom
     }
   }, [showHint]);
 
+
   const selectedValues = useMemo(() => selectedCells.map((c) => c.value), [selectedCells]);
   const selectedCellKeys = useMemo(
     () => new Set(selectedCells.map((c) => `${c.rowIndex}-${c.colIndex}`)),
@@ -283,8 +318,7 @@ export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottom
 
   const pinnedCol = visibleCols.find((c) => c.pinned === 'left');
 
-  const exportToExcel = useCallback(() => {
-    // Build header row
+  const buildExportRows = useCallback((): (string | number)[][] => {
     const headers: string[] = [];
     for (const col of visibleCols) {
       headers.push(col.headerName);
@@ -296,12 +330,10 @@ export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottom
       }
     }
 
-    // Build a data row from a row object
     const buildRow = (row: any, labelOverride?: { col: ColumnDef; value: string }) => {
       const cells: (string | number)[] = [];
       for (const col of visibleCols) {
         const value = labelOverride && col === labelOverride.col ? labelOverride.value : row[col.field];
-        // Use raw numeric value for numeric fields, formatted string for text fields
         if (typeof value === 'number') {
           cells.push(value);
         } else {
@@ -324,10 +356,8 @@ export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottom
 
     const rows: (string | number)[][] = [headers];
 
-    // Data rows (with child rows)
     for (const row of sortedData) {
       rows.push(buildRow(row));
-
       if (hasChildren) {
         const rowKey = row[rowKeyField!] as string;
         const children = childRowsMap![rowKey];
@@ -341,21 +371,21 @@ export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottom
       }
     }
 
-    // Totals row
     if (pinnedBottomRowData?.length) {
       for (const row of pinnedBottomRowData) {
         rows.push(buildRow(row));
       }
     }
 
-    // Disclaimer
     rows.push([]);
     rows.push([`Generated with clarisix.com — Data proprietary to Account 1`]);
+    return rows;
+  }, [visibleCols, filterSubFields, sortedData, hasChildren, childRowsMap, rowKeyField, childLabelField, pinnedBottomRowData]);
 
-    // Create workbook
+  const exportToExcel = useCallback(() => {
+    const rows = buildExportRows();
+    const headers = rows[0] as string[];
     const ws = XLSX.utils.aoa_to_sheet(rows);
-
-    // Auto-size columns based on content
     ws['!cols'] = headers.map((h, i) => {
       let maxLen = h.length;
       for (const row of rows) {
@@ -364,23 +394,26 @@ export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottom
       }
       return { wch: Math.min(maxLen + 2, 30) };
     });
-
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, title.slice(0, 31)); // Sheet name max 31 chars
-
-    // Filename: clarisix_<table>_<YYYY-MM-DD>_<initials>.xlsx
+    XLSX.utils.book_append_sheet(wb, ws, title.slice(0, 31));
     const date = new Date().toISOString().slice(0, 10);
-    const initials = 'am'; // Alex Morgan
+    const initials = 'am';
     const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/(^_|_$)/g, '');
     XLSX.writeFile(wb, `clarisix_${slug}_${date}_${initials}.xlsx`);
-  }, [visibleCols, filterSubFields, sortedData, hasChildren, childRowsMap, rowKeyField, childLabelField, pinnedBottomRowData, title]);
+  }, [buildExportRows, title]);
+
+  const handleExportSheets = useCallback(async () => {
+    const rows = buildExportRows();
+    const url = await exportToGoogleSheets(rows, title);
+    if (url) setSheetsUrl(url);
+  }, [buildExportRows, title]);
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm relative">
       {showHint && (
         <div className="absolute top-14 right-5 z-50 animate-fade-slide-in">
           <div className="bg-cx-500 text-white text-xs px-3 py-2 rounded-lg shadow-lg flex items-center gap-2 animate-gentle-pulse">
-            <span className="font-medium">Click and drag cells to see statistics</span>
+            <span className="font-medium">Enable Select mode · click/drag or tap cells to see statistics</span>
             <button
               onClick={() => setShowHint(false)}
               className="text-white/80 hover:text-white transition-colors ml-1"
@@ -419,12 +452,55 @@ export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottom
             </button>
           )}
           <button
+            onClick={() => {
+              const next = !selectMode;
+              setSelectMode(next);
+              if (!next) setSelectedCells([]);
+            }}
+            className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold border rounded-lg transition-colors ${
+              selectMode
+                ? 'bg-cx-500 text-white border-cx-500'
+                : 'border-gray-200 text-gray-500 hover:text-cx-500 hover:border-cx-300'
+            }`}
+          >
+            <MousePointer2 className="w-3.5 h-3.5" />
+            Select
+          </button>
+          <button
             onClick={exportToExcel}
             className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold border border-gray-200 rounded-lg text-gray-500 hover:text-cx-500 hover:border-cx-300 transition-colors"
           >
             <Download className="w-3.5 h-3.5" />
             Export
           </button>
+          <button
+            onClick={handleExportSheets}
+            className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold border border-gray-200 rounded-lg text-gray-500 hover:text-cx-500 hover:border-cx-300 transition-colors"
+          >
+            <Sheet className="w-3.5 h-3.5" />
+            Google Sheets
+          </button>
+          {sheetsUrl && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30" onClick={() => setSheetsUrl(null)}>
+              <div className="bg-white rounded-xl shadow-2xl p-6 max-w-sm mx-4 text-center" onClick={(e) => e.stopPropagation()}>
+                <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-3">
+                  <Sheet className="w-6 h-6 text-green-600" />
+                </div>
+                <h4 className="text-sm font-bold text-gray-900 mb-1">Data copied to clipboard</h4>
+                <p className="text-xs text-gray-500 mb-3">Click below to open a new Google Sheet, then paste with <kbd className="px-1.5 py-0.5 bg-gray-100 rounded text-[11px] font-mono font-semibold">⌘V</kbd></p>
+                <div className="flex items-center justify-center gap-3">
+                  <button onClick={() => setSheetsUrl(null)} className="text-xs font-semibold text-gray-400 hover:text-gray-600">Cancel</button>
+                  <button
+                    onClick={() => { window.open(sheetsUrl, '_blank'); setSheetsUrl(null); }}
+                    className="flex items-center gap-1.5 px-4 py-2 bg-cx-500 text-white text-xs font-semibold rounded-lg hover:bg-cx-600 transition-colors"
+                  >
+                    <Sheet className="w-3.5 h-3.5" />
+                    Open Google Sheets
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
           <div className="flex items-center gap-1 border border-gray-200 rounded-lg overflow-hidden">
             <button
               onClick={() => setShowPoP((p) => !p)}
@@ -520,8 +596,10 @@ export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottom
                         key={col.field}
                         onMouseDown={(e) => handleMouseDown(e, rowIdx, colIdx)}
                         onMouseEnter={() => handleMouseEnter(rowIdx, colIdx)}
+                        onTouchStart={handleCellTouchStart}
+                        onTouchEnd={(e) => handleCellTouchEnd(e, rowIdx, colIdx)}
                         className={`px-2.5 py-1.5 tabular-nums select-none overflow-hidden text-ellipsis transition-all ${
-                          isPinned ? `sticky left-0 z-10 font-semibold ${rowIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}` : 'cursor-cell'
+                          isPinned ? `sticky left-0 z-10 font-semibold ${rowIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}` : selectMode ? 'cursor-cell' : ''
                         } ${isSelected ? 'bg-cx-100 ring-[1.5px] ring-inset ring-cx-500' : ''} ${
                           col.subFields ? 'whitespace-normal' : 'whitespace-nowrap'
                         } ${isHintCell ? 'animate-cell-glow' : ''}`}
