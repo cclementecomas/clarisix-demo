@@ -27,6 +27,7 @@ import HomeAlerts from './components/HomeAlerts';
 import PeriodSnapshot from './components/PeriodSnapshot';
 import OnboardingGateway from './components/OnboardingGateway';
 import OnboardingWizard from './components/onboarding/OnboardingWizard';
+import CommandPalette from './components/CommandPalette';
 import { useOnboarding } from './contexts/OnboardingContext';
 import { OnboardingWizardProvider } from './contexts/OnboardingWizardContext';
 import { menuItems } from './data/dashboardData';
@@ -207,6 +208,17 @@ export default function App() {
 
         {!isOnboarding && !isEmbed && <Footer />}
       </div>
+
+      {!isEmbed && (
+        <CommandPalette
+          onPageNavigate={setCurrentPage}
+          onSectionNavigate={(section, sub) => {
+            setCurrentPage('dashboard');
+            setActiveSection(section);
+            setActiveSub(sub);
+          }}
+        />
+      )}
     </div>
   );
 }
