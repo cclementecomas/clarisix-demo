@@ -14,6 +14,7 @@ import {
   Cable,
   Building2,
   House,
+  Clock,
 } from 'lucide-react';
 import { menuItems, filterOptions } from '../data/dashboardData';
 import { useOnboarding } from '../contexts/OnboardingContext';
@@ -180,19 +181,25 @@ export default function Sidebar({
                 </button>
                 {isActive && hasSubItems && (
                   <div className="ml-10 mr-3 py-1 space-y-0.5">
-                    {item.subItems.map((sub) => (
-                      <button
-                        key={sub}
-                        onClick={() => onSubChange(sub)}
-                        className={`block w-full text-left text-[13px] px-3 py-1.5 rounded-md transition-colors ${
-                          activeSub === sub
-                            ? 'text-cx-300 bg-cx-500/10 font-medium'
-                            : 'text-gray-500 hover:text-gray-300 hover:bg-white/[0.04]'
-                        }`}
-                      >
-                        {sub}
-                      </button>
-                    ))}
+                    {item.subItems.map((sub) => {
+                      const isSoon = item.comingSoonSubs?.includes(sub);
+                      return (
+                        <button
+                          key={sub}
+                          onClick={() => onSubChange(sub)}
+                          className={`flex items-center gap-1.5 w-full text-left text-[13px] px-3 py-1.5 rounded-md transition-colors ${
+                            activeSub === sub
+                              ? 'text-cx-300 bg-cx-500/10 font-medium'
+                              : 'text-gray-500 hover:text-gray-300 hover:bg-white/[0.04]'
+                          }`}
+                        >
+                          <span className="flex-1">{sub}</span>
+                          {isSoon && (
+                            <Clock className="w-3 h-3 text-gray-600 flex-shrink-0" title="Coming soon" />
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>
