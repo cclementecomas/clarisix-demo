@@ -245,7 +245,6 @@ export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottom
   const handleMouseDown = useCallback(
     (e: React.MouseEvent, rowIdx: number, colIdx: number) => {
       if (e.button !== 0) return;
-      if (!selectMode) return;
       e.preventDefault();
 
       if (!hasInteracted) {
@@ -273,12 +272,11 @@ export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottom
         });
       }
     },
-    [hasInteracted, selectMode]
+    [hasInteracted]
   );
 
   const handleMouseEnter = useCallback(
     (rowIdx: number, colIdx: number) => {
-      if (!selectMode) return;
       if (!isDragging.current || !dragStart.current) return;
       const cells = getRectCells(
         dragStart.current,
@@ -599,7 +597,7 @@ export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottom
                         onTouchStart={handleCellTouchStart}
                         onTouchEnd={(e) => handleCellTouchEnd(e, rowIdx, colIdx)}
                         className={`px-2.5 py-1.5 tabular-nums select-none overflow-hidden text-ellipsis transition-all ${
-                          isPinned ? `sticky left-0 z-10 font-semibold ${rowIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}` : selectMode ? 'cursor-cell' : ''
+                          isPinned ? `sticky left-0 z-10 font-semibold ${rowIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}` : 'cursor-cell'
                         } ${isSelected ? 'bg-cx-100 ring-[1.5px] ring-inset ring-cx-500' : ''} ${
                           col.subFields ? 'whitespace-normal' : 'whitespace-nowrap'
                         } ${isHintCell ? 'animate-cell-glow' : ''}`}
