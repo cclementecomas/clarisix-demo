@@ -101,27 +101,26 @@ function generateRow(asin: string, product: string, category: string, scale: num
   const avgPrice = Math.round((15 + rand() * 45) * 100) / 100;
 
   // ═══ REVENUE (Spec lines 1-11) ════════════════════════════════════════════
-  const grossOrderedRevenue = Math.round(unitsSold * avgPrice * 100) / 100;
-  const cancelledOrders = Math.round(grossOrderedRevenue * (0.01 + rand() * 0.03) * 100) / 100;
-  const grossShippedRevenue = Math.round((grossOrderedRevenue - cancelledOrders) * 100) / 100;
-
-  const returnRate = Math.round((2 + rand() * 12) * 10) / 10;
-  const refundAmount = Math.round(grossShippedRevenue * (returnRate / 100) * 100) / 100;
-  const atozClaims = Math.round(grossShippedRevenue * (rand() * 0.005) * 100) / 100;
-  const chargebacks = Math.round(grossShippedRevenue * (rand() * 0.003) * 100) / 100;
-  const refundsAndReturns = Math.round((refundAmount + atozClaims + chargebacks) * 100) / 100;
-  const refundRate = grossShippedRevenue > 0
-    ? Math.round((refundAmount / grossShippedRevenue) * 10000) / 100
-    : 0;
-
-  const netProductRevenue = Math.round((grossShippedRevenue - refundsAndReturns) * 100) / 100;
+  const productRevenue = Math.round(unitsSold * avgPrice * 100) / 100;
   const shippingRevenue = Math.round(unitsSold * (2 + rand() * 3) * 100) / 100;
   const giftWrapRevenue = Math.round(unitsSold * rand() * 0.5 * 100) / 100;
-  const shippingRefunds = Math.round(shippingRevenue * (returnRate / 100) * 100) / 100;
-  const netRevenue = Math.round((netProductRevenue + shippingRevenue + giftWrapRevenue - shippingRefunds) * 100) / 100;
+  // Gross Revenue = all Amazon inflows (product + shipping + gift wrap)
+  const grossRevenue = Math.round((productRevenue + shippingRevenue + giftWrapRevenue) * 100) / 100;
 
-  // Use grossOrderedRevenue as the display "Gross Revenue"
-  const grossRevenue = grossOrderedRevenue;
+  const returnRate = Math.round((2 + rand() * 12) * 10) / 10;
+  const refundAmount = Math.round(productRevenue * (returnRate / 100) * 100) / 100;
+  const shippingRefunds = Math.round(shippingRevenue * (returnRate / 100) * 100) / 100;
+  const atozClaims = Math.round(productRevenue * (rand() * 0.005) * 100) / 100;
+  const chargebacks = Math.round(productRevenue * (rand() * 0.003) * 100) / 100;
+  const cancelledOrders = Math.round(productRevenue * (0.01 + rand() * 0.03) * 100) / 100;
+  // refundsAndReturns = all revenue deductions (refunds + cancellations + shipping refunds + A-to-Z + chargebacks)
+  const refundsAndReturns = Math.round((refundAmount + shippingRefunds + atozClaims + chargebacks + cancelledOrders) * 100) / 100;
+  const refundRate = productRevenue > 0
+    ? Math.round((refundAmount / productRevenue) * 10000) / 100
+    : 0;
+
+  // netRevenue = grossRevenue - refundsAndReturns (waterfall-consistent)
+  const netRevenue = Math.round((grossRevenue - refundsAndReturns) * 100) / 100;
 
   // ═══ COGS (Spec lines 12-15) ══════════════════════════════════════════════
   const costPerUnit = Math.round(avgPrice * (0.25 + rand() * 0.15) * 100) / 100;
