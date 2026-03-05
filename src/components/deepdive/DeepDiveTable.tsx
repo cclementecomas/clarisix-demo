@@ -533,7 +533,7 @@ export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottom
       </div>
       <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: 420 }} ref={tableRef}>
         <table
-          className="w-full border-collapse text-[13px]"
+          className="w-full min-w-[800px] border-collapse text-[13px]"
           style={{ fontFamily: "'Inter', system-ui, sans-serif", tableLayout: 'fixed' }}
         >
           <colgroup>
