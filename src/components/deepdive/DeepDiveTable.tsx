@@ -597,7 +597,7 @@ export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottom
                         onTouchStart={handleCellTouchStart}
                         onTouchEnd={(e) => handleCellTouchEnd(e, rowIdx, colIdx)}
                         className={`px-2.5 py-1.5 tabular-nums select-none overflow-hidden text-ellipsis transition-all ${
-                          isPinned ? `sticky left-0 z-10 font-semibold ${rowIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}` : 'cursor-cell'
+                          isPinned ? `sticky left-0 z-10 font-semibold ${rowIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}` : 'cursor-cell'
                         } ${isSelected ? 'bg-cx-100 ring-[1.5px] ring-inset ring-cx-500' : ''} ${
                           col.subFields ? 'whitespace-normal' : 'whitespace-nowrap'
                         } ${isHintCell ? 'animate-cell-glow' : ''}`}
@@ -669,7 +669,7 @@ export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottom
                       <td
                         key={col.field}
                         className={`px-2.5 py-1.5 tabular-nums select-none overflow-hidden text-ellipsis text-[12px] ${
-                          isPinned ? 'sticky left-0 z-10 bg-cx-50/30' : ''
+                          isPinned ? 'sticky left-0 z-10 bg-cx-50' : ''
                         } ${col.subFields ? 'whitespace-normal' : 'whitespace-nowrap'}`}
                         style={style}
                       >
