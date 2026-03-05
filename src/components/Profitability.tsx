@@ -1,10 +1,12 @@
-import { useState } from 'react';
-import { ChevronDown, ChevronRight, Info, Table2, TrendingUp } from 'lucide-react';
+import { useState, useCallback } from 'react';
+import { ChevronDown, ChevronRight, Info, Table2, TrendingUp, Download, Sheet } from 'lucide-react';
 import { profitabilityData, ProfitabilityMetric } from '../data/profitabilityData';
 import InfoTooltip from './InfoTooltip';
 import LastRefreshed from './LastRefreshed';
 import { useCurrency, CURRENCY_SYMBOLS, CONVERSION_RATES } from '../contexts/CurrencyContext';
 import { convert } from '../utils/currency';
+import * as XLSX from 'xlsx';
+import { exportToGoogleSheets } from '../utils/exportSheets';
 
 type ColumnView = 'summary' | 'all';
 type ComparisonView = 'yoy' | 'none';
@@ -14,6 +16,54 @@ export default function Profitability() {
   const [columnView, setColumnView] = useState<ColumnView>('summary');
   const [comparisonView, setComparisonView] = useState<ComparisonView>('yoy');
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [sheetsUrl, setSheetsUrl] = useState<string | null>(null);
+
+  const buildExportRows = useCallback((): (string | number)[][] => {
+    const headers = ['Line Item', "YTD '25", "YTD '24", "LTM '25", "PTM '24", "L3M '25", "P3M '24", 'Total', 'Nov 2024', 'Dec 2024', 'Jan 2025', 'Feb 2025'];
+    const keys: (keyof ProfitabilityMetric)[] = ['ytd25', 'ytd24', 'ltm25', 'ptm24', 'l3m25', 'p3m24', 'total', 'nov2024', 'dec2024', 'jan2025', 'feb2025'];
+    const rows: (string | number)[][] = [headers];
+
+    for (const metric of profitabilityData) {
+      const indent = metric.indent || 0;
+      const label = indent > 0 ? '  '.repeat(indent) + metric.label : metric.label;
+      const cells: (string | number)[] = [label];
+      for (const key of keys) {
+        const val = metric[key];
+        if (typeof val === 'number') cells.push(val);
+        else if (typeof val === 'string') cells.push(val);
+        else cells.push('');
+      }
+      rows.push(cells);
+    }
+
+    rows.push([]);
+    rows.push(['Generated with clarisix.com — Profitability Statement']);
+    return rows;
+  }, []);
+
+  const exportToExcel = useCallback(() => {
+    const rows = buildExportRows();
+    const headers = rows[0] as string[];
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = headers.map((h, i) => {
+      let maxLen = h.length;
+      for (const row of rows) {
+        const cellLen = String(row[i] ?? '').length;
+        if (cellLen > maxLen) maxLen = cellLen;
+      }
+      return { wch: Math.min(maxLen + 2, 30) };
+    });
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Profitability');
+    const date = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(wb, `clarisix_profitability_${date}.xlsx`);
+  }, [buildExportRows]);
+
+  const handleExportSheets = useCallback(async () => {
+    const rows = buildExportRows();
+    const url = await exportToGoogleSheets(rows, 'Profitability Statement');
+    if (url) setSheetsUrl(url);
+  }, [buildExportRows]);
 
   const toggleRow = (label: string) => {
     const newExpanded = new Set(expandedRows);
@@ -127,9 +177,43 @@ export default function Profitability() {
             </div>
             <p className="text-sm text-gray-600 mt-1">CFO-level 43-line P&L waterfall from Gross Revenue to Net Operating Profit</p>
           </div>
-          <button className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm">
-            <span>Export to Excel</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={exportToExcel}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+            >
+              <Download className="w-4 h-4" />
+              <span>Export to Excel</span>
+            </button>
+            <button
+              onClick={handleExportSheets}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+            >
+              <Sheet className="w-4 h-4" />
+              <span>Google Sheets</span>
+            </button>
+            {sheetsUrl && (
+              <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30" onClick={() => setSheetsUrl(null)}>
+                <div className="bg-white rounded-xl shadow-2xl p-6 max-w-sm mx-4 text-center" onClick={(e) => e.stopPropagation()}>
+                  <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-3">
+                    <Sheet className="w-6 h-6 text-green-600" />
+                  </div>
+                  <h4 className="text-sm font-bold text-gray-900 mb-1">Data copied to clipboard</h4>
+                  <p className="text-xs text-gray-500 mb-3">Click below to open a new Google Sheet, then paste with <kbd className="px-1.5 py-0.5 bg-gray-100 rounded text-[11px] font-mono font-semibold">⌘V</kbd></p>
+                  <div className="flex items-center justify-center gap-3">
+                    <button onClick={() => setSheetsUrl(null)} className="text-xs font-semibold text-gray-400 hover:text-gray-600">Cancel</button>
+                    <button
+                      onClick={() => { window.open(sheetsUrl, '_blank'); setSheetsUrl(null); }}
+                      className="flex items-center gap-1.5 px-4 py-2 bg-cx-500 text-white text-xs font-semibold rounded-lg hover:bg-cx-600 transition-colors"
+                    >
+                      <Sheet className="w-3.5 h-3.5" />
+                      Open Google Sheets
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="flex items-center gap-4">

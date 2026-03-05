@@ -1,6 +1,8 @@
 // ─── Inventory Data ──────────────────────────────────────────────────────────
 
 export type StockStatus = 'In Stock' | 'Low Stock' | 'Critical' | 'Out of Stock' | 'Overstock';
+export type Marketplace = 'US' | 'UK' | 'DE' | 'FR' | 'IT' | 'ES';
+export type FulfillmentType = 'FBA' | 'FBM';
 
 export interface InventoryKPI {
   label: string;
@@ -70,6 +72,15 @@ export interface InventorySKU {
   ageBucket: '0-90' | '91-180' | '181-270' | '271-365' | '365+';
   // Warehouse breakdown
   warehouses: WarehouseBreakdown[];
+  // Control Tower fields
+  marketplace: Marketplace;
+  fulfillmentType: FulfillmentType;
+  weeklyVelocity: number[];
+  targetMinDays: number;
+  targetMaxDays: number;
+  inboundETA: string | null;
+  isStranded: boolean;
+  isUnfulfillable: boolean;
 }
 
 export interface AgingBucket {
@@ -296,13 +307,59 @@ function generateInventory(): InventorySKU[] {
       roiDiffLY: randLY(rand),
       ageBucket,
       warehouses,
+      // Placeholders — enrichWithControlTowerFields overwrites these
+      marketplace: 'US',
+      fulfillmentType: 'FBA',
+      weeklyVelocity: [],
+      targetMinDays: 30,
+      targetMaxDays: 90,
+      inboundETA: null,
+      isStranded: false,
+      isUnfulfillable: false,
     });
   }
 
   return skus;
 }
 
-export const inventoryData: InventorySKU[] = generateInventory();
+// Add Control Tower fields using separate seed to preserve existing data
+function enrichWithControlTowerFields(skus: InventorySKU[]): InventorySKU[] {
+  const rand = seededRandom(42);
+  const marketplaceMap: Record<string, Marketplace> = {
+    'FBA US': 'US', 'FBA UK': 'UK', 'FBA DE': 'DE',
+    'FBA FR': 'FR', 'FBA IT': 'IT', 'FBA ES': 'ES',
+  };
+
+  return skus.map((sku) => {
+    const marketplace = marketplaceMap[sku.warehouses[0]?.warehouse] || 'US';
+    const fulfillmentType: FulfillmentType = rand() < 0.9 ? 'FBA' : 'FBM';
+
+    // Generate 12-week velocity sparkline around avgDailySales * 7
+    const weeklyBase = sku.avgDailySales * 7;
+    const weeklyVelocity: number[] = [];
+    for (let w = 0; w < 12; w++) {
+      weeklyVelocity.push(Math.max(0, Math.round(weeklyBase * (0.6 + rand() * 0.8))));
+    }
+
+    const targetMinDays = 30;
+    const targetMaxDays = 90;
+
+    let inboundETA: string | null = null;
+    if (sku.inbound > 0) {
+      const etaDays = Math.round(5 + rand() * 25);
+      const d = new Date();
+      d.setDate(d.getDate() + etaDays);
+      inboundETA = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+
+    const isStranded = rand() < 0.05;
+    const isUnfulfillable = rand() < 0.03;
+
+    return { ...sku, marketplace, fulfillmentType, weeklyVelocity, targetMinDays, targetMaxDays, inboundETA, isStranded, isUnfulfillable };
+  });
+}
+
+export const inventoryData: InventorySKU[] = enrichWithControlTowerFields(generateInventory());
 
 // ─── Aggregated KPIs ─────────────────────────────────────────────────────────
 
@@ -472,6 +529,116 @@ export const inventoryAlerts: InventoryAlert[] = (() => {
             ? `Reorder ${d.suggestedQty} units — stockout in ${d.daysOfSupply} days`
             : `Plan reorder of ${d.suggestedQty} units within ${Math.max(0, d.daysOfSupply - d.leadTimeDays)} days`,
     }));
+})();
+
+// ─── Control Tower KPIs ─────────────────────────────────────────────────────
+
+export interface ControlTowerKPI {
+  key: string;
+  label: string;
+  value: number;
+  format: 'number' | 'currency' | 'days';
+  color: 'green' | 'yellow' | 'orange' | 'red' | 'blue' | 'neutral';
+  subtitle?: string;
+}
+
+export const controlTowerKPIs: ControlTowerKPI[] = (() => {
+  const totalUnits = inventoryData.reduce((s, d) => s + d.currentStock, 0);
+  const revAtRisk = inventoryData.reduce((s, d) => s + d.revenueAtRisk, 0);
+  const validDOS = inventoryData.filter((d) => d.daysOfSupply < 900);
+  const avgDOC = validDOS.length > 0
+    ? Math.round(validDOS.reduce((s, d) => s + d.daysOfSupply, 0) / validDOS.length)
+    : 0;
+  const stranded = inventoryData.filter((d) => d.isStranded).length;
+  const unfulfillable = inventoryData.filter((d) => d.isUnfulfillable).length;
+  const overstockValue = inventoryData
+    .filter((d) => d.status === 'Overstock')
+    .reduce((s, d) => s + d.inventoryValue, 0);
+
+  return [
+    { key: 'totalUnits', label: 'Total Units', value: totalUnits, format: 'number', color: 'neutral', subtitle: `${inventoryData.length} SKUs` },
+    { key: 'revAtRisk', label: 'Revenue at Risk', value: revAtRisk, format: 'currency', color: revAtRisk > 0 ? 'red' : 'green' },
+    { key: 'avgDOC', label: 'Avg Days of Cover', value: avgDOC, format: 'days', color: avgDOC < 21 ? 'orange' : 'green' },
+    { key: 'stranded', label: 'Stranded SKUs', value: stranded, format: 'number', color: stranded > 0 ? 'orange' : 'green' },
+    { key: 'unfulfillable', label: 'Unfulfillable', value: unfulfillable, format: 'number', color: unfulfillable > 0 ? 'red' : 'green' },
+    { key: 'overstockValue', label: 'Overstock Value', value: overstockValue, format: 'currency', color: overstockValue > 0 ? 'blue' : 'neutral' },
+  ] as ControlTowerKPI[];
+})();
+
+// ─── Action Queue ───────────────────────────────────────────────────────────
+
+export interface ActionQueueItem {
+  type: 'stockout' | 'stranded' | 'aging-fee' | 'overstock' | 'low-stock';
+  priority: 'critical' | 'warning' | 'info';
+  sku: string;
+  title: string;
+  message: string;
+  deadline?: string;
+}
+
+export const actionQueueItems: ActionQueueItem[] = (() => {
+  const items: ActionQueueItem[] = [];
+
+  for (const d of inventoryData) {
+    if (d.status === 'Out of Stock') {
+      items.push({
+        type: 'stockout',
+        priority: 'critical',
+        sku: d.sku,
+        title: d.title,
+        message: `Urgent reorder: ${d.suggestedQty} units from ${d.supplier}`,
+        deadline: 'ASAP',
+      });
+    } else if (d.status === 'Critical') {
+      items.push({
+        type: 'stockout',
+        priority: 'critical',
+        sku: d.sku,
+        title: d.title,
+        message: `Reorder ${d.suggestedQty} units — stockout in ${d.daysOfSupply} days`,
+        deadline: d.estStockoutDate,
+      });
+    } else if (d.status === 'Low Stock') {
+      items.push({
+        type: 'low-stock',
+        priority: 'warning',
+        sku: d.sku,
+        title: d.title,
+        message: `Plan reorder of ${d.suggestedQty} units (${d.daysOfSupply} days left)`,
+      });
+    }
+    if (d.isStranded) {
+      items.push({
+        type: 'stranded',
+        priority: 'warning',
+        sku: d.sku,
+        title: d.title,
+        message: 'Listing stranded — fix listing or create removal order',
+      });
+    }
+    if (d.ageBucket === '365+') {
+      items.push({
+        type: 'aging-fee',
+        priority: 'warning',
+        sku: d.sku,
+        title: d.title,
+        message: `Aging 365+ days — $6.90/unit/mo fee risk (${d.currentStock} units)`,
+      });
+    }
+    if (d.status === 'Overstock' && d.daysOfSupply > 180) {
+      items.push({
+        type: 'overstock',
+        priority: 'info',
+        sku: d.sku,
+        title: d.title,
+        message: `${d.daysOfSupply} days of cover — consider removal or promotion`,
+      });
+    }
+  }
+
+  // Sort: critical first, then warning, then info
+  const priorityOrder = { critical: 0, warning: 1, info: 2 };
+  return items.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
 })();
 
 // ─── Inventory Velocity Trend (last 12 weeks) ───────────────────────────────

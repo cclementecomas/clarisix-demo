@@ -19,6 +19,7 @@ import Retention from './components/Retention';
 import Subscriptions from './components/Subscriptions';
 import Settings from './components/settings/Settings';
 import Trends from './components/Trends';
+import SalesHeatmap from './components/SalesHeatmap';
 import ComingSoon from './components/ComingSoon';
 import Footer from './components/Footer';
 import { SectionLoader } from './components/ClarisixSpinner';
@@ -54,6 +55,7 @@ function OverviewPage() {
         <SalesOverview />
       </div>
       <BreakdownCharts />
+      <SalesHeatmap />
     </>
   );
 }

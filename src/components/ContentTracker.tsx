@@ -1,10 +1,11 @@
 import { useState, useMemo } from 'react';
-import { ChevronRight, ChevronDown, Download, CheckCircle2, Filter } from 'lucide-react';
+import { ChevronRight, ChevronDown, Download, CheckCircle2, Filter, Sheet } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
 } from 'recharts';
 import * as XLSX from 'xlsx';
 import InfoTooltip from './InfoTooltip';
+import { exportToGoogleSheets } from '../utils/exportSheets';
 import LastRefreshed from './LastRefreshed';
 import {
   contentProducts,
@@ -57,6 +58,7 @@ export default function ContentTracker() {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [showCaseAssistant, setShowCaseAssistant] = useState(false);
   const [downloadedBatches, setDownloadedBatches] = useState<Set<number>>(new Set());
+  const [sheetsUrl, setSheetsUrl] = useState<string | null>(null);
   const [selectedFields, setSelectedFields] = useState<Set<string>>(
     new Set(['Product Title', 'Description', 'Bullet Point 1', 'Bullet Point 2', 'Bullet Point 3', 'Bullet Point 4', 'Bullet Point 5'])
   );
@@ -94,6 +96,40 @@ export default function ContentTracker() {
       }
       return next;
     });
+  };
+
+  const buildBatchRows = (batchNumber: number): (string | number)[][] => {
+    const batch = caseBatches.find((b) => b.batchNumber === batchNumber);
+    if (!batch) return [];
+
+    const dataRows: Record<string, string | number>[] = [];
+    batch.asins.forEach((item) => {
+      const product = contentProducts.find((p) => p.asin === item.asin && p.marketplace === item.marketplace);
+      if (!product) return;
+      const row: Record<string, string | number> = {
+        ASIN: product.asin,
+        Marketplace: product.marketplace,
+        'Overall Match %': product.overallMatch,
+      };
+      product.fields
+        .filter((f) => selectedFields.has(f.field))
+        .forEach((f) => {
+          row[`${f.field} (Match %)`] = f.similarity;
+          row[`${f.field} (Source)`] = f.sourceContent;
+          row[`${f.field} (Amazon)`] = f.amazonContent;
+        });
+      dataRows.push(row);
+    });
+    if (dataRows.length === 0) return [];
+    const headers = Object.keys(dataRows[0]);
+    return [headers, ...dataRows.map((r) => headers.map((h) => r[h]))];
+  };
+
+  const handleSheetsBatch = async (batchNumber: number) => {
+    const rows = buildBatchRows(batchNumber);
+    if (rows.length === 0) return;
+    const url = await exportToGoogleSheets(rows, `Content Batch ${batchNumber}`);
+    if (url) setSheetsUrl(url);
   };
 
   const downloadBatch = (batchNumber: number) => {
@@ -244,6 +280,9 @@ export default function ContentTracker() {
         <CaseAssistantPanel
           downloadedBatches={downloadedBatches}
           onDownload={downloadBatch}
+          onSheets={handleSheetsBatch}
+          sheetsUrl={sheetsUrl}
+          onCloseSheets={() => setSheetsUrl(null)}
         />
       )}
 
@@ -430,9 +469,15 @@ function MarketplacePanel() {
 function CaseAssistantPanel({
   downloadedBatches,
   onDownload,
+  onSheets,
+  sheetsUrl,
+  onCloseSheets,
 }: {
   downloadedBatches: Set<number>;
   onDownload: (batchNumber: number) => void;
+  onSheets: (batchNumber: number) => void;
+  sheetsUrl: string | null;
+  onCloseSheets: () => void;
 }) {
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
@@ -440,6 +485,27 @@ function CaseAssistantPanel({
         <h3 className="text-sm font-semibold text-gray-900">Open Cases Assistant</h3>
         <InfoTooltip />
       </div>
+      {sheetsUrl && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30" onClick={onCloseSheets}>
+          <div className="bg-white rounded-xl shadow-2xl p-6 max-w-sm mx-4 text-center" onClick={(e) => e.stopPropagation()}>
+            <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-3">
+              <Sheet className="w-6 h-6 text-green-600" />
+            </div>
+            <h4 className="text-sm font-bold text-gray-900 mb-1">Data copied to clipboard</h4>
+            <p className="text-xs text-gray-500 mb-3">Click below to open a new Google Sheet, then paste with <kbd className="px-1.5 py-0.5 bg-gray-100 rounded text-[11px] font-mono font-semibold">⌘V</kbd></p>
+            <div className="flex items-center justify-center gap-3">
+              <button onClick={onCloseSheets} className="text-xs font-semibold text-gray-400 hover:text-gray-600">Cancel</button>
+              <button
+                onClick={() => { window.open(sheetsUrl, '_blank'); onCloseSheets(); }}
+                className="flex items-center gap-1.5 px-4 py-2 bg-cx-500 text-white text-xs font-semibold rounded-lg hover:bg-cx-600 transition-colors"
+              >
+                <Sheet className="w-3.5 h-3.5" />
+                Open Google Sheets
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <p className="text-[11px] text-gray-500 mb-4">
         Products with any field below 90% similarity grouped into batches of 10 for case submission.
         Each Excel file includes source-of-truth content with mismatched cells highlighted.
@@ -463,26 +529,35 @@ function CaseAssistantPanel({
                     {batch.asins.length} ASINs
                   </span>
                 </div>
-                <button
-                  onClick={() => onDownload(batch.batchNumber)}
-                  className={`flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-md transition-colors ${
-                    downloaded
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-gray-100 text-gray-600 hover:bg-cx-50 hover:text-cx-700'
-                  }`}
-                >
-                  {downloaded ? (
-                    <>
-                      <CheckCircle2 className="w-3 h-3" />
-                      Downloaded
-                    </>
-                  ) : (
-                    <>
-                      <Download className="w-3 h-3" />
-                      Excel
-                    </>
-                  )}
-                </button>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => onSheets(batch.batchNumber)}
+                    className="flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-md transition-colors bg-gray-100 text-gray-600 hover:bg-cx-50 hover:text-cx-700"
+                  >
+                    <Sheet className="w-3 h-3" />
+                    Sheets
+                  </button>
+                  <button
+                    onClick={() => onDownload(batch.batchNumber)}
+                    className={`flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-md transition-colors ${
+                      downloaded
+                        ? 'bg-green-100 text-green-700'
+                        : 'bg-gray-100 text-gray-600 hover:bg-cx-50 hover:text-cx-700'
+                    }`}
+                  >
+                    {downloaded ? (
+                      <>
+                        <CheckCircle2 className="w-3 h-3" />
+                        Downloaded
+                      </>
+                    ) : (
+                      <>
+                        <Download className="w-3 h-3" />
+                        Excel
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
               <div className="space-y-0.5">
                 {batch.asins.map((item, idx) => (
