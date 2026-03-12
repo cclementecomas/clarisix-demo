@@ -28,6 +28,7 @@ import PeriodSnapshot from './components/PeriodSnapshot';
 import OnboardingGateway from './components/OnboardingGateway';
 import OnboardingWizard from './components/onboarding/OnboardingWizard';
 import CommandPalette from './components/CommandPalette';
+import Greeting from './components/Greeting';
 import { useOnboarding } from './contexts/OnboardingContext';
 import { OnboardingWizardProvider } from './contexts/OnboardingWizardContext';
 import { menuItems } from './data/dashboardData';
@@ -35,6 +36,7 @@ import { menuItems } from './data/dashboardData';
 function HomePage({ onCardClick, isEmbed }: { onCardClick: (section: string, sub: string) => void; isEmbed?: boolean }) {
   return (
     <>
+      {!isEmbed && <Greeting />}
       <KPICards onCardClick={onCardClick} />
       <PeriodSnapshot onCardClick={onCardClick} />
       {isEmbed ? (
