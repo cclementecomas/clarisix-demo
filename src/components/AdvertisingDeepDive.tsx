@@ -427,7 +427,7 @@ function popSubField(popKey: string, goodDir: 'up' | 'down' = 'up') {
       if (v == null) return '';
       return `${v > 0 ? '+' : ''}${v.toFixed(1)}%`;
     },
-    cellStyle: ({ value }: { value: unknown }) => {
+    cellStyle: ({ value }: { value: unknown }): Record<string, string> => {
       const v = value as number;
       const isGood = goodDir === 'up' ? v > 0 : v < 0;
       return v === 0 ? {} : isGood ? { color: '#166534' } : { color: '#991B1B' };
@@ -451,7 +451,7 @@ function buildCols(
     { field: dimField, headerName: dimHeader, pinned: 'left', width: 200 },
     { field: 'spend',  headerName: 'Spend',  valueFormatter: cf,     subFields: [popSubField('spendPoP')] },
     { field: 'sales',  headerName: 'Sales',  valueFormatter: cf,     subFields: [popSubField('salesPoP')] },
-    { field: 'acos',   headerName: 'ACOS',   valueFormatter: pctFmt, subFields: [popSubField('acosPoP', 'down')], cellStyle: ({ value }: { value: unknown }) => { const v = value as number; return v > 35 ? { color: '#991B1B' } : v < 20 ? { color: '#166534' } : {}; } },
+    { field: 'acos',   headerName: 'ACOS',   valueFormatter: pctFmt, subFields: [popSubField('acosPoP', 'down')], cellStyle: ({ value }: { value: unknown }): Record<string, string> => { const v = value as number; return v > 35 ? { color: '#991B1B' } : v < 20 ? { color: '#166534' } : {}; } },
     { field: 'cpc',    headerName: 'CPC',    valueFormatter: cf,     subFields: [popSubField('cpcPoP', 'down')] },
     { field: 'cpa',    headerName: 'CPA',    valueFormatter: cf,     subFields: [popSubField('cpaPoP', 'down')] },
     { field: 'cvr',    headerName: 'CVR',    valueFormatter: pctFmt, subFields: [popSubField('cvrPoP')] },
@@ -561,7 +561,7 @@ export default function AdvertisingDeepDive() {
       { field: 'spend', headerName: 'Spend', valueFormatter: cf, subFields: [popSubField('spendPoP')] },
       { field: 'pctTotal', headerName: '% Total', width: 80, valueFormatter: ({ value }: { value: unknown }) => { const v = value as number; return v == null ? '' : `${v.toFixed(1)}%`; } },
       { field: 'sales', headerName: 'Sales', valueFormatter: cf, subFields: [popSubField('salesPoP')] },
-      { field: 'acos', headerName: 'ACOS', valueFormatter: pctFmt, subFields: [popSubField('acosPoP', 'down')], cellStyle: ({ value }: { value: unknown }) => { const v = value as number; return v > 35 ? { color: '#991B1B' } : v < 20 ? { color: '#166534' } : {}; } },
+      { field: 'acos', headerName: 'ACOS', valueFormatter: pctFmt, subFields: [popSubField('acosPoP', 'down')], cellStyle: ({ value }: { value: unknown }): Record<string, string> => { const v = value as number; return v > 35 ? { color: '#991B1B' } : v < 20 ? { color: '#166534' } : {}; } },
       { field: 'cpc', headerName: 'CPC', valueFormatter: cf, subFields: [popSubField('cpcPoP', 'down')] },
       { field: 'cvr', headerName: 'CVR', valueFormatter: pctFmt, subFields: [popSubField('cvrPoP')] },
       { field: 'ctr', headerName: 'CTR', valueFormatter: ({ value }: { value: unknown }) => { const v = value as number; return v == null ? '' : `${v.toFixed(2)}%`; }, subFields: [popSubField('ctrPoP')] },
