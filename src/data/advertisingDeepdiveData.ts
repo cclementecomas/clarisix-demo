@@ -544,10 +544,10 @@ function makeATRow(adType: string, spendBase: number): AdTypeRow {
 }
 
 export const adTypeRows: AdTypeRow[] = [
-  makeATRow('Sponsored Products', 485000),
-  makeATRow('Sponsored Brands', 195000),
-  makeATRow('Sponsored Brands Video', 87000),
-  makeATRow('Sponsored Display', 59000),
+  makeATRow('SP', 485000),
+  makeATRow('SB', 195000),
+  makeATRow('SBV', 87000),
+  makeATRow('SD', 59000),
 ];
 
 // ─── Search Term rows (top 50) ────────────────────────────────────────────────

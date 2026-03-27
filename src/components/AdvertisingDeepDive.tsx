@@ -34,7 +34,7 @@ import * as XLSX from 'xlsx';
 void numberFormatter;
 void pctShareFormatter;
 
-type AdType = 'All' | 'SP' | 'SB' | 'SD';
+type AdType = 'All' | 'SP' | 'SB' | 'SBV' | 'SD';
 type ViewMode = 'chart' | 'table';
 
 // ─── Metric definitions ───────────────────────────────────────────────────────
@@ -163,6 +163,7 @@ const AD_TYPE_LABELS: Record<AdType, string> = {
   All: 'All ad types',
   SP:  'Sponsored Products',
   SB:  'Sponsored Brands',
+  SBV: 'Sponsored Brands Video',
   SD:  'Sponsored Display',
 };
 
@@ -171,7 +172,7 @@ function AdTypeToggle({
 }: { value: AdType; onChange: (v: AdType) => void }) {
   return (
     <div className="flex items-center gap-1 border border-gray-200 rounded-lg overflow-hidden">
-      {(['All', 'SP', 'SB', 'SD'] as AdType[]).map((t) => (
+      {(['All', 'SP', 'SB', 'SBV', 'SD'] as AdType[]).map((t) => (
         <button
           key={t}
           onClick={() => onChange(t)}
@@ -455,7 +456,7 @@ function buildCols(
     { field: 'cpc',    headerName: 'CPC',    valueFormatter: cf,     subFields: [popSubField('cpcPoP', 'down')] },
     { field: 'cpa',    headerName: 'CPA',    valueFormatter: cf,     subFields: [popSubField('cpaPoP', 'down')] },
     { field: 'cvr',    headerName: 'CVR',    valueFormatter: pctFmt, subFields: [popSubField('cvrPoP')] },
-    { field: 'ctr',    headerName: 'CTR',    valueFormatter: ({ value }: { value: unknown }) => { const v = value as number; return v == null ? '' : `${v.toFixed(2)}%`; }, subFields: [popSubField('ctrPoP')] },
+    { field: 'ctr',    headerName: 'CTR',    valueFormatter: ({ value }: { value: unknown }) => { const v = value as number; return v == null ? '' : `${v.toFixed(1)}%`; }, subFields: [popSubField('ctrPoP')] },
     ...extras,
   ];
 }
@@ -521,15 +522,18 @@ export default function AdvertisingDeepDive() {
   // ── Hourly ──
   const [hourMet, setHourMet] = useState(['spend', 'sales']);
 
-  // Placement data by ad type (SD ≈ 18% of total — Sponsored Display)
+  // Placement data by ad type
   const placData = placAdType === 'SP' ? placementRowsSP
     : placAdType === 'SB' ? placementRowsSB
+    : placAdType === 'SBV' ? placementRows.map((r) => ({ ...r, spend: Math.round(r.spend * 0.12), sales: Math.round(r.sales * 0.12) }))
     : placAdType === 'SD' ? placementRows.map((r) => ({ ...r, spend: Math.round(r.spend * 0.18), sales: Math.round(r.sales * 0.18) }))
     : placementRows;
   const audData  = audAdType === 'SP'
     ? audienceRows.map((r) => ({ ...r, spend: Math.round(r.spend * 0.62), sales: Math.round(r.sales * 0.62) }))
     : audAdType === 'SB'
     ? audienceRows.map((r) => ({ ...r, spend: Math.round(r.spend * 0.38), sales: Math.round(r.sales * 0.38) }))
+    : audAdType === 'SBV'
+    ? audienceRows.map((r) => ({ ...r, spend: Math.round(r.spend * 0.12), sales: Math.round(r.sales * 0.12) }))
     : audAdType === 'SD'
     ? audienceRows.map((r) => ({ ...r, spend: Math.round(r.spend * 0.18), sales: Math.round(r.sales * 0.18) }))
     : audienceRows;
@@ -564,7 +568,7 @@ export default function AdvertisingDeepDive() {
       { field: 'acos', headerName: 'ACOS', valueFormatter: pctFmt, subFields: [popSubField('acosPoP', 'down')], cellStyle: ({ value }: { value: unknown }): Record<string, string> => { const v = value as number; return v > 35 ? { color: '#991B1B' } : v < 20 ? { color: '#166534' } : {}; } },
       { field: 'cpc', headerName: 'CPC', valueFormatter: cf, subFields: [popSubField('cpcPoP', 'down')] },
       { field: 'cvr', headerName: 'CVR', valueFormatter: pctFmt, subFields: [popSubField('cvrPoP')] },
-      { field: 'ctr', headerName: 'CTR', valueFormatter: ({ value }: { value: unknown }) => { const v = value as number; return v == null ? '' : `${v.toFixed(2)}%`; }, subFields: [popSubField('ctrPoP')] },
+      { field: 'ctr', headerName: 'CTR', valueFormatter: ({ value }: { value: unknown }) => { const v = value as number; return v == null ? '' : `${v.toFixed(1)}%`; }, subFields: [popSubField('ctrPoP')] },
     ];
   }, [currency]);
 
