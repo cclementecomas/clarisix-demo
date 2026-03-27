@@ -16,6 +16,7 @@ export default function ColumnToggle({ columns, visibleColumns, onToggle }: Colu
   const dropRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (!open) return;
     function handleClick(e: MouseEvent) {
       if (
         btnRef.current && !btnRef.current.contains(e.target as Node) &&
@@ -24,8 +25,13 @@ export default function ColumnToggle({ columns, visibleColumns, onToggle }: Colu
         setOpen(false);
       }
     }
-    if (open) document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
+    function handleScroll() { setOpen(false); }
+    document.addEventListener('mousedown', handleClick);
+    window.addEventListener('scroll', handleScroll, true);
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      window.removeEventListener('scroll', handleScroll, true);
+    };
   }, [open]);
 
   function handleOpen() {
