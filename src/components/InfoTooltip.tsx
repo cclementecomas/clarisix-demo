@@ -1,14 +1,17 @@
 import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Info } from 'lucide-react';
 
 interface InfoTooltipProps {
   className?: string;
   content?: string;
+  wide?: boolean;
 }
 
-export default function InfoTooltip({ className = '', content = 'How is it calculated?' }: InfoTooltipProps) {
-  const [visible, setVisible] = useState(false);
+export default function InfoTooltip({ className = '', content = 'How is it calculated?', wide = false }: InfoTooltipProps) {
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const anchorRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
     return () => {
@@ -18,25 +21,40 @@ export default function InfoTooltip({ className = '', content = 'How is it calcu
 
   const show = () => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    setVisible(true);
+    if (anchorRef.current) {
+      const rect = anchorRef.current.getBoundingClientRect();
+      setPos({ top: rect.bottom + 8, left: rect.left });
+    }
   };
 
   const hide = () => {
-    timeoutRef.current = setTimeout(() => setVisible(false), 150);
+    timeoutRef.current = setTimeout(() => setPos(null), 150);
   };
+
+  const tooltipWidth = wide ? 320 : 240;
 
   return (
     <span
+      ref={anchorRef}
       className={`relative inline-flex items-center ${className}`}
       onMouseEnter={show}
       onMouseLeave={hide}
     >
       <Info className="w-3.5 h-3.5 text-gray-300 hover:text-gray-500 transition-colors cursor-help" />
-      {visible && (
-        <span className="absolute top-full left-0 mt-2 px-3 py-2 bg-gray-900 text-white text-xs font-medium rounded-lg shadow-xl z-[100] pointer-events-none w-64 leading-relaxed">
+      {pos && createPortal(
+        <div
+          className="fixed px-3 py-2.5 bg-gray-900 text-white text-xs rounded-lg shadow-xl pointer-events-none leading-relaxed whitespace-pre-line"
+          style={{
+            top: pos.top,
+            left: Math.min(pos.left, window.innerWidth - tooltipWidth - 16),
+            width: tooltipWidth,
+            zIndex: 99999,
+          }}
+        >
           {content}
           <span className="absolute bottom-full left-3 w-0 h-0 border-l-[6px] border-r-[6px] border-b-[6px] border-transparent border-b-gray-900" />
-        </span>
+        </div>,
+        document.body
       )}
     </span>
   );

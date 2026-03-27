@@ -126,6 +126,17 @@ export const advertisingKpiData: AdvertisingKPI[] = [
     sparkline: [0.32, 0.34, 0.31, 0.36, 0.38, 0.35, 0.40, 0.42, 0.39, 0.44, 0.47, 0.50],
     cardPositive: true,
   },
+  {
+    label: 'Orders',
+    value: '6,842',
+    rawValue: 6842,
+    popChange: 4.21,
+    popPositive: true,
+    lyChange: 98.40,
+    lyPositive: true,
+    sparkline: [4200, 4600, 4800, 5100, 5400, 5600, 5800, 6000, 6200, 6400, 6700, 6842],
+    cardPositive: true,
+  },
 ];
 
 export const adSpendRunrateConfig = {
@@ -228,3 +239,119 @@ export const advertisingBrandTotals: AdvertisingBrandRow = {
   adSales: 3254837,
   adSalesPP: 3154000,
 };
+
+// ─── Seeded random ────────────────────────────────────────────────────────────
+function seededRnd(seed: number): () => number {
+  let s = seed;
+  return () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; };
+}
+const rAdv = seededRnd(42);
+const ra = () => rAdv();
+
+// ─── AdPerfRow — shared interface for Marketplace / Category / Subcategory / ASIN breakdown ─
+export interface AdPerfRow {
+  name: string;
+  spend: number;   spendPoP: number;
+  sales: number;   salesPoP: number;
+  acos: number;    acosPoP: number;
+  tacos: number;   tacosPoP: number;
+  orders: number;  ordersPoP: number;
+  cpc: number;     cpcPoP: number;
+  cpa: number;     cpaPoP: number;
+  cvr: number;     cvrPoP: number;
+  ctr: number;     ctrPoP: number;
+  ntbPct: number;  ntbPctPoP: number;
+}
+
+function makeAdRow(name: string, spendBase: number): AdPerfRow {
+  const spend   = Math.round(spendBase * (0.85 + ra() * 0.30));
+  const sales   = Math.round(spend * (3.5 + ra() * 1.5));
+  const acos    = Math.round((spend / sales) * 1000) / 10;
+  const tacos   = Math.round(acos * (0.4 + ra() * 0.2) * 10) / 10;
+  const orders  = Math.round(sales / (45 + ra() * 30));
+  const cpc     = Math.round((spend / Math.max(1, orders * (8 + ra() * 4))) * 100) / 100;
+  const cpa     = Math.round((spend / Math.max(1, orders)) * 100) / 100;
+  const cvr     = Math.round((orders / Math.max(1, orders * (7 + ra() * 5))) * 1000) / 10;
+  const ctr     = Math.round((0.4 + ra() * 0.5) * 100) / 100;
+  const ntbPct  = Math.round((15 + ra() * 45) * 10) / 10;
+  const pop = () => Math.round((-15 + ra() * 30) * 10) / 10;
+  return { name, spend, spendPoP: pop(), sales, salesPoP: pop(), acos, acosPoP: pop(), tacos, tacosPoP: pop(), orders, ordersPoP: pop(), cpc, cpcPoP: pop(), cpa, cpaPoP: pop(), cvr, cvrPoP: pop(), ctr, ctrPoP: pop(), ntbPct, ntbPctPoP: pop() };
+}
+
+export const adByMarketplace: AdPerfRow[] = [
+  makeAdRow('DE', 320000),
+  makeAdRow('UK', 210000),
+  makeAdRow('FR', 95000),
+  makeAdRow('IT', 72000),
+  makeAdRow('ES', 58000),
+  makeAdRow('US', 71000),
+];
+
+export const adByCategory: AdPerfRow[] = [
+  makeAdRow('Sports & Outdoors', 185000),
+  makeAdRow('Home & Kitchen', 142000),
+  makeAdRow('Health & Beauty', 98000),
+  makeAdRow('Electronics', 87000),
+  makeAdRow('Toys & Games', 76000),
+  makeAdRow('Garden & Outdoor', 65000),
+  makeAdRow('Pet Supplies', 54000),
+  makeAdRow('Automotive', 43000),
+];
+
+export const adBySubcategory: AdPerfRow[] = [
+  makeAdRow('Running Shoes', 92000),
+  makeAdRow('Yoga Mats', 78000),
+  makeAdRow('Protein Powder', 65000),
+  makeAdRow('Smart Watches', 61000),
+  makeAdRow('Coffee Makers', 54000),
+  makeAdRow('Air Fryers', 48000),
+  makeAdRow('Dog Food', 44000),
+  makeAdRow('Baby Monitors', 41000),
+  makeAdRow('LED Lights', 38000),
+  makeAdRow('Phone Cases', 34000),
+  makeAdRow('Garden Tools', 31000),
+  makeAdRow('Car Seat Covers', 28000),
+];
+
+export const adByASIN: AdPerfRow[] = [
+  makeAdRow('B08XYZ1234', 58000),
+  makeAdRow('B07ABC5678', 52000),
+  makeAdRow('B09DEF9012', 48000),
+  makeAdRow('B06GHI3456', 44000),
+  makeAdRow('B05JKL7890', 40000),
+  makeAdRow('B04MNO1234', 37000),
+  makeAdRow('B03PQR5678', 34000),
+  makeAdRow('B02STU9012', 31000),
+  makeAdRow('B01VWX3456', 28000),
+  makeAdRow('B00YZA7890', 26000),
+  makeAdRow('B08BCD1234', 24000),
+  makeAdRow('B07EFG5678', 22000),
+  makeAdRow('B06HIJ9012', 21000),
+  makeAdRow('B05KLM3456', 19000),
+  makeAdRow('B04NOP7890', 18000),
+  makeAdRow('B03QRS1234', 16000),
+  makeAdRow('B02TUV5678', 15000),
+  makeAdRow('B01WXY9012', 14000),
+  makeAdRow('B00ZAB3456', 13000),
+  makeAdRow('B08CDE7890', 12000),
+];
+
+function sumAdPerf(rows: AdPerfRow[]): AdPerfRow {
+  const s = (f: keyof AdPerfRow) => rows.reduce((a, r) => a + (r[f] as number), 0);
+  const totSpend = s('spend'), totSales = s('sales'), totOrders = s('orders');
+  return {
+    name: 'Total',
+    spend: totSpend, spendPoP: Math.round(rows.reduce((a,r)=>a+r.spendPoP,0)/rows.length*10)/10,
+    sales: totSales, salesPoP: Math.round(rows.reduce((a,r)=>a+r.salesPoP,0)/rows.length*10)/10,
+    acos: Math.round((totSpend/totSales)*1000)/10, acosPoP: 0,
+    tacos: Math.round((totSpend/totSales)*1000*0.45)/10, tacosPoP: 0,
+    orders: totOrders, ordersPoP: Math.round(rows.reduce((a,r)=>a+r.ordersPoP,0)/rows.length*10)/10,
+    cpc: Math.round((totSpend/Math.max(1,totOrders*10))*100)/100, cpcPoP: 0,
+    cpa: Math.round((totSpend/Math.max(1,totOrders))*100)/100, cpaPoP: 0,
+    cvr: Math.round(rows.reduce((a,r)=>a+r.cvr,0)/rows.length*10)/10, cvrPoP: 0,
+    ctr: Math.round(rows.reduce((a,r)=>a+r.ctr,0)/rows.length*100)/100, ctrPoP: 0,
+    ntbPct: Math.round(rows.reduce((a,r)=>a+r.ntbPct,0)/rows.length*10)/10, ntbPctPoP: 0,
+  };
+}
+
+export const adPerfTotals = sumAdPerf(adByMarketplace);

@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
-import { ChevronRight, Info, TrendingUp, Download, Sheet, Calendar } from 'lucide-react';
-import { profitabilityData, ProfitabilityMetric } from '../data/profitabilityData';
+import { ChevronRight, TrendingUp, Download, Sheet, Calendar } from 'lucide-react';
+import { profitabilityData, ProfitabilityMetric, PL_TOOLTIPS } from '../data/profitabilityData';
 import InfoTooltip from './InfoTooltip';
 import LastRefreshed from './LastRefreshed';
 import { useCurrency, CURRENCY_SYMBOLS } from '../contexts/CurrencyContext';
@@ -353,8 +353,8 @@ export default function Profitability() {
                       )}
                       {!metric.isExpandable && metric.indent === 0 && <span className="w-4"></span>}
                       <span>{metric.label}</span>
-                      {metric.hasInfo && (
-                        <Info className="w-3.5 h-3.5 text-gray-400" />
+                      {PL_TOOLTIPS[metric.label] && (
+                        <InfoTooltip content={PL_TOOLTIPS[metric.label]} wide />
                       )}
                     </div>
                   </td>

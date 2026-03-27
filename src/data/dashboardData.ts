@@ -394,16 +394,16 @@ export const menuItems = [
   {
     label: 'Sales',
     icon: 'BarChart3',
-    subItems: ['Overview', 'Deepdive', 'Targets', 'Trends'],
+    subItems: ['Overview', 'Deepdive', 'Traffic', 'Targets', 'Trends'],
     defaultSub: 'Overview',
     comingSoonSubs: ['Targets'],
   },
   {
     label: 'Advertising',
     icon: 'Megaphone',
-    subItems: ['Overview', 'Deepdive', 'DSP', 'AMC', 'SQP', 'Promotions'],
+    subItems: ['Overview', 'Deepdive', 'DSP', 'AMC', 'Promotions'],
     defaultSub: 'Overview',
-    comingSoonSubs: ['DSP', 'AMC', 'SQP', 'Promotions'],
+    comingSoonSubs: ['DSP', 'AMC', 'Promotions'],
   },
   {
     label: 'Inventory',

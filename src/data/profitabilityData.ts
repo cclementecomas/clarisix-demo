@@ -384,3 +384,132 @@ export const profitabilityData: ProfitabilityMetric[] = [
 
 // Export for use in granularity-based column building
 export { netRevenue, grossProfit, contributionProfit, netOperatingProfit };
+
+// ─── P&L Tooltips — traceability for every line ───────────────────────────────
+export const PL_TOOLTIPS: Record<string, string> = {
+  // Unit metrics
+  'Units sold':
+    'Gross units ordered (including pending returns).\nCalc: Count of units from SALE_SHIPMENT events.\nSource: Finances API (ShipmentEventList).',
+  'Units sold growth':
+    'Year-over-year change in gross units sold (%).\nCalc: (Current period units ÷ Prior year period units − 1) × 100.',
+  'Units refunded':
+    'Units returned by buyers in the period.\nCalc: Count of units from REFUND events.\nSource: Finances API (RefundEventList).',
+  'Net units':
+    'Units sold minus units refunded.\nFormula: Units sold − Units refunded.',
+  'Gross avg selling price':
+    'Average revenue per unit before deductions.\nFormula: Gross Ordered Revenue ÷ Units sold.',
+  'Net avg selling price':
+    'Average revenue per unit after all contra-revenue deductions.\nFormula: Net Revenue ÷ Net units.',
+
+  // Revenue
+  'Gross Ordered Revenue':
+    'Account 4010. Total product revenue from orders placed, before cancellations or refunds.\nCalc: Principal component from SALE_SHIPMENT events (ordered basis).\nSource: Finances API (ShipmentEventList, RELEASED status); Settlement Report V2.',
+  '(-) Cancelled Orders':
+    'Revenue reversed for buyer-cancelled orders before shipment.\nCalc: Units cancelled × sale price. Reduces Gross Ordered Revenue to the shipped amount.',
+  '= Gross Shipped Revenue':
+    'Product revenue net of cancellations — amounts actually shipped.\nFormula: Gross Ordered Revenue − Cancelled Orders.',
+  '(-) Refunds':
+    'Account 4110. Revenue reversed when a product refund is issued.\nCalc: Principal component from REFUND events.\nSource: Finances API (RefundEventList, RELEASED status); Settlement Report V2.',
+  '(-) A-to-Z Claims':
+    'Account 4130. Revenue lost to A-to-Z Guarantee claims resolved in the buyer\'s favour.\nCalc: GUARANTEE_CLAIM event family.\nSource: Finances API; Settlement Report V2.',
+  '(-) Chargebacks':
+    'Account 4130. Revenue lost to buyer-initiated chargebacks.\nCalc: CHARGEBACK event family.\nSource: Finances API; Settlement Report V2.',
+  '= Net Product Revenue':
+    'Gross shipped revenue after refunds, A-to-Z claims, and chargebacks.\nFormula: Gross Shipped Revenue − Refunds − A-to-Z Claims − Chargebacks.',
+  '(+) Shipping Revenue':
+    'Account 4020. Buyer-paid shipping charges on the order.\nCalc: ShippingCharge component from SALE_SHIPMENT events.\nSource: Finances API (ShipmentEventList); Settlement Report V2.',
+  '(+) Gift Wrap Revenue':
+    'Account 4030. Buyer-paid gift wrapping charges.\nCalc: GiftWrap component from SALE_SHIPMENT events.\nSource: Finances API (ShipmentEventList); Settlement Report V2.',
+  '(-) Shipping Refunds':
+    'Account 4120. Shipping charges reversed when shipping is refunded.\nCalc: ShippingCharge component from REFUND events.\nSource: Finances API (RefundEventList); Settlement Report V2.',
+  'Net Revenue':
+    'Calculated line.\nFormula: Net Product Revenue + Shipping Revenue + Gift Wrap Revenue − Shipping Refunds.\nNote: Promotions & Coupons (4140 — PromoDiscount component) are also deducted here.',
+  'Net Revenue growth':
+    'Year-over-year change in Net Revenue (%).\nCalc: (Current period Net Revenue ÷ Prior year − 1) × 100.',
+
+  // COGS
+  'COGS':
+    'Total Cost of Goods Sold.\nFormula: Product Cost + Inbound Freight & Duties − COGS reversal on returns.',
+  'Product Cost (FIFO)':
+    'Account 5010. Cost of goods shipped to the buyer using FIFO costing (default).\nCalc: When a unit ships, the costing engine consumes cost layers from dim_cost_layers. For bundles, COGS is expanded via the BOM table into component SKU costs.\nSource: User-provided cost layers (purchase orders, supplier invoices) combined with FBA fulfillment reports.',
+  'Inbound Shipping':
+    'Account 5020. Freight, customs duties, and prep/labeling costs to get inventory into Amazon\'s FCs.\nCalc: unit_freight_cost + unit_duties_customs + unit_prep_labeling stored per cost layer.\nSource: User-provided cost layer data.',
+  '(-) COGS on Returns':
+    'COGS reversed when returned units re-enter sellable inventory.\nCalc: Cost of returned units credited back using the same costing method as the original sale.',
+
+  // Gross Profit
+  'Gross Profit':
+    'Calculated line.\nFormula: Net Revenue − Product COGS − Inbound Freight & Duties.',
+  'Gross Margin %':
+    'Gross Profit as a percentage of Net Revenue.\nFormula: Gross Profit ÷ Net Revenue × 100.',
+
+  // Amazon Fees
+  'Amazon Fees':
+    'Total Amazon-charged fees (accounts 6010–6099).\nSum of: Referral Fees + FBA Fulfillment + Weight Handling + Monthly Storage + Long-Term Storage + Inbound Placement + Subscription + Variable Closing + Refund Admin + Removal + Return Processing + Other Fees.',
+  'Referral Fees':
+    'Account 6010. Amazon\'s commission per sale — typically 8–15% of the sale price depending on category.\nCalc: Commission component from SALE_SHIPMENT events. On refunds, CommissionRefund is returned to the seller.\nSource: Finances API (FeeComponent detail); Settlement Report V2.\nValidation: Product Fees API per-ASIN estimates.',
+  'FBA Fulfillment':
+    'Account 6020. Per-unit fee for picking, packing, and shipping FBA orders.\nCalc: FBAPerUnitFulfillmentFee component. Varies by product size tier.\nSource: Finances API (FeeComponent detail); Settlement Report V2.\nValidation: Product Fees API estimates.',
+  'Weight Handling':
+    'Account 6020. Weight-based component of FBA fulfillment (FBAWeightHandlingFee).\nGrouped under account 6020 alongside the per-unit FBA fee.\nSource: Finances API (FeeComponent detail); Settlement Report V2.',
+  'Monthly Storage':
+    'Account 6030. Monthly fee for inventory stored in Amazon FCs, based on daily average cubic feet.\nFinancial total: Finances API (or Settlement for cash basis).\nSKU-level allocation: GET_FBA_STORAGE_FEE_CHARGES_DATA report.\nInvariant: allocation lines must sum to the posted total.',
+  'Long-Term Storage':
+    'Account 6031. Additional fee for inventory stored 181/271/365+ days.\nSame posting logic as monthly storage — total from Finances API, SKU allocation from LTS fee charges report.\nSource: Finances API (total); GET_FBA_FULFILLMENT_LONGTERM_STORAGE_FEE_CHARGES_DATA (SKU split).',
+  'Inbound Placement':
+    'Account 6040. Fee when Amazon distributes an inbound shipment across multiple FCs.\nCalc: InboundPlacementFee component from FEE_ORDER events.\nSource: Finances API; Settlement Report V2.',
+  'Subscription Fees':
+    'Account 6090. Amazon Professional Selling plan fee ($39.99/month in the US).\nRecognized on service_period_end for accrual (not when Amazon posts it).\nCalc: SubscriptionFee component from FEE_PERIODIC events.\nSource: Finances API; Settlement Report V2.',
+  'Variable Closing Fees':
+    'Account 6050. Per-unit fee on media category items (books, music, DVDs, video games).\nCalc: VariableClosingFee component.\nSource: Finances API; Settlement Report V2.',
+  'Refund Administration':
+    'Account 6060. Fee Amazon retains when processing a refund — the lesser of $5 or 20% of the referral fee.\nDistinct from CommissionRefund (the partial referral fee returned to the seller).\nCalc: RefundAdministrationFee component from REFUND events.\nSource: Finances API; Settlement Report V2.',
+  'Removal / Disposal':
+    'Account 6070. Per-unit fee to remove or dispose of FBA inventory.\nCalc: RemovalFee component from FEE_ORDER events.\nSource: Finances API; Settlement Report V2.\nDetail: GET_FBA_FULFILLMENT_REMOVAL_ORDER_DETAIL_DATA report.',
+  'Return Processing':
+    'Account 6080. Fee for processing customer returns in certain categories (e.g., apparel, shoes).\nCalc: ReturnProcessingFee from FEE_ORDER events.\nSource: Finances API; Settlement Report V2.',
+  'Other Fees':
+    'Account 6099. Catch-all for Amazon fees not classified in 6010–6090.\nIncludes new fee types Amazon introduces. The Settlement V2 parser flags unknown amount-type values here rather than dropping them.\nSource: Finances API; Settlement Report V2.',
+  'Fee Refunds':
+    'Credits from partial fee reversals on refund events — primarily CommissionRefund (partial referral fee returned to the seller).\nCalc: CommissionRefund and other FeeRefund components from REFUND events.\nSource: Finances API; Settlement Report V2.',
+
+  // Advertising
+  'Advertising':
+    'Total advertising spend (accounts 6110–6150).\nSum of: Sponsored Products + Sponsored Brands + Sponsored Display + DSP + Deal/Coupon fees.',
+  'Sponsored Products':
+    'Account 6110. Cost of Sponsored Products (SP) ad clicks.\nRecognized on click/spend date. Data stable after D+3 (last 3 days re-pulled as a hot window).\nSKU allocation: attributed_sales_7d_share (labeled is_allocation=TRUE).\nSource: Advertising API SP Campaign Reports.\nReconciliation: checked against settlement ad deduction (R2, 2% tolerance).',
+  'Sponsored Brands':
+    'Account 6120. Cost of Sponsored Brands (SB) ad clicks/impressions.\nSKU allocation: attributed_sales_14d_share by default.\nNote: SB spend cannot be deterministically mapped to individual orders at the financial level.\nSource: Advertising API SB Campaign Reports.',
+  'Sponsored Display':
+    'Account 6130. Cost of Sponsored Display (SD) ad clicks/impressions.\nSKU allocation: attributed_sales_14d_share by default.\nSource: Advertising API SD Campaign Reports.',
+  'DSP':
+    'Account 6140. Amazon Demand-Side Platform programmatic display ad cost.\nDifferent attribution model from SP/SB/SD.\nSKU allocation: impression_share method.\nSource: DSP Reports via Advertising API.',
+  'Deals / Coupons / Promos':
+    'Accounts 4140 + 6150.\n4140 — Promotions & Coupons: seller-funded discount value (PromoDiscount component from SALE_SHIPMENT and PROMOTION events).\n6150 — Deal/Coupon Fees: what Amazon charges to run Lightning Deals, Best Deals, or coupon clip fees (distinct from the discount itself).\nSource: Finances API; Settlement Report V2.',
+  'TACOS %':
+    'Total Advertising Cost of Sales.\nFormula: Total Advertising Spend ÷ Net Revenue × 100.',
+
+  // Reimbursements
+  'Reimbursements':
+    'Total other income from Amazon (accounts 7010–7090).\nSum of: Inventory Reimbursements + SAFE-T Claims + Other Adjustments (fee corrections, FX, miscellaneous).',
+  'Inventory Reimbursements':
+    'Account 7010. Credits for lost, damaged, or destroyed FBA inventory.\nPosted when Amazon confirms reimbursement (RELEASED status).\nSource: Finances API (AdjustmentEvents); Settlement Report V2.\nCorroborated by: GET_FBA_REIMBURSEMENTS_DATA report.',
+  'SAFE-T Claims':
+    'Account 7020. Credits from successful Seller Assurance for E-Commerce Transactions claims — seller-initiated disputes on refund decisions.\nSource: Finances API (AdjustmentEvents); Settlement Report V2.',
+  'Other Adjustments':
+    'Accounts 7030 / 7050 / 7090.\n7030 — Fee Corrections: credits or charges from Amazon correcting previously billed fees.\n7050 — FX Gain/Loss: gains/losses from the difference between transaction-date FX rate and settlement-date FX rate (ECB daily rates vs. Amazon settlement rates, posted as FX_REVAL events).\n7090 — Miscellaneous credits/debits not classified in 7010–7050.\nSource: Finances API (AdjustmentEvents); Settlement Report V2.',
+
+  // Contribution Profit
+  'Contribution Profit':
+    'Calculated line.\nFormula: Gross Profit − Total Amazon Fees − Total Advertising + Total Reimbursements & Adjustments.',
+  'Contribution Margin %':
+    'Contribution Profit as a percentage of Net Revenue.\nFormula: Contribution Profit ÷ Net Revenue × 100.',
+
+  // Overheads & NOP
+  '(-) Allocated Overheads':
+    'User-input overhead costs allocated to this Amazon business.\nIncludes: Staff/Payroll (8010), Software & Tools (8020), Other Overheads (8030).\nSource: Manual user input — not derived from any Amazon API.',
+  'Net Operating Profit':
+    'Calculated line.\nFormula: Contribution Profit − Allocated Overheads.',
+  'Net Operating Margin %':
+    'Net Operating Profit as a percentage of Net Revenue.\nFormula: Net Operating Profit ÷ Net Revenue × 100.',
+};

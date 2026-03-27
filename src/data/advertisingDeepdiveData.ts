@@ -374,3 +374,254 @@ export const audienceSegments: AudienceSegment[] = [
     roas: 1.72,
   },
 ];
+
+// ─── Extended Placement rows (with PoP) ──────────────────────────────────────
+export interface PlacementRow {
+  placement: string;
+  spend: number;     spendPoP: number;     spendDiffLY: number;
+  sales: number;     salesPoP: number;
+  acos: number;      acosPoP: number;
+  cpc: number;       cpcPoP: number;
+  cpa: number;       cpaPoP: number;
+  cvr: number;       cvrPoP: number;
+  ctr: number;       ctrPoP: number;
+}
+
+const rP = seededRandom(101);
+function makePlacRow(placement: string, spendBase: number): PlacementRow {
+  const spend = Math.round(spendBase * (0.9 + rP() * 0.2));
+  const sales = Math.round(spend * (3.8 + rP() * 1.4));
+  const orders = Math.round(sales / (55 + rP() * 25));
+  const acos = Math.round((spend / sales) * 1000) / 10;
+  const cpc = Math.round((spend / Math.max(1, orders * (9 + rP() * 4))) * 100) / 100;
+  const cpa = Math.round((spend / Math.max(1, orders)) * 100) / 100;
+  const cvr = Math.round((8 + rP() * 8) * 10) / 10;
+  const ctr = Math.round((0.4 + rP() * 0.5) * 100) / 100;
+  const pop = () => Math.round((-12 + rP() * 25) * 10) / 10;
+  return { placement, spend, spendPoP: pop(), spendDiffLY: pop() * 1.5, sales, salesPoP: pop(), acos, acosPoP: pop(), cpc, cpcPoP: pop(), cpa, cpaPoP: pop(), cvr, cvrPoP: pop(), ctr, ctrPoP: pop() };
+}
+
+export const placementRows: PlacementRow[] = [
+  makePlacRow('Top of Search', 340000),
+  makePlacRow('Rest of Search', 210000),
+  makePlacRow('Product Pages', 175000),
+];
+export const placementRowsSP: PlacementRow[] = [
+  makePlacRow('Top of Search', 210000),
+  makePlacRow('Rest of Search', 140000),
+  makePlacRow('Product Pages', 105000),
+];
+export const placementRowsSB: PlacementRow[] = [
+  makePlacRow('Top of Search', 130000),
+  makePlacRow('Rest of Search', 70000),
+  makePlacRow('Product Pages', 70000),
+];
+
+// ─── Audience rows ────────────────────────────────────────────────────────────
+export interface AudienceRow {
+  segment: string;
+  spend: number;  spendPoP: number;
+  sales: number;  salesPoP: number;
+  acos: number;   acosPoP: number;
+  cpc: number;    cpcPoP: number;
+  cpa: number;    cpaPoP: number;
+  cvr: number;    cvrPoP: number;
+  ctr: number;    ctrPoP: number;
+}
+
+const rA = seededRandom(202);
+function makeAudRow(segment: string, spendBase: number): AudienceRow {
+  const spend = Math.round(spendBase * (0.9 + rA() * 0.2));
+  const sales = Math.round(spend * (3.5 + rA() * 1.5));
+  const orders = Math.round(sales / (50 + rA() * 30));
+  const acos = Math.round((spend / sales) * 1000) / 10;
+  const cpc = Math.round((spend / Math.max(1, orders * (8 + rA() * 5))) * 100) / 100;
+  const cpa = Math.round((spend / Math.max(1, orders)) * 100) / 100;
+  const cvr = Math.round((7 + rA() * 9) * 10) / 10;
+  const ctr = Math.round((0.35 + rA() * 0.55) * 100) / 100;
+  const pop = () => Math.round((-10 + rA() * 22) * 10) / 10;
+  return { segment, spend, spendPoP: pop(), sales, salesPoP: pop(), acos, acosPoP: pop(), cpc, cpcPoP: pop(), cpa, cpaPoP: pop(), cvr, cvrPoP: pop(), ctr, ctrPoP: pop() };
+}
+
+export const audienceRows: AudienceRow[] = [
+  makeAudRow('Retargeting', 185000),
+  makeAudRow('Lookalike', 142000),
+  makeAudRow('In-Market', 98000),
+  makeAudRow('Lifestyle', 72000),
+  makeAudRow('Contextual', 54000),
+];
+
+// ─── Tactic rows ──────────────────────────────────────────────────────────────
+export interface TacticRow {
+  tactic: string;
+  spend: number;  spendPoP: number;
+  sales: number;  salesPoP: number;
+  acos: number;   acosPoP: number;
+  cpc: number;    cpcPoP: number;
+  cpa: number;    cpaPoP: number;
+  cvr: number;    cvrPoP: number;
+  ctr: number;    ctrPoP: number;
+}
+
+const rT = seededRandom(303);
+function makeTacRow(tactic: string, spendBase: number): TacticRow {
+  const spend = Math.round(spendBase * (0.88 + rT() * 0.24));
+  const sales = Math.round(spend * (3.2 + rT() * 1.8));
+  const orders = Math.round(sales / (48 + rT() * 32));
+  const acos = Math.round((spend / sales) * 1000) / 10;
+  const cpc = Math.round((spend / Math.max(1, orders * (7 + rT() * 6))) * 100) / 100;
+  const cpa = Math.round((spend / Math.max(1, orders)) * 100) / 100;
+  const cvr = Math.round((6 + rT() * 10) * 10) / 10;
+  const ctr = Math.round((0.3 + rT() * 0.6) * 100) / 100;
+  const pop = () => Math.round((-14 + rT() * 28) * 10) / 10;
+  return { tactic, spend, spendPoP: pop(), sales, salesPoP: pop(), acos, acosPoP: pop(), cpc, cpcPoP: pop(), cpa, cpaPoP: pop(), cvr, cvrPoP: pop(), ctr, ctrPoP: pop() };
+}
+
+export const tacticData: TacticRow[] = [
+  makeTacRow('DC — Defensive Competitor', 158000),
+  makeTacRow('CQ — Conquest', 134000),
+  makeTacRow('BP — Brand Protection', 112000),
+  makeTacRow('RE — Retargeting', 89000),
+  makeTacRow('CT — Category Targeting', 71000),
+];
+
+// ─── Funnel rows ──────────────────────────────────────────────────────────────
+export interface FunnelRow {
+  stage: string;
+  spend: number;  spendPoP: number;
+  sales: number;  salesPoP: number;
+  acos: number;   acosPoP: number;
+  cpc: number;    cpcPoP: number;
+  cpa: number;    cpaPoP: number;
+  cvr: number;    cvrPoP: number;
+  ctr: number;    ctrPoP: number;
+}
+
+const rF = seededRandom(404);
+function makeFunRow(stage: string, spendBase: number): FunnelRow {
+  const spend = Math.round(spendBase * (0.9 + rF() * 0.2));
+  const sales = Math.round(spend * (2.8 + rF() * 2.4));
+  const orders = Math.round(sales / (50 + rF() * 35));
+  const acos = Math.round((spend / sales) * 1000) / 10;
+  const cpc = Math.round((spend / Math.max(1, orders * (8 + rF() * 5))) * 100) / 100;
+  const cpa = Math.round((spend / Math.max(1, orders)) * 100) / 100;
+  const cvr = Math.round((4 + rF() * 12) * 10) / 10;
+  const ctr = Math.round((0.25 + rF() * 0.65) * 100) / 100;
+  const pop = () => Math.round((-12 + rF() * 25) * 10) / 10;
+  return { stage, spend, spendPoP: pop(), sales, salesPoP: pop(), acos, acosPoP: pop(), cpc, cpcPoP: pop(), cpa, cpaPoP: pop(), cvr, cvrPoP: pop(), ctr, ctrPoP: pop() };
+}
+
+export const funnelData: FunnelRow[] = [
+  makeFunRow('AW — Awareness', 310000),
+  makeFunRow('CS — Consideration', 195000),
+  makeFunRow('CV — Conversion', 148000),
+];
+
+// ─── Ad Type rows ─────────────────────────────────────────────────────────────
+export interface AdTypeRow {
+  adType: string;
+  spend: number;  spendPoP: number;
+  sales: number;  salesPoP: number;
+  acos: number;   acosPoP: number;
+  cpc: number;    cpcPoP: number;
+  cpa: number;    cpaPoP: number;
+  cvr: number;    cvrPoP: number;
+  ctr: number;    ctrPoP: number;
+}
+
+const rAT = seededRandom(505);
+function makeATRow(adType: string, spendBase: number): AdTypeRow {
+  const spend = Math.round(spendBase * (0.88 + rAT() * 0.24));
+  const sales = Math.round(spend * (3.0 + rAT() * 2.0));
+  const orders = Math.round(sales / (52 + rAT() * 28));
+  const acos = Math.round((spend / sales) * 1000) / 10;
+  const cpc = Math.round((spend / Math.max(1, orders * (8 + rAT() * 5))) * 100) / 100;
+  const cpa = Math.round((spend / Math.max(1, orders)) * 100) / 100;
+  const cvr = Math.round((6 + rAT() * 10) * 10) / 10;
+  const ctr = Math.round((0.3 + rAT() * 0.65) * 100) / 100;
+  const pop = () => Math.round((-13 + rAT() * 27) * 10) / 10;
+  return { adType, spend, spendPoP: pop(), sales, salesPoP: pop(), acos, acosPoP: pop(), cpc, cpcPoP: pop(), cpa, cpaPoP: pop(), cvr, cvrPoP: pop(), ctr, ctrPoP: pop() };
+}
+
+export const adTypeRows: AdTypeRow[] = [
+  makeATRow('Sponsored Products', 485000),
+  makeATRow('Sponsored Brands', 195000),
+  makeATRow('Sponsored Brands Video', 87000),
+  makeATRow('Sponsored Display', 59000),
+];
+
+// ─── Search Term rows (top 50) ────────────────────────────────────────────────
+export interface SearchTermRow {
+  searchTerm: string;
+  matchType: string;
+  spend: number;       spendPoP: number;
+  sales: number;       salesPoP: number;
+  acos: number;        acosPoP: number;
+  cpc: number;         cpcPoP: number;
+  cpa: number;         cpaPoP: number;
+  cvr: number;         cvrPoP: number;
+  ctr: number;         ctrPoP: number;
+  impressionShare: number;  impressionSharePoP: number;
+}
+
+const rST = seededRandom(606);
+const TERMS = [
+  'running shoes men', 'yoga mat thick', 'protein powder vanilla', 'smartwatch fitness',
+  'air fryer large', 'coffee maker programmable', 'dog food grain free', 'led strip lights',
+  'phone case iphone', 'garden tools set', 'baby monitor wifi', 'laptop stand adjustable',
+  'water bottle insulated', 'bluetooth headphones', 'electric toothbrush', 'face mask skincare',
+  'resistance bands set', 'desk organizer', 'essential oils diffuser', 'cast iron skillet',
+  'knee compression sleeve', 'hair dryer brush', 'shower curtain liner', 'motion sensor light',
+  'luggage carry on', 'magnetic phone mount', 'collagen peptides powder', 'foam roller massage',
+  'stainless steel straws', 'reusable grocery bags', 'velvet hangers slim', 'shower head filter',
+  'meal prep containers', 'eye mask sleep', 'posture corrector back', 'cat food wet',
+  'bird feeder hanging', 'plant pot indoor', 'candle soy wax', 'bath mat non slip',
+  'silicone baking mat', 'garage storage hooks', 'car seat cover waterproof', 'knee brace support',
+  'beard oil grooming', 'nail polish gel', 'fishing line braided', 'camping lantern solar',
+  'puzzles 1000 pieces', 'whiteboard markers dry erase',
+];
+const MATCH_TYPES = ['Exact', 'Phrase', 'Broad'];
+
+export const searchTermData: SearchTermRow[] = TERMS.map((searchTerm, i) => {
+  const spend = Math.round((2000 + rST() * 18000) * 10) / 10;
+  const sales = Math.round(spend * (2.5 + rST() * 3.5));
+  const orders = Math.round(sales / (45 + rST() * 40));
+  const acos = Math.round((spend / sales) * 1000) / 10;
+  const cpc = Math.round((0.3 + rST() * 1.8) * 100) / 100;
+  const cpa = Math.round((spend / Math.max(1, orders)) * 100) / 100;
+  const cvr = Math.round((5 + rST() * 15) * 10) / 10;
+  const ctr = Math.round((0.2 + rST() * 0.9) * 100) / 100;
+  const impressionShare = Math.round((10 + rST() * 55) * 10) / 10;
+  const pop = () => Math.round((-18 + rST() * 36) * 10) / 10;
+  return {
+    searchTerm, matchType: MATCH_TYPES[i % 3],
+    spend, spendPoP: pop(), sales, salesPoP: pop(), acos, acosPoP: pop(),
+    cpc, cpcPoP: pop(), cpa, cpaPoP: pop(), cvr, cvrPoP: pop(), ctr, ctrPoP: pop(),
+    impressionShare, impressionSharePoP: pop(),
+  };
+});
+
+// ─── Hourly performance (hours 0–23) ─────────────────────────────────────────
+export interface HourlyRow {
+  hour: number;
+  label: string;
+  spend: number;
+  sales: number;
+  acos: number;
+  cvr: number;
+  orders: number;
+}
+
+const rH = seededRandom(707);
+export const hourlyData: HourlyRow[] = Array.from({ length: 24 }, (_, h) => {
+  // Model realistic U-shaped spend (low at night, peaks at 9am and 8pm)
+  const peak = Math.exp(-0.5 * Math.pow((h - 9) / 3, 2)) + 0.7 * Math.exp(-0.5 * Math.pow((h - 20) / 2.5, 2));
+  const base = 8000 + peak * 22000;
+  const spend = Math.round(base * (0.85 + rH() * 0.3));
+  const sales = Math.round(spend * (3.2 + rH() * 1.6));
+  const orders = Math.round(sales / (55 + rH() * 25));
+  const acos = Math.round((spend / sales) * 1000) / 10;
+  const cvr = Math.round((7 + rH() * 9) * 10) / 10;
+  const label = `${String(h).padStart(2, '0')}:00`;
+  return { hour: h, label, spend, sales, acos, cvr, orders };
+});

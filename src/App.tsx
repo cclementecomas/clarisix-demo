@@ -29,6 +29,7 @@ import OnboardingGateway from './components/OnboardingGateway';
 import OnboardingWizard from './components/onboarding/OnboardingWizard';
 import CommandPalette from './components/CommandPalette';
 import Greeting from './components/Greeting';
+import Traffic from './components/Traffic';
 import { useOnboarding } from './contexts/OnboardingContext';
 import { OnboardingWizardProvider } from './contexts/OnboardingWizardContext';
 import { menuItems } from './data/dashboardData';
@@ -120,6 +121,9 @@ export default function App() {
     }
     if (activeSection === 'Sales' && activeSub === 'Deepdive') {
       return <DeepDive />;
+    }
+    if (activeSection === 'Sales' && activeSub === 'Traffic') {
+      return <Traffic />;
     }
     if (activeSection === 'Sales' && activeSub === 'Trends') {
       return <Trends />;
