@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Columns3, Check } from 'lucide-react';
 import type { ColumnDef } from './DeepDiveTable';
 
@@ -10,11 +11,16 @@ interface ColumnToggleProps {
 
 export default function ColumnToggle({ columns, visibleColumns, onToggle }: ColumnToggleProps) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const dropRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
+      if (
+        btnRef.current && !btnRef.current.contains(e.target as Node) &&
+        dropRef.current && !dropRef.current.contains(e.target as Node)
+      ) {
         setOpen(false);
       }
     }
@@ -22,10 +28,24 @@ export default function ColumnToggle({ columns, visibleColumns, onToggle }: Colu
     return () => document.removeEventListener('mousedown', handleClick);
   }, [open]);
 
+  function handleOpen() {
+    if (!open && btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      setDropdownStyle({
+        position: 'fixed',
+        top: rect.bottom + 6,
+        right: window.innerWidth - rect.right,
+        zIndex: 9999,
+      });
+    }
+    setOpen((v) => !v);
+  }
+
   return (
-    <div className="relative" ref={ref}>
+    <div className="relative">
       <button
-        onClick={() => setOpen(!open)}
+        ref={btnRef}
+        onClick={handleOpen}
         className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border transition-all duration-200 ${
           open
             ? 'border-cx-300 bg-cx-50 text-cx-700'
@@ -35,8 +55,12 @@ export default function ColumnToggle({ columns, visibleColumns, onToggle }: Colu
         <Columns3 className="w-3.5 h-3.5" />
         Columns
       </button>
-      {open && (
-        <div className="absolute right-0 top-full mt-1.5 z-50 bg-white border border-gray-200 rounded-xl shadow-xl py-1.5 min-w-[220px] max-h-[320px] overflow-y-auto">
+      {open && createPortal(
+        <div
+          ref={dropRef}
+          style={dropdownStyle}
+          className="bg-white border border-gray-200 rounded-xl shadow-xl py-1.5 min-w-[220px] max-h-[400px] overflow-y-auto"
+        >
           <div className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
             Toggle Columns
           </div>
@@ -65,7 +89,8 @@ export default function ColumnToggle({ columns, visibleColumns, onToggle }: Colu
               </button>
             );
           })}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
