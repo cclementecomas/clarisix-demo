@@ -6,7 +6,6 @@ import DeepDiveTable, {
   pctShareFormatter,
 } from './deepdive/DeepDiveTable';
 import AdvertisingKPICards from './advertising/AdvertisingKPICards';
-import AdSpendRunRate from './advertising/AdSpendRunRate';
 import LastRefreshed from './LastRefreshed';
 import {
   adByMarketplace,
@@ -104,8 +103,6 @@ export default function AdvertisingOverview() {
   return (
     <div className="space-y-4">
       <AdvertisingKPICards />
-
-      <AdSpendRunRate />
 
       <DeepDiveTable
         title="Performance by Marketplace"
