@@ -339,6 +339,14 @@ export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottom
 
   const pinnedCol = visibleCols.find((c) => c.pinned === 'left');
 
+  // Dynamic table width: sum of all visible column widths (pinned col = 180px default)
+  const tableMinWidth = useMemo(() => {
+    return visibleCols.reduce((sum, col) => {
+      if (col.pinned === 'left') return sum + 180;
+      return sum + (col.width ?? 130);
+    }, 0);
+  }, [visibleCols]);
+
   const buildExportRows = useCallback((): (string | number)[][] => {
     const headers: string[] = [];
     for (const col of visibleCols) {
@@ -553,19 +561,15 @@ export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottom
       </div>}
       <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: 420 }} ref={tableRef}>
         <table
-          className="w-full min-w-[1400px] border-collapse text-[13px]"
-          style={{ fontFamily: "'Inter', system-ui, sans-serif", tableLayout: 'fixed' }}
+          className="w-full border-collapse text-[13px]"
+          style={{ fontFamily: "'Inter', system-ui, sans-serif", tableLayout: 'fixed', minWidth: Math.max(tableMinWidth, 900) }}
         >
           <colgroup>
-            {(() => {
-              const nonPinned = visibleCols.filter((c) => c.pinned !== 'left');
-              const totalWeight = nonPinned.reduce((sum, c) => sum + (c.width ?? 130), 0);
-              return visibleCols.map((col, i) => {
-                const isPinned = col.pinned === 'left';
-                const w = isPinned ? '14%' : `${((col.width ?? 130) / totalWeight) * 86}%`;
-                return <col key={i} style={{ width: w }} />;
-              });
-            })()}
+            {visibleCols.map((col, i) => {
+              const isPinned = col.pinned === 'left';
+              const w = isPinned ? 180 : (col.width ?? 130);
+              return <col key={i} style={{ width: w }} />;
+            })}
           </colgroup>
           <thead className="sticky top-0 z-20">
             <tr className="bg-slate-50 border-b-2 border-slate-200">

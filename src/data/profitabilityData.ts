@@ -14,7 +14,7 @@ export interface ProfitabilityMetric {
 
 type PV = Record<string, number>;
 
-// All period keys — legacy comparison + monthly 2024/2025 + quarterly + yearly
+// All period keys — legacy comparison + monthly 2024/2025/2026 + quarterly + yearly
 const KS: string[] = [
   // Legacy comparison columns
   'ytd25', 'ytd24', 'ltm25', 'ptm24', 'l3m25', 'p3m24', 'total',
@@ -24,11 +24,15 @@ const KS: string[] = [
   // Monthly 2025
   'jan2025','feb2025','mar2025','apr2025','may2025','jun2025',
   'jul2025','aug2025','sep2025','oct2025','nov2025','dec2025',
+  // Monthly 2026 (Jan-Mar actuals, Apr-Dec no data yet)
+  'jan2026','feb2026','mar2026','apr2026','may2026','jun2026',
+  'jul2026','aug2026','sep2026','oct2026','nov2026','dec2026',
   // Quarterly
   'q12024','q22024','q32024','q42024',
   'q12025','q22025','q32025','q42025',
+  'q12026','q22026','q32026','q42026',
   // Yearly
-  'fy2023','fy2024','fy2025',
+  'fy2023','fy2024','fy2025','fy2026',
 ];
 
 const rd = (v: number) => Math.round(v * 10) / 10;
@@ -73,11 +77,14 @@ const unitsSold: PV = {
   // Monthly 2025
   jan2025: 212, feb2025: 219, mar2025: 237, apr2025: 230, may2025: 243, jun2025: 234,
   jul2025: 247, aug2025: 265, sep2025: 259, oct2025: 270, nov2025: 275, dec2025: 542,
+  // Monthly 2026 (Jan-Mar actuals, Apr-Dec pending)
+  jan2026: 229, feb2026: 238, mar2026: 258,
   // Quarterly
   q12024: 494, q22024: 554, q32024: 611, q42024: 816,
   q12025: 668, q22025: 707, q32025: 771, q42025: 1087,
+  q12026: 725,
   // Yearly
-  fy2023: 2128, fy2024: 2475, fy2025: 3233,
+  fy2023: 2128, fy2024: 2475, fy2025: 3233, fy2026: 725,
 };
 
 const unitsRefunded: PV = {
@@ -90,11 +97,14 @@ const unitsRefunded: PV = {
   // Monthly 2025
   jan2025: 24, feb2025: 9, mar2025: 16, apr2025: 16, may2025: 17, jun2025: 16,
   jul2025: 17, aug2025: 18, sep2025: 18, oct2025: 18, nov2025: 19, dec2025: 37,
+  // Monthly 2026
+  jan2026: 15, feb2026: 16, mar2026: 17,
   // Quarterly
   q12024: 34, q22024: 37, q32024: 41, q42024: 40,
   q12025: 49, q22025: 49, q32025: 53, q42025: 74,
+  q12026: 48,
   // Yearly
-  fy2023: 135, fy2024: 152, fy2025: 225,
+  fy2023: 135, fy2024: 152, fy2025: 225, fy2026: 48,
 };
 
 const netUnits = sub(unitsSold, unitsRefunded);
@@ -109,11 +119,14 @@ const grossASP: PV = {
   // Monthly 2025
   jan2025: 35.4, feb2025: 37.5, mar2025: 37.2, apr2025: 37.0, may2025: 36.8, jun2025: 36.6,
   jul2025: 36.4, aug2025: 36.2, sep2025: 36.4, oct2025: 36.8, nov2025: 38.0, dec2025: 34.8,
+  // Monthly 2026 (Jan-Mar actuals, ~3% ASP growth YoY)
+  jan2026: 36.5, feb2026: 38.6, mar2026: 38.3,
   // Quarterly
   q12024: 36.2, q22024: 35.6, q32024: 35.1, q42024: 35.0,
   q12025: 36.7, q22025: 36.8, q32025: 36.3, q42025: 36.6,
+  q12026: 37.8,
   // Yearly
-  fy2023: 35.0, fy2024: 35.3, fy2025: 36.8,
+  fy2023: 35.0, fy2024: 35.3, fy2025: 36.8, fy2026: 37.8,
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -148,7 +161,7 @@ const cogsOnReturns = scl(mul(unitsRefunded, costPerUnit), 0.6);
 const netCogs = sub(add(productCost, inboundShipping), cogsOnReturns);
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// GROSS PROFIT
+// PRODUCT MARGIN (formerly Gross Profit)
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const grossProfit = sub(netRevenue, netCogs);
@@ -174,11 +187,14 @@ const subscriptionFees: PV = {
   jul2024: 40, aug2024: 40, sep2024: 40, oct2024: 40, nov2024: 40, dec2024: 40,
   jan2025: 40, feb2025: 40, mar2025: 40, apr2025: 40, may2025: 40, jun2025: 40,
   jul2025: 40, aug2025: 40, sep2025: 40, oct2025: 40, nov2025: 40, dec2025: 40,
+  // Monthly 2026
+  jan2026: 40, feb2026: 40, mar2026: 40,
   // Quarterly
   q12024: 120, q22024: 120, q32024: 120, q42024: 120,
   q12025: 120, q22025: 120, q32025: 120, q42025: 120,
+  q12026: 120,
   // Yearly
-  fy2023: 480, fy2024: 480, fy2025: 480,
+  fy2023: 480, fy2024: 480, fy2025: 480, fy2026: 120,
 };
 
 const variableClosing = scl(unitsSold, 0.12);
@@ -191,9 +207,12 @@ const removalDisposal: PV = {
   jul2024: 14, aug2024: 15, sep2024: 15, oct2024: 15, nov2024: 14, dec2024: 15,
   jan2025: 14, feb2025: 15, mar2025: 15, apr2025: 15, may2025: 16, jun2025: 16,
   jul2025: 16, aug2025: 17, sep2025: 17, oct2025: 17, nov2025: 17, dec2025: 18,
+  // Monthly 2026
+  jan2026: 15, feb2026: 16, mar2026: 16,
   q12024: 37, q22024: 41, q32024: 44, q42024: 44,
   q12025: 44, q22025: 47, q32025: 50, q42025: 52,
-  fy2023: 170, fy2024: 176, fy2025: 193,
+  q12026: 47,
+  fy2023: 170, fy2024: 176, fy2025: 193, fy2026: 47,
 };
 
 const returnProcessing = scl(unitsRefunded, 1.20);
@@ -232,9 +251,12 @@ const safetClaims: PV = {
   jul2024: 15, aug2024: 16, sep2024: 16, oct2024: 14, nov2024: 8, dec2024: 15,
   jan2025: 18, feb2025: 27, mar2025: 22, apr2025: 20, may2025: 20, jun2025: 19,
   jul2025: 19, aug2025: 18, sep2025: 18, oct2025: 18, nov2025: 19, dec2025: 22,
+  // Monthly 2026
+  jan2026: 20, feb2026: 28, mar2026: 24,
   q12024: 32, q22024: 40, q32024: 47, q42024: 37,
   q12025: 67, q22025: 59, q32025: 55, q42025: 59,
-  fy2023: 130, fy2024: 156, fy2025: 240,
+  q12026: 72,
+  fy2023: 130, fy2024: 156, fy2025: 240, fy2026: 72,
 };
 
 const otherAdjustments: PV = {
@@ -244,22 +266,36 @@ const otherAdjustments: PV = {
   jul2024: 11, aug2024: 11, sep2024: 12, oct2024: 12, nov2024: 6, dec2024: 12,
   jan2025: 14, feb2025: 18, mar2025: 16, apr2025: 15, may2025: 15, jun2025: 14,
   jul2025: 14, aug2025: 14, sep2025: 13, oct2025: 13, nov2025: 14, dec2025: 16,
+  // Monthly 2026
+  jan2026: 15, feb2026: 19, mar2026: 17,
   q12024: 25, q22024: 29, q32024: 34, q42024: 30,
   q12025: 48, q22025: 44, q32025: 41, q42025: 43,
-  fy2023: 100, fy2024: 118, fy2025: 176,
+  q12026: 51,
+  fy2023: 100, fy2024: 118, fy2025: 176, fy2026: 51,
 };
 
 const totalReimbursements = add(inventoryReimb, safetClaims, otherAdjustments);
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// CONTRIBUTION & NET PROFIT
+// CHANNEL MARGIN
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const contributionProfit = add(grossProfit, neg(totalAmazonFees), neg(totalAdvertising), totalReimbursements);
-const contributionMarginPct = pct(contributionProfit, netRevenue);
+const channelMargin = sub(grossProfit, totalAmazonFees);
+const channelMarginPct = pct(channelMargin, netRevenue);
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// GROWTH MARGIN
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const growthMargin = add(channelMargin, neg(totalAdvertising), totalReimbursements);
+const growthMarginPct = pct(growthMargin, netRevenue);
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// NET OPERATING PROFIT
+// ═══════════════════════════════════════════════════════════════════════════════
 
 const allocatedOverheads = scl(netRevenue, 0.05);
-const netOperatingProfit = sub(contributionProfit, allocatedOverheads);
+const netOperatingProfit = sub(growthMargin, allocatedOverheads);
 const netOperatingMarginPct = pct(netOperatingProfit, netRevenue);
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -278,23 +314,28 @@ function yoyGrowth(current: PV, prior: PV): PV {
   const MONTHS = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
 
   for (const m of MONTHS) {
-    const k24 = `${m}2024`, k25 = `${m}2025`;
+    const k24 = `${m}2024`, k25 = `${m}2025`, k26 = `${m}2026`;
     const p24 = prior[k24] ?? 0;
     const p25 = prior[k25] ?? 0;
     result[k25] = p24 !== 0 ? rd(((current[k25] ?? 0) - p24) / Math.abs(p24) * 100) : 0;
+    // 2026 vs 2025
+    result[k26] = p25 !== 0 ? rd(((current[k26] ?? 0) - p25) / Math.abs(p25) * 100) : 0;
     // 2024 vs 2023 (approx +10%)
     result[k24] = p25 !== 0 ? rd(((current[k24] ?? 0) - (current[k24] ?? 0) / 1.1) / ((current[k24] ?? 0) / 1.1) * 100) : 9.5;
   }
 
   for (const q of ['q1','q2','q3','q4']) {
-    const k24 = `${q}2024`, k25 = `${q}2025`;
+    const k24 = `${q}2024`, k25 = `${q}2025`, k26 = `${q}2026`;
     const p24 = prior[k24] ?? 0;
+    const p25 = prior[k25] ?? 0;
     result[k25] = p24 !== 0 ? rd(((current[k25] ?? 0) - p24) / Math.abs(p24) * 100) : 0;
+    result[k26] = p25 !== 0 ? rd(((current[k26] ?? 0) - p25) / Math.abs(p25) * 100) : 0;
     result[k24] = 9.5;
   }
 
-  const fy24 = prior.fy2024 ?? 0, fy23 = prior.fy2023 ?? 0;
+  const fy24 = prior.fy2024 ?? 0, fy23 = prior.fy2023 ?? 0, fy25 = prior.fy2025 ?? 0;
   result.fy2025 = fy24 !== 0 ? rd(((current.fy2025 ?? 0) - fy24) / Math.abs(fy24) * 100) : 0;
+  result.fy2026 = fy25 !== 0 ? rd(((current.fy2026 ?? 0) - fy25) / Math.abs(fy25) * 100) : 0;
   result.fy2024 = fy23 !== 0 ? rd(((current.fy2024 ?? 0) - fy23) / Math.abs(fy23) * 100) : 0;
   result.fy2023 = 8.0;
 
@@ -337,9 +378,9 @@ export const profitabilityData: ProfitabilityMetric[] = [
   m('Inbound Shipping', 'currency', neg(inboundShipping), { styleType: 'sub-item', indent: 1, parentGroup: 'COGS' }),
   m('(-) COGS on Returns', 'currency', cogsOnReturns, { styleType: 'sub-item', indent: 1, parentGroup: 'COGS' }),
 
-  // ── GROSS PROFIT ─────────────────────────────────────────────────────────
-  m('Gross Profit', 'currency', grossProfit, { styleType: 'total', hasInfo: true }),
-  m('Gross Margin %', 'percentage', grossMarginPct, { styleType: 'ratio', indent: 1 }),
+  // ── PRODUCT MARGIN ──────────────────────────────────────────────────────
+  m('Product Margin', 'currency', grossProfit, { styleType: 'total', hasInfo: true }),
+  m('Product Margin %', 'percentage', grossMarginPct, { styleType: 'ratio', indent: 1 }),
 
   // ── AMAZON FEES ───────────────────────────────────────────────────────────
   m('Amazon Fees', 'currency', neg(totalAmazonFees), { styleType: 'header', hasInfo: true, isExpandable: true }),
@@ -357,6 +398,10 @@ export const profitabilityData: ProfitabilityMetric[] = [
   m('Other Fees', 'currency', neg(otherFees), { styleType: 'sub-item', indent: 1, parentGroup: 'Amazon Fees' }),
   m('Fee Refunds', 'currency', feeRefunds, { styleType: 'sub-item', indent: 1, parentGroup: 'Amazon Fees' }),
 
+  // ── CHANNEL MARGIN ────────────────────────────────────────────────────────
+  m('Channel Margin', 'currency', channelMargin, { styleType: 'total', hasInfo: true }),
+  m('Channel Margin %', 'percentage', channelMarginPct, { styleType: 'ratio', indent: 1 }),
+
   // ── ADVERTISING ───────────────────────────────────────────────────────────
   m('Advertising', 'currency', neg(totalAdvertising), { styleType: 'header', isExpandable: true }),
   m('Sponsored Products', 'currency', neg(spSpend), { styleType: 'sub-item', indent: 1, parentGroup: 'Advertising' }),
@@ -372,9 +417,9 @@ export const profitabilityData: ProfitabilityMetric[] = [
   m('SAFE-T Claims', 'currency', safetClaims, { styleType: 'sub-item', indent: 1, parentGroup: 'Reimbursements' }),
   m('Other Adjustments', 'currency', otherAdjustments, { styleType: 'sub-item', indent: 1, parentGroup: 'Reimbursements' }),
 
-  // ── CONTRIBUTION PROFIT ───────────────────────────────────────────────────
-  m('Contribution Profit', 'currency', contributionProfit, { styleType: 'total', hasInfo: true }),
-  m('Contribution Margin %', 'percentage', contributionMarginPct, { styleType: 'ratio', indent: 1 }),
+  // ── GROWTH MARGIN ─────────────────────────────────────────────────────────
+  m('Growth Margin', 'currency', growthMargin, { styleType: 'total', hasInfo: true }),
+  m('Growth Margin %', 'percentage', growthMarginPct, { styleType: 'ratio', indent: 1 }),
 
   // ── OVERHEADS & NET OPERATING PROFIT ──────────────────────────────────────
   m('(-) Allocated Overheads', 'currency', neg(allocatedOverheads)),
@@ -383,7 +428,12 @@ export const profitabilityData: ProfitabilityMetric[] = [
 ];
 
 // Export for use in granularity-based column building
-export { netRevenue, grossProfit, contributionProfit, netOperatingProfit };
+export {
+  grossOrderedRevenue, netRevenue, netCogs, grossProfit, totalAmazonFees,
+  totalAdvertising, totalReimbursements, allocatedOverheads,
+  channelMargin, growthMargin, netOperatingProfit,
+  grossMarginPct, channelMarginPct, growthMarginPct, netOperatingMarginPct,
+};
 
 // ─── P&L Tooltips — traceability for every line ───────────────────────────────
 export const PL_TOOLTIPS: Record<string, string> = {
@@ -437,11 +487,11 @@ export const PL_TOOLTIPS: Record<string, string> = {
   '(-) COGS on Returns':
     'COGS reversed when returned units re-enter sellable inventory.\nCalc: Cost of returned units credited back using the same costing method as the original sale.',
 
-  // Gross Profit
-  'Gross Profit':
+  // Product Margin
+  'Product Margin':
     'Calculated line.\nFormula: Net Revenue − Product COGS − Inbound Freight & Duties.',
-  'Gross Margin %':
-    'Gross Profit as a percentage of Net Revenue.\nFormula: Gross Profit ÷ Net Revenue × 100.',
+  'Product Margin %':
+    'Product Margin as a percentage of Net Revenue.\nFormula: Product Margin ÷ Net Revenue × 100.',
 
   // Amazon Fees
   'Amazon Fees':
@@ -473,6 +523,12 @@ export const PL_TOOLTIPS: Record<string, string> = {
   'Fee Refunds':
     'Credits from partial fee reversals on refund events — primarily CommissionRefund (partial referral fee returned to the seller).\nCalc: CommissionRefund and other FeeRefund components from REFUND events.\nSource: Finances API; Settlement Report V2.',
 
+  // Channel Margin
+  'Channel Margin':
+    'Calculated line.\nFormula: Product Margin − Total Amazon Fees.\nRepresents the margin after all Amazon platform fees are deducted.',
+  'Channel Margin %':
+    'Channel Margin as a percentage of Net Revenue.\nFormula: Channel Margin ÷ Net Revenue × 100.',
+
   // Advertising
   'Advertising':
     'Total advertising spend (accounts 6110–6150).\nSum of: Sponsored Products + Sponsored Brands + Sponsored Display + DSP + Deal/Coupon fees.',
@@ -499,17 +555,17 @@ export const PL_TOOLTIPS: Record<string, string> = {
   'Other Adjustments':
     'Accounts 7030 / 7050 / 7090.\n7030 — Fee Corrections: credits or charges from Amazon correcting previously billed fees.\n7050 — FX Gain/Loss: gains/losses from the difference between transaction-date FX rate and settlement-date FX rate (ECB daily rates vs. Amazon settlement rates, posted as FX_REVAL events).\n7090 — Miscellaneous credits/debits not classified in 7010–7050.\nSource: Finances API (AdjustmentEvents); Settlement Report V2.',
 
-  // Contribution Profit
-  'Contribution Profit':
-    'Calculated line.\nFormula: Gross Profit − Total Amazon Fees − Total Advertising + Total Reimbursements & Adjustments.',
-  'Contribution Margin %':
-    'Contribution Profit as a percentage of Net Revenue.\nFormula: Contribution Profit ÷ Net Revenue × 100.',
+  // Growth Margin
+  'Growth Margin':
+    'Calculated line.\nFormula: Channel Margin − Total Advertising + Total Reimbursements.\nRepresents the margin available after all variable costs including advertising and adjustments.',
+  'Growth Margin %':
+    'Growth Margin as a percentage of Net Revenue.\nFormula: Growth Margin ÷ Net Revenue × 100.',
 
   // Overheads & NOP
   '(-) Allocated Overheads':
     'User-input overhead costs allocated to this Amazon business.\nIncludes: Staff/Payroll (8010), Software & Tools (8020), Other Overheads (8030).\nSource: Manual user input — not derived from any Amazon API.',
   'Net Operating Profit':
-    'Calculated line.\nFormula: Contribution Profit − Allocated Overheads.',
+    'Calculated line.\nFormula: Growth Margin − Allocated Overheads.',
   'Net Operating Margin %':
     'Net Operating Profit as a percentage of Net Revenue.\nFormula: Net Operating Profit ÷ Net Revenue × 100.',
 };

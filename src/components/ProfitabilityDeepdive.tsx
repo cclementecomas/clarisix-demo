@@ -89,7 +89,7 @@ function WaterfallPanel({ product, currency, onClose }: {
     const {
       grossRevenue, refundsAndReturns, netRevenue, netCogs, grossProfit,
       totalAmazonFees, totalAdvertising, totalReimbursements,
-      contributionProfit, allocatedOverheads, netOperatingProfit,
+      allocatedOverheads, netOperatingProfit,
     } = product;
 
     const items: WaterfallStep[] = [];
@@ -110,13 +110,17 @@ function WaterfallPanel({ product, currency, onClose }: {
     running -= netCogs;
     items.push({ name: 'COGS', base: running, value: netCogs, runningTotal: running, type: 'cost' });
 
-    // = Gross Profit
-    items.push({ name: 'Gross Profit', base: 0, value: grossProfit, runningTotal: grossProfit, type: 'subtotal' });
+    // = Product Margin
+    items.push({ name: 'Product Margin', base: 0, value: grossProfit, runningTotal: grossProfit, type: 'subtotal' });
     running = grossProfit;
 
     // - Amazon Fees
     running -= totalAmazonFees;
     items.push({ name: 'Amazon Fees', base: running, value: totalAmazonFees, runningTotal: running, type: 'cost' });
+
+    // = Channel Margin
+    const channelMarginVal = grossProfit - totalAmazonFees;
+    items.push({ name: 'Channel Margin', base: 0, value: Math.abs(channelMarginVal), runningTotal: channelMarginVal, type: 'subtotal' });
 
     // - Advertising
     running -= totalAdvertising;
@@ -126,13 +130,14 @@ function WaterfallPanel({ product, currency, onClose }: {
     running += totalReimbursements;
     items.push({ name: 'Reimbursements', base: running - totalReimbursements, value: totalReimbursements, runningTotal: running, type: 'addition' });
 
-    // = Contribution Profit
-    items.push({ name: 'Contribution Profit', base: 0, value: Math.abs(contributionProfit), runningTotal: contributionProfit, type: 'subtotal' });
-    running = contributionProfit;
+    // = Growth Margin
+    const growthMarginVal = channelMarginVal - totalAdvertising + totalReimbursements;
+    items.push({ name: 'Growth Margin', base: 0, value: Math.abs(growthMarginVal), runningTotal: growthMarginVal, type: 'subtotal' });
+    running = growthMarginVal;
 
     // - Overheads
     running -= allocatedOverheads;
-    items.push({ name: 'Overheads', base: Math.min(running, contributionProfit), value: allocatedOverheads, runningTotal: running, type: 'cost' });
+    items.push({ name: 'Overheads', base: Math.min(running, growthMarginVal), value: allocatedOverheads, runningTotal: running, type: 'cost' });
 
     // = Net Operating Profit
     items.push({
@@ -163,19 +168,28 @@ function WaterfallPanel({ product, currency, onClose }: {
           <p className="text-[11px] text-gray-500 mt-0.5">{product.product}</p>
         </div>
         <div className="flex items-center gap-4">
-          <div className="hidden sm:flex items-center gap-4 text-[10px]">
+          <div className="hidden sm:flex items-center text-[10px]">
             <div>
-              <span className="text-gray-400 uppercase font-bold">Gross Margin</span>
+              <span className="text-gray-400 uppercase font-bold">Product Margin</span>
               <span className={`ml-1.5 font-extrabold ${product.grossMargin >= 20 ? 'text-green-700' : product.grossMargin >= 10 ? 'text-yellow-700' : 'text-red-700'}`}>
                 {product.grossMargin.toFixed(1)}%
               </span>
             </div>
+            <span className="mx-2 text-gray-300">→</span>
             <div>
-              <span className="text-gray-400 uppercase font-bold">Contribution</span>
-              <span className={`ml-1.5 font-extrabold ${product.contributionMargin >= 10 ? 'text-green-700' : product.contributionMargin >= 0 ? 'text-yellow-700' : 'text-red-700'}`}>
-                {product.contributionMargin.toFixed(1)}%
+              <span className="text-gray-400 uppercase font-bold">Channel Margin</span>
+              <span className={`ml-1.5 font-extrabold ${product.channelMargin >= 15 ? 'text-green-700' : product.channelMargin >= 5 ? 'text-yellow-700' : 'text-red-700'}`}>
+                {product.channelMargin.toFixed(1)}%
               </span>
             </div>
+            <span className="mx-2 text-gray-300">→</span>
+            <div>
+              <span className="text-gray-400 uppercase font-bold">Growth Margin</span>
+              <span className={`ml-1.5 font-extrabold ${product.growthMargin >= 10 ? 'text-green-700' : product.growthMargin >= 0 ? 'text-yellow-700' : 'text-red-700'}`}>
+                {product.growthMargin.toFixed(1)}%
+              </span>
+            </div>
+            <span className="mx-2 text-gray-300">→</span>
             <div>
               <span className="text-gray-400 uppercase font-bold">Net Margin</span>
               <span className={`ml-1.5 font-extrabold ${product.netMargin >= 10 ? 'text-green-700' : product.netMargin >= 0 ? 'text-yellow-700' : 'text-red-700'}`}>
@@ -301,16 +315,20 @@ export default function ProfitabilityDeepdive() {
     { field: 'netRevenue', headerName: 'Net Revenue', width: 125, valueFormatter: cf, subFields: pctSub('netRevenue'), hide: true },
     // ── COGS ─────────────────────────────────────────────────────────────
     { field: 'netCogs', headerName: 'COGS', width: 110, valueFormatter: cf, subFields: pctSub('netCogs'), hide: true },
-    // ── Gross Profit ─────────────────────────────────────────────────────
-    { field: 'grossProfit', headerName: 'Gross Profit', width: 125, valueFormatter: cf, cellStyle: profitCellStyle(currency), subFields: pctSub('grossProfit'), hide: true },
-    { field: 'grossMargin', headerName: 'Gross Margin %', width: 130, valueFormatter: pctShareFormatter, cellStyle: marginCellStyle, subFields: ppSub('grossMargin') },
-    // ── Amazon Fees & Advertising ────────────────────────────────────────
+    // ── Product Margin ──────────────────────────────────────────────────
+    { field: 'grossProfit', headerName: 'Product Margin', width: 135, valueFormatter: cf, cellStyle: profitCellStyle(currency), subFields: pctSub('grossProfit'), hide: true },
+    { field: 'grossMargin', headerName: 'Product Margin %', width: 140, valueFormatter: pctShareFormatter, cellStyle: marginCellStyle, subFields: ppSub('grossMargin') },
+    // ── Amazon Fees ───────────────────────────────────────────────────────
     { field: 'totalAmazonFees', headerName: 'Amazon Fees', width: 125, valueFormatter: cf, subFields: pctSub('totalAmazonFees'), hide: true },
+    // ── Channel Margin ────────────────────────────────────────────────────
+    { field: 'channelProfit', headerName: 'Channel Margin', width: 140, valueFormatter: cf, cellStyle: profitCellStyle(currency), subFields: pctSub('channelProfit'), hide: true },
+    { field: 'channelMargin', headerName: 'Channel Margin %', width: 145, valueFormatter: pctShareFormatter, cellStyle: marginCellStyle, subFields: ppSub('channelMargin') },
+    // ── Advertising & Reimbursements ──────────────────────────────────────
     { field: 'totalAdvertising', headerName: 'Advertising', width: 120, valueFormatter: cf, subFields: pctSub('totalAdvertising'), hide: true },
     { field: 'totalReimbursements', headerName: 'Reimbursements', width: 135, valueFormatter: cf, cellStyle: reimbursementCellStyle, subFields: pctSub('totalReimbursements'), hide: true },
-    // ── Contribution Profit ──────────────────────────────────────────────
-    { field: 'contributionProfit', headerName: 'Contribution Profit', width: 155, valueFormatter: cf, cellStyle: profitCellStyle(currency), subFields: pctSub('contributionProfit') },
-    { field: 'contributionMargin', headerName: 'Contrib. Margin %', width: 145, valueFormatter: pctShareFormatter, cellStyle: marginCellStyle, subFields: ppSub('contributionMargin') },
+    // ── Growth Margin ─────────────────────────────────────────────────────
+    { field: 'growthProfit', headerName: 'Growth Margin', width: 135, valueFormatter: cf, cellStyle: profitCellStyle(currency), subFields: pctSub('growthProfit') },
+    { field: 'growthMargin', headerName: 'Growth Margin %', width: 145, valueFormatter: pctShareFormatter, cellStyle: marginCellStyle, subFields: ppSub('growthMargin') },
     // ── Overheads & Net Operating Profit ─────────────────────────────────
     { field: 'allocatedOverheads', headerName: 'Overheads', width: 115, valueFormatter: cf, subFields: pctSub('allocatedOverheads'), hide: true },
     { field: 'netOperatingProfit', headerName: 'Net Op. Profit', width: 135, valueFormatter: cf, cellStyle: profitCellStyle(currency), subFields: pctSub('netOperatingProfit'), hide: true },
@@ -357,9 +375,10 @@ export default function ProfitabilityDeepdive() {
     const totalNetCogs = sum('netCogs');
     const totalGrossProfit = sum('grossProfit');
     const totalAmazonFees = sum('totalAmazonFees');
+    const totalChannelProfit = totalGrossProfit - totalAmazonFees;
     const totalAdvertising = sum('totalAdvertising');
     const totalReimbursements = sum('totalReimbursements');
-    const totalContributionProfit = sum('contributionProfit');
+    const totalGrowthProfit = totalChannelProfit - totalAdvertising + totalReimbursements;
     const totalOverheads = sum('allocatedOverheads');
     const totalNetOperatingProfit = sum('netOperatingProfit');
     const totalAdSpend = sum('totalAdvertising');
@@ -387,14 +406,18 @@ export default function ProfitabilityDeepdive() {
       grossMarginPoP: avg('grossMarginPoP'), grossMarginDiffLY: avg('grossMarginDiffLY'),
       totalAmazonFees,
       totalAmazonFeesPoP: avg('totalAmazonFeesPoP'), totalAmazonFeesDiffLY: avg('totalAmazonFeesDiffLY'),
+      channelProfit: totalChannelProfit,
+      channelProfitPoP: avg('channelProfitPoP'), channelProfitDiffLY: avg('channelProfitDiffLY'),
+      channelMargin: totalNetRevenue > 0 ? Math.round(totalChannelProfit / totalNetRevenue * 10000) / 100 : 0,
+      channelMarginPoP: avg('channelMarginPoP'), channelMarginDiffLY: avg('channelMarginDiffLY'),
       totalAdvertising,
       totalAdvertisingPoP: avg('totalAdvertisingPoP'), totalAdvertisingDiffLY: avg('totalAdvertisingDiffLY'),
       totalReimbursements,
       totalReimbursementsPoP: avg('totalReimbursementsPoP'), totalReimbursementsDiffLY: avg('totalReimbursementsDiffLY'),
-      contributionProfit: totalContributionProfit,
-      contributionProfitPoP: avg('contributionProfitPoP'), contributionProfitDiffLY: avg('contributionProfitDiffLY'),
-      contributionMargin: totalNetRevenue > 0 ? Math.round(totalContributionProfit / totalNetRevenue * 10000) / 100 : 0,
-      contributionMarginPoP: avg('contributionMarginPoP'), contributionMarginDiffLY: avg('contributionMarginDiffLY'),
+      growthProfit: totalGrowthProfit,
+      growthProfitPoP: avg('growthProfitPoP'), growthProfitDiffLY: avg('growthProfitDiffLY'),
+      growthMargin: totalNetRevenue > 0 ? Math.round(totalGrowthProfit / totalNetRevenue * 10000) / 100 : 0,
+      growthMarginPoP: avg('growthMarginPoP'), growthMarginDiffLY: avg('growthMarginDiffLY'),
       allocatedOverheads: totalOverheads,
       allocatedOverheadsPoP: avg('allocatedOverheadsPoP'), allocatedOverheadsDiffLY: avg('allocatedOverheadsDiffLY'),
       netOperatingProfit: totalNetOperatingProfit,

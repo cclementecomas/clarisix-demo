@@ -39,15 +39,19 @@ export interface ProductProfitRow {
   // ── AMAZON FEES (total of 13 sub-items) ────────────────────────────────
   totalAmazonFees: number; totalAmazonFeesPoP: number; totalAmazonFeesDiffLY: number;
 
+  // ── CHANNEL MARGIN (Product Margin − Amazon Fees) ────────────────────
+  channelProfit: number; channelProfitPoP: number; channelProfitDiffLY: number;
+  channelMargin: number; channelMarginPoP: number; channelMarginDiffLY: number;
+
   // ── ADVERTISING (SP + SB + SD + DSP + Deal/Coupon/Promo) ──────────────
   totalAdvertising: number; totalAdvertisingPoP: number; totalAdvertisingDiffLY: number;
 
   // ── REIMBURSEMENTS (Inventory + SAFE-T + Other) ────────────────────────
   totalReimbursements: number; totalReimbursementsPoP: number; totalReimbursementsDiffLY: number;
 
-  // ── CONTRIBUTION PROFIT ────────────────────────────────────────────────
-  contributionProfit: number; contributionProfitPoP: number; contributionProfitDiffLY: number;
-  contributionMargin: number; contributionMarginPoP: number; contributionMarginDiffLY: number;
+  // ── GROWTH MARGIN (Channel Margin − Advertising + Reimbursements) ────
+  growthProfit: number; growthProfitPoP: number; growthProfitDiffLY: number;
+  growthMargin: number; growthMarginPoP: number; growthMarginDiffLY: number;
 
   // ── OVERHEADS & NET OPERATING PROFIT ───────────────────────────────────
   allocatedOverheads: number; allocatedOverheadsPoP: number; allocatedOverheadsDiffLY: number;
@@ -157,6 +161,12 @@ function generateRow(asin: string, product: string, category: string, scale: num
     + removalDisposal + returnProcessing + otherFees - feeRefunds
   ) * 100) / 100;
 
+  // ═══ CHANNEL MARGIN ══════════════════════════════════════════════════════
+  const channelProfit = Math.round((grossProfit - totalAmazonFees) * 100) / 100;
+  const channelMargin = netRevenue > 0
+    ? Math.round((channelProfit / netRevenue) * 10000) / 100
+    : 0;
+
   // ═══ ADVERTISING (Spec lines 31-36) ═══════════════════════════════════════
   const adRate = 0.05 + rand() * 0.15;
   const totalAdBudget = Math.round(grossRevenue * adRate * 100) / 100;
@@ -182,19 +192,17 @@ function generateRow(asin: string, product: string, category: string, scale: num
   const otherAdjustments = Math.round(rand() * 30 * 100) / 100;
   const totalReimbursements = Math.round((inventoryReimb + safetClaims + otherAdjustments) * 100) / 100;
 
-  // ═══ CONTRIBUTION PROFIT (Spec line 41) ═══════════════════════════════════
-  const contributionProfit = Math.round((
-    grossProfit - totalAmazonFees - totalAdvertising + totalReimbursements
-  ) * 100) / 100;
-  const contributionMargin = netRevenue > 0
-    ? Math.round((contributionProfit / netRevenue) * 10000) / 100
+  // ═══ GROWTH MARGIN ══════════════════════════════════════════════════════
+  const growthProfit = Math.round((channelProfit - totalAdvertising + totalReimbursements) * 100) / 100;
+  const growthMargin = netRevenue > 0
+    ? Math.round((growthProfit / netRevenue) * 10000) / 100
     : 0;
 
-  // ═══ ALLOCATED OVERHEADS (Spec line 42) ═══════════════════════════════════
+  // ═══ ALLOCATED OVERHEADS ══════════════════════════════════════════════════
   const allocatedOverheads = Math.round(netRevenue * (0.03 + rand() * 0.04) * 100) / 100;
 
-  // ═══ NET OPERATING PROFIT (Spec line 43) ══════════════════════════════════
-  const netOperatingProfit = Math.round((contributionProfit - allocatedOverheads) * 100) / 100;
+  // ═══ NET OPERATING PROFIT ═══════════════════════════════════════════════
+  const netOperatingProfit = Math.round((growthProfit - allocatedOverheads) * 100) / 100;
   const netMargin = netRevenue > 0
     ? Math.round((netOperatingProfit / netRevenue) * 10000) / 100
     : 0;
@@ -224,10 +232,12 @@ function generateRow(asin: string, product: string, category: string, scale: num
     grossProfit, grossProfitPoP: randPoP(), grossProfitDiffLY: randLY(),
     grossMargin, grossMarginPoP: randPP(), grossMarginDiffLY: randPP(),
     totalAmazonFees, totalAmazonFeesPoP: randPoP(), totalAmazonFeesDiffLY: randLY(),
+    channelProfit, channelProfitPoP: randPoP(), channelProfitDiffLY: randLY(),
+    channelMargin, channelMarginPoP: randPP(), channelMarginDiffLY: randPP(),
     totalAdvertising, totalAdvertisingPoP: randPoP(), totalAdvertisingDiffLY: randLY(),
     totalReimbursements, totalReimbursementsPoP: randPoP(), totalReimbursementsDiffLY: randLY(),
-    contributionProfit, contributionProfitPoP: randPoP(), contributionProfitDiffLY: randLY(),
-    contributionMargin, contributionMarginPoP: randPP(), contributionMarginDiffLY: randPP(),
+    growthProfit, growthProfitPoP: randPoP(), growthProfitDiffLY: randLY(),
+    growthMargin, growthMarginPoP: randPP(), growthMarginDiffLY: randPP(),
     allocatedOverheads, allocatedOverheadsPoP: randPoP(), allocatedOverheadsDiffLY: randLY(),
     netOperatingProfit, netOperatingProfitPoP: randPoP(), netOperatingProfitDiffLY: randLY(),
     netMargin, netMarginPoP: randPP(), netMarginDiffLY: randPP(),
@@ -249,14 +259,16 @@ function generateSKURow(sku: string, parentRow: ProductProfitRow): SKUProfitRow 
   const netCogs = Math.round(parentRow.netCogs * fraction * 100) / 100;
   const grossProfit = Math.round((netRevenue - netCogs) * 100) / 100;
   const totalAmazonFees = Math.round(parentRow.totalAmazonFees * fraction * 100) / 100;
+  const channelProfit = Math.round((grossProfit - totalAmazonFees) * 100) / 100;
   const totalAdvertising = Math.round(parentRow.totalAdvertising * fraction * 100) / 100;
   const totalReimbursements = Math.round(parentRow.totalReimbursements * fraction * 100) / 100;
-  const contributionProfit = Math.round((grossProfit - totalAmazonFees - totalAdvertising + totalReimbursements) * 100) / 100;
+  const growthProfit = Math.round((channelProfit - totalAdvertising + totalReimbursements) * 100) / 100;
   const allocatedOverheads = Math.round(parentRow.allocatedOverheads * fraction * 100) / 100;
-  const netOperatingProfit = Math.round((contributionProfit - allocatedOverheads) * 100) / 100;
+  const netOperatingProfit = Math.round((growthProfit - allocatedOverheads) * 100) / 100;
 
   const grossMargin = netRevenue > 0 ? Math.round((grossProfit / netRevenue) * 10000) / 100 : 0;
-  const contributionMargin = netRevenue > 0 ? Math.round((contributionProfit / netRevenue) * 10000) / 100 : 0;
+  const channelMargin = netRevenue > 0 ? Math.round((channelProfit / netRevenue) * 10000) / 100 : 0;
+  const growthMargin = netRevenue > 0 ? Math.round((growthProfit / netRevenue) * 10000) / 100 : 0;
   const netMargin = netRevenue > 0 ? Math.round((netOperatingProfit / netRevenue) * 10000) / 100 : 0;
   const profitPerUnit = unitsSold > 0 ? Math.round((netOperatingProfit / unitsSold) * 100) / 100 : 0;
   const avgPrice = unitsSold > 0 ? Math.round((grossRevenue / unitsSold) * 100) / 100 : 0;
@@ -275,10 +287,12 @@ function generateSKURow(sku: string, parentRow: ProductProfitRow): SKUProfitRow 
     grossProfit, grossProfitPoP: randPoP(), grossProfitDiffLY: randLY(),
     grossMargin, grossMarginPoP: randPP(), grossMarginDiffLY: randPP(),
     totalAmazonFees, totalAmazonFeesPoP: randPoP(), totalAmazonFeesDiffLY: randLY(),
+    channelProfit, channelProfitPoP: randPoP(), channelProfitDiffLY: randLY(),
+    channelMargin, channelMarginPoP: randPP(), channelMarginDiffLY: randPP(),
     totalAdvertising, totalAdvertisingPoP: randPoP(), totalAdvertisingDiffLY: randLY(),
     totalReimbursements, totalReimbursementsPoP: randPoP(), totalReimbursementsDiffLY: randLY(),
-    contributionProfit, contributionProfitPoP: randPoP(), contributionProfitDiffLY: randLY(),
-    contributionMargin, contributionMarginPoP: randPP(), contributionMarginDiffLY: randPP(),
+    growthProfit, growthProfitPoP: randPoP(), growthProfitDiffLY: randLY(),
+    growthMargin, growthMarginPoP: randPP(), growthMarginDiffLY: randPP(),
     allocatedOverheads, allocatedOverheadsPoP: randPoP(), allocatedOverheadsDiffLY: randLY(),
     netOperatingProfit, netOperatingProfitPoP: randPoP(), netOperatingProfitDiffLY: randLY(),
     netMargin, netMarginPoP: randPP(), netMarginDiffLY: randPP(),

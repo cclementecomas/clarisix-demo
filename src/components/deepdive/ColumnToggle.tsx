@@ -25,7 +25,10 @@ export default function ColumnToggle({ columns, visibleColumns, onToggle }: Colu
         setOpen(false);
       }
     }
-    function handleScroll() { setOpen(false); }
+    function handleScroll(e: Event) {
+      if (dropRef.current && dropRef.current.contains(e.target as Node)) return;
+      setOpen(false);
+    }
     document.addEventListener('mousedown', handleClick);
     window.addEventListener('scroll', handleScroll, true);
     return () => {

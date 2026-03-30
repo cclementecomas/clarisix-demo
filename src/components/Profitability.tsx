@@ -1,6 +1,13 @@
 import { useState, useCallback, useMemo } from 'react';
-import { ChevronRight, TrendingUp, Download, Sheet, Calendar } from 'lucide-react';
-import { profitabilityData, ProfitabilityMetric, PL_TOOLTIPS } from '../data/profitabilityData';
+import { ChevronRight, TrendingUp, Download, Sheet, Calendar, X } from 'lucide-react';
+import {
+  profitabilityData, ProfitabilityMetric, PL_TOOLTIPS,
+  grossOrderedRevenue as gorPV, netRevenue as nrPV, netCogs as cogsPV,
+  totalAmazonFees as feesPV, totalAdvertising as adsPV,
+  allocatedOverheads as ohPV, netOperatingProfit as nopPV,
+  grossMarginPct as gmPctPV, channelMarginPct as cmPctPV,
+  growthMarginPct as grPctPV, netOperatingMarginPct as noPctPV,
+} from '../data/profitabilityData';
 import InfoTooltip from './InfoTooltip';
 import LastRefreshed from './LastRefreshed';
 import { useCurrency, CURRENCY_SYMBOLS } from '../contexts/CurrencyContext';
@@ -9,7 +16,7 @@ import * as XLSX from 'xlsx';
 import { exportToGoogleSheets } from '../utils/exportSheets';
 
 type Granularity = 'monthly' | 'quarterly' | 'yearly';
-type SelectedYear = 2024 | 2025;
+type SelectedYear = 2024 | 2025 | 2026;
 
 interface PeriodColumn {
   key: string;
@@ -27,7 +34,7 @@ function getPeriodColumns(granularity: Granularity, year: SelectedYear): PeriodC
       key: `${m}${year}`,
       label: MONTH_LABELS[i],
       sublabel: String(year),
-      priorKey: year === 2025 ? `${m}2024` : undefined,
+      priorKey: year >= 2025 ? `${m}${year - 1}` : undefined,
     }));
   }
   if (granularity === 'quarterly') {
@@ -35,25 +42,64 @@ function getPeriodColumns(granularity: Granularity, year: SelectedYear): PeriodC
       key: `q${q}${year}`,
       label: `Q${q}`,
       sublabel: String(year),
-      priorKey: year === 2025 ? `q${q}2024` : undefined,
+      priorKey: year >= 2025 ? `q${q}${year - 1}` : undefined,
     }));
   }
   return [
     { key: 'fy2023', label: 'FY2023' },
     { key: 'fy2024', label: 'FY2024' },
     { key: 'fy2025', label: 'FY2025' },
+    { key: 'fy2026', label: 'FY2026' },
   ];
 }
 
 export default function Profitability() {
   const { currency } = useCurrency();
   const [granularity, setGranularity] = useState<Granularity>('quarterly');
-  const [selectedYear, setSelectedYear] = useState<SelectedYear>(2025);
+  const [selectedYear, setSelectedYear] = useState<SelectedYear>(2026);
   const [showYoY, setShowYoY] = useState(true);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [sheetsUrl, setSheetsUrl] = useState<string | null>(null);
+  const [highlightedColumns, setHighlightedColumns] = useState<Set<string>>(new Set());
+  const hasHighlights = highlightedColumns.size > 0;
 
-  const columns = useMemo(() => getPeriodColumns(granularity, selectedYear), [granularity, selectedYear]);
+  const columns = useMemo(() => {
+    // Clear highlights when view changes
+    setHighlightedColumns(new Set());
+    return getPeriodColumns(granularity, selectedYear);
+  }, [granularity, selectedYear]);
+  const [hoveredSegment, setHoveredSegment] = useState<number | null>(null);
+
+  // Cost breakdown bar data — always uses full-year aggregate
+  const summaryKey = granularity === 'yearly' ? 'fy2025' : `fy${selectedYear}`;
+  const breakdownSegments = useMemo(() => {
+    const gross = gorPV[summaryKey] ?? 0;
+    if (gross === 0) return [];
+    const revAdj = gross - (nrPV[summaryKey] ?? 0);
+    const cogs = cogsPV[summaryKey] ?? 0;
+    const fees = feesPV[summaryKey] ?? 0;
+    const ads = adsPV[summaryKey] ?? 0;
+    const oh = ohPV[summaryKey] ?? 0;
+    const nop = nopPV[summaryKey] ?? 0;
+    return [
+      { label: 'Returns & Adj.', value: revAdj, pct: (revAdj / gross) * 100, color: '#F4A261' },
+      { label: 'COGS', value: cogs, pct: (cogs / gross) * 100, color: '#E07A5F' },
+      { label: 'Amazon Fees', value: fees, pct: (fees / gross) * 100, color: '#BC4749' },
+      { label: 'Advertising', value: ads, pct: (ads / gross) * 100, color: '#D4726A' },
+      { label: 'Overheads', value: oh, pct: (oh / gross) * 100, color: '#9B5DE5' },
+      { label: 'Net Profit', value: nop, pct: (nop / gross) * 100, color: nop >= 0 ? '#16A34A' : '#DC2626' },
+    ];
+  }, [summaryKey]);
+
+  const cascadeChips = useMemo(() => {
+    const pk = summaryKey;
+    return [
+      { label: 'Product Margin', value: gmPctPV[pk] ?? 0 },
+      { label: 'Channel Margin', value: cmPctPV[pk] ?? 0 },
+      { label: 'Growth Margin', value: grPctPV[pk] ?? 0 },
+      { label: 'Net Margin', value: noPctPV[pk] ?? 0 },
+    ];
+  }, [summaryKey]);
 
   const buildExportRows = useCallback((): (string | number)[][] => {
     const headers = ['Line Item', ...columns.map((c) => c.label)];
@@ -214,7 +260,7 @@ export default function Profitability() {
               <h2 className="text-2xl font-bold text-gray-900">Profitability Statement</h2>
               <InfoTooltip />
             </div>
-            <p className="text-sm text-gray-600 mt-1">CFO-level 43-line P&L waterfall from Gross Revenue to Net Operating Profit</p>
+            <p className="text-sm text-gray-600 mt-1">CFO-level P&L waterfall from Gross Revenue to Net Operating Profit</p>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -277,7 +323,7 @@ export default function Profitability() {
           {/* Year picker — only for monthly/quarterly */}
           {granularity !== 'yearly' && (
             <div className="flex items-center bg-gray-100 rounded-lg p-0.5 gap-0.5">
-              {([2024, 2025] as SelectedYear[]).map((y) => (
+              {([2024, 2025, 2026] as SelectedYear[]).map((y) => (
                 <button
                   key={y}
                   onClick={() => setSelectedYear(y)}
@@ -294,7 +340,7 @@ export default function Profitability() {
           )}
 
           {/* YoY toggle — only when comparison is possible */}
-          {(granularity !== 'yearly' && selectedYear === 2025) && (
+          {(granularity !== 'yearly' && selectedYear >= 2025) && (
             <button
               onClick={() => setShowYoY(!showYoY)}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all ${
@@ -308,14 +354,117 @@ export default function Profitability() {
             </button>
           )}
 
+          {hasHighlights && (
+            <button
+              onClick={() => setHighlightedColumns(new Set())}
+              className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold rounded-lg border border-cx-300 bg-cx-50 text-cx-700 hover:bg-cx-100 transition-colors"
+            >
+              <X className="w-3 h-3" />
+              Clear ({highlightedColumns.size})
+            </button>
+          )}
+
           <div className="ml-auto flex items-center gap-1 text-xs text-gray-400">
             <Calendar className="w-3.5 h-3.5" />
             <span>
-              {granularity === 'monthly' ? `Monthly · ${selectedYear}` : granularity === 'quarterly' ? `Quarterly · ${selectedYear}` : 'Yearly · FY2023–FY2025'}
+              {granularity === 'monthly' ? `Monthly · ${selectedYear}` : granularity === 'quarterly' ? `Quarterly · ${selectedYear}` : 'Yearly · FY2023–FY2026'}
             </span>
           </div>
         </div>
       </div>
+
+      {/* ── Cost Breakdown Bar ──────────────────────────────────────────── */}
+      {breakdownSegments.length > 0 && (
+        <div className="px-6 py-4 border-b border-gray-100 bg-white">
+          <div className="flex items-center gap-2 mb-2.5">
+            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Where each {CURRENCY_SYMBOLS[currency]}1 goes</span>
+            <span className="text-[10px] text-gray-400">({granularity === 'yearly' ? 'FY2025' : `FY${selectedYear}`})</span>
+          </div>
+
+          {/* Stacked bar */}
+          <div className="relative">
+            <div className="flex h-7 rounded-lg overflow-hidden shadow-inner">
+              {breakdownSegments.map((seg, i) => (
+                <div
+                  key={i}
+                  className="relative flex items-center justify-center transition-opacity duration-150"
+                  style={{
+                    width: `${Math.abs(seg.pct)}%`,
+                    backgroundColor: seg.color,
+                    opacity: hoveredSegment !== null && hoveredSegment !== i ? 0.5 : 1,
+                  }}
+                  onMouseEnter={() => setHoveredSegment(i)}
+                  onMouseLeave={() => setHoveredSegment(null)}
+                >
+                  {Math.abs(seg.pct) >= 6 && (
+                    <span className="text-[10px] font-bold text-white drop-shadow-sm truncate px-1">
+                      {CURRENCY_SYMBOLS[currency]}{(Math.abs(seg.pct) / 100).toFixed(2)}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Hover tooltip */}
+            {hoveredSegment !== null && breakdownSegments[hoveredSegment] && (
+              <div className="absolute left-1/2 -translate-x-1/2 -bottom-[52px] z-30 pointer-events-none">
+                <div className="bg-gray-900 text-white text-[11px] px-3 py-1.5 rounded-lg shadow-xl whitespace-nowrap flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: breakdownSegments[hoveredSegment].color }} />
+                  <span className="font-semibold">{breakdownSegments[hoveredSegment].label}</span>
+                  <span className="text-white font-bold">
+                    {CURRENCY_SYMBOLS[currency]}{(Math.abs(breakdownSegments[hoveredSegment].pct) / 100).toFixed(2)}
+                  </span>
+                  <span className="text-gray-400">·</span>
+                  <span className="text-gray-300">
+                    {Math.abs(breakdownSegments[hoveredSegment].pct).toFixed(1)}%
+                  </span>
+                  <span className="text-gray-400">·</span>
+                  <span className="text-gray-400">
+                    {(() => {
+                      const v = convert(breakdownSegments[hoveredSegment].value, currency);
+                      return new Intl.NumberFormat('en-US', { style: 'currency', currency, minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(Math.abs(v));
+                    })()}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Segment legend (below bar) */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2">
+            {breakdownSegments.map((seg, i) => (
+              <div
+                key={i}
+                className="flex items-center gap-1.5 cursor-default"
+                onMouseEnter={() => setHoveredSegment(i)}
+                onMouseLeave={() => setHoveredSegment(null)}
+              >
+                <div className="w-2 h-2 rounded-sm flex-shrink-0" style={{ backgroundColor: seg.color }} />
+                <span className={`text-[10px] ${hoveredSegment === i ? 'text-gray-900 font-semibold' : 'text-gray-500'} transition-colors`}>
+                  {seg.label}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {/* Cascade margin chips */}
+          <div className="flex items-center mt-3 pt-3 border-t border-gray-100">
+            {cascadeChips.map((chip, i) => (
+              <div key={i} className="flex items-center">
+                {i > 0 && <span className="mx-2 text-gray-300 text-xs">→</span>}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase">{chip.label}</span>
+                  <span className={`text-[11px] font-extrabold ${
+                    chip.value >= 20 ? 'text-green-700' : chip.value >= 10 ? 'text-yellow-700' : chip.value >= 0 ? 'text-orange-700' : 'text-red-700'
+                  }`}>
+                    {chip.value.toFixed(1)}%
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="overflow-x-auto">
         <table className="w-full border-collapse">
@@ -324,12 +473,31 @@ export default function Profitability() {
               <th className="sticky left-0 z-10 bg-slate-700 px-4 py-3.5 text-left text-xs font-bold uppercase tracking-wider min-w-[280px]">
                 Line Item
               </th>
-              {columns.map((col) => (
-                <th key={col.key} className="px-4 py-3.5 text-right text-xs font-bold uppercase tracking-wider whitespace-nowrap">
-                  <div>{col.label}</div>
-                  {col.sublabel && <div className="text-[10px] font-normal text-slate-400 mt-0.5">{col.sublabel}</div>}
-                </th>
-              ))}
+              {columns.map((col) => {
+                const isHL = highlightedColumns.has(col.key);
+                const isDimmed = hasHighlights && !isHL;
+                return (
+                  <th
+                    key={col.key}
+                    onClick={() => setHighlightedColumns((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(col.key)) next.delete(col.key);
+                      else next.add(col.key);
+                      return next;
+                    })}
+                    className={`px-4 py-3.5 text-right text-xs font-bold uppercase tracking-wider whitespace-nowrap cursor-pointer select-none transition-colors duration-200 ${
+                      isHL
+                        ? 'bg-cx-500 text-white'
+                        : isDimmed
+                          ? 'bg-slate-700 opacity-40'
+                          : 'bg-slate-700 hover:bg-slate-600'
+                    }`}
+                  >
+                    <div>{col.label}</div>
+                    {col.sublabel && <div className={`text-[10px] font-normal mt-0.5 ${isHL ? 'text-cx-100' : 'text-slate-400'}`}>{col.sublabel}</div>}
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody>
@@ -361,11 +529,13 @@ export default function Profitability() {
 
                   {columns.map((col) => {
                     const value = metric[col.key];
+                    const isHL = highlightedColumns.has(col.key);
+                    const isDimmed = hasHighlights && !isHL;
                     if (typeof value !== 'number' && typeof value !== 'string') {
-                      return <td key={col.key} className={cellClasses} />;
+                      return <td key={col.key} className={`${cellClasses} ${isHL ? 'bg-cx-50/80' : ''} ${isDimmed ? 'opacity-40' : ''}`} />;
                     }
                     const isNegative = typeof value === 'number' && value < 0;
-                    const tdClasses = `${cellClasses} ${isNegative && metric.type === 'currency' ? 'text-red-700' : ''}`;
+                    const tdClasses = `${cellClasses} ${isNegative && metric.type === 'currency' ? 'text-red-700' : ''} ${isHL ? 'bg-cx-50/80' : ''} ${isDimmed ? 'opacity-40' : ''}`;
                     return (
                       <td key={col.key} className={tdClasses}>
                         {formatValue(value, metric.type)}
@@ -395,7 +565,7 @@ export default function Profitability() {
               <span className="italic">Italics</span>
               <span>Ratios & percentages</span>
             </div>
-            {showYoY && granularity !== 'yearly' && selectedYear === 2025 && (
+            {showYoY && granularity !== 'yearly' && selectedYear >= 2025 && (
               <div className="flex items-center gap-2">
                 <span className="text-green-700 font-medium">▲ / <span className="text-red-600">▼</span></span>
                 <span>YoY vs {selectedYear - 1}</span>
