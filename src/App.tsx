@@ -8,6 +8,7 @@ import BreakdownCharts from './components/BreakdownCharts';
 import DeepDive from './components/DeepDive';
 import AdvertisingOverview from './components/AdvertisingOverview';
 import AdvertisingDeepDive from './components/AdvertisingDeepDive';
+import Budgets from './components/Budgets';
 import InventoryOverview from './components/InventoryOverview';
 import InventoryReplenishment from './components/InventoryReplenishment';
 import InventoryPerformance from './components/InventoryPerformance';
@@ -133,6 +134,9 @@ export default function App() {
     }
     if (activeSection === 'Advertising' && activeSub === 'Deepdive') {
       return <AdvertisingDeepDive />;
+    }
+    if (activeSection === 'Advertising' && activeSub === 'Budgets') {
+      return <Budgets />;
     }
     if (activeSection === 'Inventory' && activeSub === 'Overview') {
       return <InventoryOverview />;

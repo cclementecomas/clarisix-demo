@@ -401,7 +401,7 @@ export const menuItems = [
   {
     label: 'Advertising',
     icon: 'Megaphone',
-    subItems: ['Overview', 'Deepdive', 'DSP', 'AMC', 'Promotions'],
+    subItems: ['Overview', 'Deepdive', 'Budgets', 'DSP', 'AMC', 'Promotions'],
     defaultSub: 'Overview',
     comingSoonSubs: ['DSP', 'AMC', 'Promotions'],
   },
