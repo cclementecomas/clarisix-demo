@@ -30,7 +30,7 @@ export interface CampaignPlacement {
 
 export interface CampaignRow {
   campaign: string;
-  type: 'SP' | 'SD' | 'SB';
+  type: 'SP' | 'SB' | 'SBV' | 'SD';
   status: 'Enabled' | 'Paused';
   impressions: number;
   impressionsPoP: number;
@@ -139,7 +139,7 @@ function generateCampaigns(): CampaignRow[] {
     const prefix = campaignPrefixes[i % campaignPrefixes.length];
     const suffix = campaignSuffixes[i % campaignSuffixes.length];
     const typeRoll = rand();
-    const type: 'SP' | 'SD' | 'SB' = typeRoll < 0.6 ? 'SP' : typeRoll < 0.85 ? 'SB' : 'SD';
+    const type: 'SP' | 'SB' | 'SBV' | 'SD' = typeRoll < 0.5 ? 'SP' : typeRoll < 0.72 ? 'SB' : typeRoll < 0.85 ? 'SBV' : 'SD';
     const status: 'Enabled' | 'Paused' = rand() < 0.82 ? 'Enabled' : 'Paused';
 
     // Base metrics scaled by campaign "importance"

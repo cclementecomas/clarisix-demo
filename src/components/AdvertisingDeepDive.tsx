@@ -493,13 +493,14 @@ function useSectionControls(initCols: ColumnDef[]) {
 export default function AdvertisingDeepDive() {
   const { currency } = useCurrency();
 
+  // ── Global ad type filter ──
+  const [adType, setAdType] = useState<AdType>('All');
+
   // ── Placement ──
-  const [placAdType, setPlacAdType] = useState<AdType>('All');
   const [placView,   setPlacView]   = useState<ViewMode>('table');
   const [placMet,    setPlacMet]    = useState(['spend', 'sales', 'acos']);
 
   // ── Audience ──
-  const [audAdType, setAudAdType] = useState<AdType>('All');
   const [audView,   setAudView]   = useState<ViewMode>('table');
   const [audMet,    setAudMet]    = useState(['spend', 'sales', 'acos']);
 
@@ -522,19 +523,19 @@ export default function AdvertisingDeepDive() {
   // ── Hourly ──
   const [hourMet, setHourMet] = useState(['spend', 'sales']);
 
-  // Placement data by ad type
-  const placData = placAdType === 'SP' ? placementRowsSP
-    : placAdType === 'SB' ? placementRowsSB
-    : placAdType === 'SBV' ? placementRows.map((r) => ({ ...r, spend: Math.round(r.spend * 0.12), sales: Math.round(r.sales * 0.12) }))
-    : placAdType === 'SD' ? placementRows.map((r) => ({ ...r, spend: Math.round(r.spend * 0.18), sales: Math.round(r.sales * 0.18) }))
+  // Placement data filtered by global ad type
+  const placData = adType === 'SP' ? placementRowsSP
+    : adType === 'SB' ? placementRowsSB
+    : adType === 'SBV' ? placementRows.map((r) => ({ ...r, spend: Math.round(r.spend * 0.12), sales: Math.round(r.sales * 0.12) }))
+    : adType === 'SD' ? placementRows.map((r) => ({ ...r, spend: Math.round(r.spend * 0.18), sales: Math.round(r.sales * 0.18) }))
     : placementRows;
-  const audData  = audAdType === 'SP'
+  const audData  = adType === 'SP'
     ? audienceRows.map((r) => ({ ...r, spend: Math.round(r.spend * 0.62), sales: Math.round(r.sales * 0.62) }))
-    : audAdType === 'SB'
+    : adType === 'SB'
     ? audienceRows.map((r) => ({ ...r, spend: Math.round(r.spend * 0.38), sales: Math.round(r.sales * 0.38) }))
-    : audAdType === 'SBV'
+    : adType === 'SBV'
     ? audienceRows.map((r) => ({ ...r, spend: Math.round(r.spend * 0.12), sales: Math.round(r.sales * 0.12) }))
-    : audAdType === 'SD'
+    : adType === 'SD'
     ? audienceRows.map((r) => ({ ...r, spend: Math.round(r.spend * 0.18), sales: Math.round(r.sales * 0.18) }))
     : audienceRows;
 
@@ -572,13 +573,19 @@ export default function AdvertisingDeepDive() {
     ];
   }, [currency]);
 
+  // Campaign data filtered by global ad type
+  const filteredCampaignData = useMemo(
+    () => adType === 'All' ? campaignData : campaignData.filter((r) => r.type === adType),
+    [adType]
+  );
+
   const campChildRowsMap = useMemo(() => {
     const map: Record<string, any[]> = {};
-    for (const row of campaignData) {
+    for (const row of filteredCampaignData) {
       if (row.placements?.length) map[row.campaign] = row.placements;
     }
     return map;
-  }, []);
+  }, [filteredCampaignData]);
 
   // Per-section table controls (PoP, LY, Select, column visibility)
   const plac = useSectionControls(placCols);
@@ -659,9 +666,15 @@ export default function AdvertisingDeepDive() {
   return (
     <div className="space-y-4">
 
+      {/* Global Campaign Type filter */}
+      <div className="flex items-center gap-3 px-1">
+        <span className="text-xs font-medium text-gray-500">Campaign Type</span>
+        <AdTypeToggle value={adType} onChange={setAdType} />
+      </div>
+
       {/* 1 — Performance by Placement */}
       {sectionCard(<>
-        {sectionHeader('Performance by Placement', placView, setPlacView, STANDARD_METRICS, placMet, setPlacMet, placData, { value: placAdType, onChange: setPlacAdType }, true, { cols: placCols, showPoP: plac.showPoP, setShowPoP: plac.setShowPoP, showLY: plac.showLY, setShowLY: plac.setShowLY, selMode: plac.selMode, setSelMode: plac.setSelMode, visCols: plac.visCols, toggleCol: plac.toggleCol })}
+        {sectionHeader('Performance by Placement', placView, setPlacView, STANDARD_METRICS, placMet, setPlacMet, placData, undefined, true, { cols: placCols, showPoP: plac.showPoP, setShowPoP: plac.setShowPoP, showLY: plac.showLY, setShowLY: plac.setShowLY, selMode: plac.selMode, setSelMode: plac.setSelMode, visCols: plac.visCols, toggleCol: plac.toggleCol })}
         {placView === 'chart'
           ? <div className="p-5"><SmallMultiplesChart data={placData} dimKey="placement" metrics={STANDARD_METRICS} selectedMetrics={placMet} currency={currency} /></div>
           : <DeepDiveTable title="" embedded showPoP={plac.showPoP} onPoPChange={plac.setShowPoP} showLY={plac.showLY} onLYChange={plac.setShowLY} selectMode={plac.selMode} onSelectModeChange={plac.setSelMode} onSelectedValuesChange={plac.setSelVals} visibleColumnsOverride={plac.visCols} rowData={placData} columnDefs={placCols} />}
@@ -669,7 +682,7 @@ export default function AdvertisingDeepDive() {
 
       {/* 2 — Performance by Audience */}
       {sectionCard(<>
-        {sectionHeader('Performance by Audience', audView, setAudView, STANDARD_METRICS, audMet, setAudMet, audData, { value: audAdType, onChange: setAudAdType }, true, { cols: audCols, showPoP: aud.showPoP, setShowPoP: aud.setShowPoP, showLY: aud.showLY, setShowLY: aud.setShowLY, selMode: aud.selMode, setSelMode: aud.setSelMode, visCols: aud.visCols, toggleCol: aud.toggleCol })}
+        {sectionHeader('Performance by Audience', audView, setAudView, STANDARD_METRICS, audMet, setAudMet, audData, undefined, true, { cols: audCols, showPoP: aud.showPoP, setShowPoP: aud.setShowPoP, showLY: aud.showLY, setShowLY: aud.setShowLY, selMode: aud.selMode, setSelMode: aud.setSelMode, visCols: aud.visCols, toggleCol: aud.toggleCol })}
         {audView === 'chart'
           ? <div className="p-5"><SmallMultiplesChart data={audData} dimKey="segment" metrics={STANDARD_METRICS} selectedMetrics={audMet} currency={currency} /></div>
           : <DeepDiveTable title="" embedded showPoP={aud.showPoP} onPoPChange={aud.setShowPoP} showLY={aud.showLY} onLYChange={aud.setShowLY} selectMode={aud.selMode} onSelectModeChange={aud.setSelMode} onSelectedValuesChange={aud.setSelVals} visibleColumnsOverride={aud.visCols} rowData={audData} columnDefs={audCols} />}
@@ -718,7 +731,7 @@ export default function AdvertisingDeepDive() {
               Select
             </button>
             <button
-              onClick={() => exportSection('Performance by Campaign', campaignData)}
+              onClick={() => exportSection('Performance by Campaign', filteredCampaignData)}
               className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold border border-gray-200 rounded-lg text-gray-500 hover:text-cx-500 hover:border-cx-300 transition-colors"
             >
               <Download className="w-3.5 h-3.5" />
@@ -732,7 +745,7 @@ export default function AdvertisingDeepDive() {
           selectMode={camp.selMode} onSelectModeChange={camp.setSelMode}
           onSelectedValuesChange={camp.setSelVals}
           visibleColumnsOverride={camp.visCols}
-          rowData={campaignData} columnDefs={campCols}
+          rowData={filteredCampaignData} columnDefs={campCols}
           childRowsMap={campChildRowsMap} rowKeyField="campaign" childLabelField="placement"
         />
       </>)}
