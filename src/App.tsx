@@ -105,7 +105,7 @@ export default function App() {
 
   const renderContent = () => {
     if (sectionLoading) {
-      return <SectionLoader message="Loading data..." />;
+      return <SectionLoader />;
     }
 
     if (currentPage === 'home') {
