@@ -79,6 +79,41 @@ function CustomBarLabel({ x, y, width, height, value, currency }: { x?: number; 
   );
 }
 
+function BarTotalLabels({ data, currency, ...chartProps }: { data: SalesDataPoint[]; currency: Currency } & Record<string, any>) {
+  const xAxis = chartProps.xAxisMap && (Object.values(chartProps.xAxisMap)[0] as any);
+  const yAxis = chartProps.yAxisMap && (Object.values(chartProps.yAxisMap)[0] as any);
+
+  if (!xAxis?.scale || !yAxis?.scale || !data) return null;
+
+  const xScale = xAxis.scale;
+  const yScale = yAxis.scale;
+  const bandwidth = xScale.bandwidth?.() || 0;
+  const dense = data.length > 12;
+
+  return (
+    <g>
+      {data.map((d) => {
+        const total = d.adSales + d.organicSales;
+        const cx = xScale(d.label) + bandwidth / 2;
+        const cy = yScale(total) - 6;
+        return (
+          <text
+            key={d.label}
+            x={cx}
+            y={cy}
+            textAnchor="middle"
+            fill="#1e293b"
+            fontSize={dense ? 10 : 11}
+            fontWeight="700"
+          >
+            {fc(total, currency, { compact: true })}
+          </text>
+        );
+      })}
+    </g>
+  );
+}
+
 function GrowthTrendOverlay({ data, growth, ...chartProps }: { data: SalesDataPoint[]; growth: number } & Record<string, any>) {
   const xAxis = chartProps.xAxisMap && (Object.values(chartProps.xAxisMap)[0] as any);
   const yAxis = chartProps.yAxisMap && (Object.values(chartProps.yAxisMap)[0] as any);
@@ -93,7 +128,7 @@ function GrowthTrendOverlay({ data, growth, ...chartProps }: { data: SalesDataPo
   const firstTotal = data[0].adSales + data[0].organicSales;
   const lastTotal = data[data.length - 1].adSales + data[data.length - 1].organicSales;
 
-  const offset = 16;
+  const offset = 36;
   const x1 = xScale(data[0].label) + halfBand;
   const y1 = yScale(firstTotal) - offset;
   const x2 = xScale(data[data.length - 1].label) + halfBand;
@@ -189,7 +224,7 @@ export default function SalesOverview() {
       </div>
       <div className="h-[280px]">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 40, right: 10, left: 0, bottom: 0 }} barCategoryGap="20%">
+          <BarChart data={data} margin={{ top: 50, right: 10, left: 0, bottom: 0 }} barCategoryGap="20%">
             <CartesianGrid strokeDasharray="3 3" stroke="#EEF2F6" vertical={false} />
             <XAxis
               dataKey="label"
@@ -225,9 +260,15 @@ export default function SalesOverview() {
               radius={[4, 4, 0, 0]}
             >
               <LabelList
+                dataKey="adSales"
                 content={(props: any) => <CustomBarLabel {...props} currency={currency} />}
               />
             </Bar>
+            <Customized
+              component={(props: any) => (
+                <BarTotalLabels {...props} data={data} currency={currency} />
+              )}
+            />
             <Customized
               component={(props: any) => (
                 <GrowthTrendOverlay {...props} data={data} growth={growth} />

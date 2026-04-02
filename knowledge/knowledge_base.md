@@ -125,6 +125,33 @@ DeepDive Table (deepdive/DeepDiveTable.tsx)
 - table layout: fixed with pixel colgroup widths for horizontal scroll control.
 - w-full class for autofit behavior. Min 900px width.
 - ColumnToggle dropdown for showing/hiding columns.
+- Click-to-copy on pinned ASIN cells: opt-in via `copyablePinnedCell` prop. Shows copy icon on hover, green checkmark on click with 1.5s feedback. Used on Best Selling ASINs, Profitability by Product, and Performance by ASIN tables. Non-ASIN tables (Marketplace, Category, Subcategory) do not have this feature.
+
+
+Sales Overview (SalesOverview.tsx)
+
+Stacked Bar Chart
+- Stacked columns: Organic Sales (dark navy #0E5A8A) + Ad Sales (light blue #4B9DCC).
+- In-bar labels: white text, 10px, hidden when segment height < 25px. Ad Sales bar uses explicit `dataKey="adSales"` to avoid Recharts stacked cumulative value bug.
+- Total labels on top of columns: computed via `BarTotalLabels` Customized component using chart x/y scales. Black (#1e293b), 11px bold (10px when >12 bars for day view). Shows sum of adSales + organicSales.
+- Growth trend overlay: dashed line with arrow + percentage bubble between first and last bars. Offset 36px above bar tops to clear total labels.
+- Granularity: Day / Week / Month / Quarter toggle.
+- Tooltip: dark bg, shows each segment with currency + percentage + total row.
+
+Sales Deepdive (DeepDive.tsx)
+- Sales Share column: computed dynamically from `sales / totalSales * 100` via `computeShares()` in deepdiveData.ts. Ensures shares always total exactly 100% with rounding correction applied to first row. Applied to marketplace, category, and ASIN tables.
+
+
+Loading States (ClarisixSpinner.tsx)
+
+- SPINNER_VERBS: ~110 creative verbs (mix of tech, silly, action words) that cycle randomly every 1 second.
+- `useSpinnerVerb()` hook picks a random verb, changes via setInterval every 1s.
+- Applied to TableLoader, TableOverlay, SectionLoader as default message. Custom `message` prop overrides cycling if provided.
+
+
+Content Tracker (ContentTracker.tsx)
+
+- CopyableAsin component: click-to-copy for ASIN cells with copy/check icon feedback. Used in comparison table rows.
 
 
 Data Layer (profitabilityData.ts)

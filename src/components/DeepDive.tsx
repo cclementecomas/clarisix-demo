@@ -163,6 +163,7 @@ export default function DeepDive() {
         childRowsMap={skuDataByAsin}
         rowKeyField="asin"
         childLabelField="sku"
+        copyablePinnedCell
       />
       <div className="flex justify-end">
         <LastRefreshed offsetMinutes={9} />

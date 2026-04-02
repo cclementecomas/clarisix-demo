@@ -130,6 +130,7 @@ export default function AdvertisingOverview() {
         rowData={adByASIN}
         columnDefs={cols}
         pinnedBottomRowData={totalsRow}
+        copyablePinnedCell
       />
 
       <LastRefreshed offsetMinutes={8} />

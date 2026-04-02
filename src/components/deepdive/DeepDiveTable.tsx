@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import { ArrowUp, ArrowDown, ChevronRight, ChevronsUpDown, Download, Sheet, MousePointer2 } from 'lucide-react';
+import { ArrowUp, ArrowDown, ChevronRight, ChevronsUpDown, Download, Sheet, MousePointer2, Copy, Check } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import ColumnToggle from './ColumnToggle';
 import SelectionStats from './SelectionStats';
@@ -50,6 +50,7 @@ interface DeepDiveTableProps {
   onSelectModeChange?: (v: boolean) => void;
   onSelectedValuesChange?: (values: number[]) => void;
   visibleColumnsOverride?: Set<string>;
+  copyablePinnedCell?: boolean;
 }
 
 const percentCellStyle = (params: { value: unknown; row?: any }): Record<string, string> => {
@@ -143,7 +144,7 @@ function getRectCells(
   return cells;
 }
 
-export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottomRowData, childRowsMap, rowKeyField, childLabelField, hideHeader = false, embedded = false, showPoP: propShowPoP, onPoPChange, showLY: propShowLY, onLYChange, selectMode: propSelectMode, onSelectModeChange, onSelectedValuesChange, visibleColumnsOverride }: DeepDiveTableProps) {
+export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottomRowData, childRowsMap, rowKeyField, childLabelField, hideHeader = false, embedded = false, showPoP: propShowPoP, onPoPChange, showLY: propShowLY, onLYChange, selectMode: propSelectMode, onSelectModeChange, onSelectedValuesChange, visibleColumnsOverride, copyablePinnedCell = false }: DeepDiveTableProps) {
   const [selectedCells, setSelectedCells] = useState<SelectedCell[]>([]);
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>(null);
@@ -164,6 +165,7 @@ export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottom
   const [showHint, setShowHint] = useState(true);
   const [hasInteracted, setHasInteracted] = useState(false);
   const [sheetsUrl, setSheetsUrl] = useState<string | null>(null);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const touchStartPos = useRef<{ x: number; y: number } | null>(null);
 
   const filterSubFields = useCallback(
@@ -645,7 +647,28 @@ export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottom
                             >
                               <ChevronRight className={`w-3 h-3 text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`} />
                             </button>
-                            <span className="truncate">{formatCell(col, value, row)}</span>
+                            {copyablePinnedCell ? (
+                              <span
+                                className="truncate cursor-pointer hover:text-cx-600 transition-colors group/asin"
+                                title="Click to copy"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const text = String(value ?? '');
+                                  navigator.clipboard.writeText(text);
+                                  setCopiedKey(rowKey);
+                                  setTimeout(() => setCopiedKey((k) => k === rowKey ? null : k), 1500);
+                                }}
+                              >
+                                {formatCell(col, value, row)}
+                                {copiedKey === rowKey ? (
+                                  <Check className="w-3 h-3 text-green-500 inline-block ml-1 -mt-0.5" />
+                                ) : (
+                                  <Copy className="w-3 h-3 text-gray-300 group-hover/asin:text-cx-400 inline-block ml-1 -mt-0.5" />
+                                )}
+                              </span>
+                            ) : (
+                              <span className="truncate">{formatCell(col, value, row)}</span>
+                            )}
                           </div>
                         ) : (
                           (() => {
@@ -667,6 +690,25 @@ export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottom
                                   );
                                 })}
                               </div>
+                            ) : (isPinned && copyablePinnedCell) ? (
+                              <span
+                                className="truncate cursor-pointer hover:text-cx-600 transition-colors group/asin inline-flex items-center gap-1"
+                                title="Click to copy"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const text = String(value ?? '');
+                                  navigator.clipboard.writeText(text);
+                                  setCopiedKey(`flat-${rowIdx}`);
+                                  setTimeout(() => setCopiedKey((k) => k === `flat-${rowIdx}` ? null : k), 1500);
+                                }}
+                              >
+                                {formatCell(col, value, row)}
+                                {copiedKey === `flat-${rowIdx}` ? (
+                                  <Check className="w-3 h-3 text-green-500 flex-shrink-0" />
+                                ) : (
+                                  <Copy className="w-3 h-3 text-gray-300 group-hover/asin:text-cx-400 flex-shrink-0" />
+                                )}
+                              </span>
                             ) : (
                               formatCell(col, value, row)
                             );

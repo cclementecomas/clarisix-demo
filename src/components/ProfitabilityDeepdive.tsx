@@ -449,6 +449,7 @@ export default function ProfitabilityDeepdive() {
         childRowsMap={childRowsMap}
         rowKeyField="asin"
         childLabelField="asin"
+        copyablePinnedCell
       />
       {waterfallProduct && (
         <WaterfallPanel

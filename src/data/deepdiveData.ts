@@ -499,6 +499,24 @@ export const asinData: AsinRow[] = [
   },
 ];
 
+// Compute salesShare from actual sales values so shares always total 100%
+function computeShares(rows: MetricFields[]) {
+  const totalSales = rows.reduce((s, r) => s + r.sales, 0);
+  for (const row of rows) {
+    row.salesShare = +((row.sales / totalSales) * 100).toFixed(2);
+  }
+  // Fix rounding so sum is exactly 100
+  const sum = rows.reduce((s, r) => s + r.salesShare, 0);
+  const diff = +(100 - sum).toFixed(2);
+  if (diff !== 0 && rows.length > 0) {
+    rows[0].salesShare = +(rows[0].salesShare + diff).toFixed(2);
+  }
+}
+
+computeShares(marketplaceData);
+computeShares(categoryData);
+computeShares(asinData);
+
 function splitMetrics(parent: MetricFields, ratio1: number): [MetricFields, MetricFields] {
   const r2 = 1 - ratio1;
   const jitter = (base: number, spread = 2) => base + (Math.random() - 0.5) * spread;
