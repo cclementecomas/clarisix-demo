@@ -7,6 +7,15 @@ import { fc } from '../utils/currency';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+const KPI_TOOLTIPS: Record<string, string> = {
+  Sales: 'Gross ordered product sales before returns, refunds, and fees. Sourced from Amazon Seller Central.',
+  TACOS: 'Total Advertising Cost of Sale — total ad spend ÷ total sales (organic + paid). Lower is better.',
+  Profitability: 'Net profit after Amazon fees, COGS, and ad spend are deducted from sales net of taxes.',
+  'Out of Stock': '% of active SKUs with zero available inventory for at least one day in the period. Lower is better.',
+  'Content Score': 'Weighted score (0–100) across title, bullets, images, A+ content, and backend keywords for active listings.',
+  'Customer Experience': 'Average star rating across active ASINs, weighted by review volume and recency.',
+};
+
 interface KPICardsProps {
   onCardClick?: (section: string, sub: string) => void;
 }
@@ -58,7 +67,7 @@ function KPICard({ kpi, idx, onCardClick }: { kpi: (typeof kpiData)[number]; idx
         <p className={`text-[10px] font-bold uppercase tracking-widest ${labelColor}`}>
           {kpi.label}
         </p>
-        <InfoTooltip />
+        <InfoTooltip content={KPI_TOOLTIPS[kpi.label]} />
       </div>
 
       <div className="flex items-center justify-center my-1">

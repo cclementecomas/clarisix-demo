@@ -5,16 +5,16 @@ import {
 } from 'recharts';
 import {
   Search, ChevronDown, ChevronRight, AlertTriangle, Package, ArrowUpDown,
-  Settings, Plus, X, Calendar,
+  Settings, Plus, X, Calendar, Download,
 } from 'lucide-react';
 import {
   inventoryData,
   controlTowerKPIs,
-  actionQueueItems,
 } from '../data/inventoryData';
 import type { InventorySKU, ControlTowerKPI, FulfillmentType } from '../data/inventoryData';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { fc } from '../utils/currency';
+import InfoTooltip from './InfoTooltip';
 import LastRefreshed from './LastRefreshed';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -35,6 +35,14 @@ interface ComputedMetrics {
   idealInventory: number;
   reorderQty: number;
   forecastWeeks: ForecastWeek[];
+  // Lead-time-aware fields
+  safetyStock: number;
+  reorderPoint: number;
+  demandDuringLeadTime: number;
+  daysUntilStockout: number;
+  daysUntilReorder: number;
+  leadTimeDays: number;
+  needsReorderNow: boolean;
 }
 
 interface ForecastWeek {
@@ -63,12 +71,6 @@ const KPI_COLORS: Record<string, { bg: string; border: string; text: string; rin
   blue: { bg: 'bg-blue-50', border: 'border-blue-200/60', text: 'text-blue-900', ring: 'ring-blue-400' },
 };
 
-const PRIORITY_BADGE: Record<string, string> = {
-  critical: 'bg-red-100 text-red-700',
-  warning: 'bg-yellow-100 text-yellow-700',
-  info: 'bg-blue-100 text-blue-700',
-};
-
 const ROW_TINT: Record<string, string> = {
   'Out of Stock': 'bg-red-50/40',
   'Critical': 'bg-red-50/30',
@@ -81,7 +83,16 @@ const RISK_BADGE: Record<string, string> = {
   healthy: 'text-green-600',
 };
 
-type SortKey = 'sku' | 'title' | 'status' | 'availableUnits' | 'medianPerWeek' | 'weeksOnHand' | 'idealInventory' | 'reorderQty' | 'revenueAtRisk';
+type SortKey = 'sku' | 'title' | 'status' | 'availableUnits' | 'medianPerWeek' | 'weeksOnHand' | 'idealInventory' | 'reorderQty' | 'revenueAtRisk' | 'safetyStock' | 'daysUntilReorder';
+
+type ServiceLevel = '90' | '95' | '97.5' | '99';
+
+const SERVICE_LEVEL_Z: Record<ServiceLevel, number> = {
+  '90': 1.282,
+  '95': 1.645,
+  '97.5': 1.96,
+  '99': 2.326,
+};
 
 const DEFAULT_EVENTS: PromotionalEvent[] = [
   { id: '1', name: 'Prime Day', date: '2026-03-25', multiplier: 2.5 },
@@ -102,12 +113,16 @@ function computeMedian(values: number[]): number {
 function computeSkuMetrics(
   sku: InventorySKU,
   idealWeeksCoverage: number,
-  safetyStockBuffer: number,
+  serviceLevel: ServiceLevel,
   promotionalEvents: PromotionalEvent[],
+  leadTimeDays: number,
+  leadTimeVarianceDays: number,
 ): ComputedMetrics {
   const medianPerWeek = sku.weeklyVelocity.length > 0
     ? computeMedian(sku.weeklyVelocity)
     : Math.round(sku.avgDailySales * 7);
+
+  const avgDailyFromMedian = medianPerWeek / 7;
 
   // Available = available + inbound (exclude reserved)
   const availableUnits = sku.available + sku.inbound;
@@ -120,7 +135,36 @@ function computeSkuMetrics(
   const riskLevel: ComputedMetrics['riskLevel'] =
     weeksOnHand < 2 ? 'critical' : weeksOnHand < 4 ? 'warning' : 'healthy';
 
-  // Promotional impact: compute week-by-week forecast
+  // ── Safety stock from variability (King formula) ──
+  // SS = Z × √(LT × σ²_demand_daily + avgDemand² × σ²_LT)
+  const Z = SERVICE_LEVEL_Z[serviceLevel];
+  const demandStdDev = sku.demandStdDevDaily || (avgDailyFromMedian * 0.3);
+  const safetyStock = Math.round(
+    Z * Math.sqrt(
+      leadTimeDays * (demandStdDev ** 2) +
+      (avgDailyFromMedian ** 2) * (leadTimeVarianceDays ** 2)
+    )
+  );
+
+  // ── Reorder point = demand during lead time + safety stock ──
+  const demandDuringLeadTime = Math.round(avgDailyFromMedian * leadTimeDays);
+  const reorderPoint = demandDuringLeadTime + safetyStock;
+
+  // ── Days until stockout and reorder trigger ──
+  const daysUntilStockout = avgDailyFromMedian > 0
+    ? Math.round(availableUnits / avgDailyFromMedian)
+    : availableUnits > 0 ? 999 : 0;
+
+  // Must reorder when available stock will hit reorder point
+  // i.e., when days of supply left = lead time + safety stock days
+  const daysOfSafetyStock = avgDailyFromMedian > 0 ? safetyStock / avgDailyFromMedian : 0;
+  const daysUntilReorder = Math.max(
+    0,
+    Math.round(daysUntilStockout - leadTimeDays - daysOfSafetyStock)
+  );
+  const needsReorderNow = availableUnits <= reorderPoint;
+
+  // ── Promotional impact: compute week-by-week forecast ──
   const now = new Date();
   const forecastWeeks: ForecastWeek[] = [];
   let totalForecast = 0;
@@ -135,7 +179,7 @@ function computeSkuMetrics(
     });
 
     const multiplier = promoEvent ? promoEvent.multiplier : 1;
-    const adjusted = medianPerWeek * multiplier * (1 + safetyStockBuffer / 100);
+    const adjusted = medianPerWeek * multiplier;
     totalForecast += adjusted;
 
     forecastWeeks.push({
@@ -150,7 +194,11 @@ function computeSkuMetrics(
     ? totalForecast / idealWeeksCoverage
     : medianPerWeek;
 
-  const idealInventory = Math.round(adjustedWeeklySales * idealWeeksCoverage);
+  // ── Ideal inventory & reorder qty ──
+  // Ideal = coverage demand + safety stock (how much you WANT on hand)
+  // ROP (reorder point) tells you WHEN to order — that's where DDLT lives
+  const coverageDemand = Math.round(adjustedWeeklySales * idealWeeksCoverage);
+  const idealInventory = coverageDemand + safetyStock;
   const reorderQty = Math.max(0, idealInventory - availableUnits);
 
   return {
@@ -162,6 +210,13 @@ function computeSkuMetrics(
     idealInventory,
     reorderQty,
     forecastWeeks,
+    safetyStock,
+    reorderPoint,
+    demandDuringLeadTime,
+    daysUntilStockout,
+    daysUntilReorder,
+    leadTimeDays,
+    needsReorderNow,
   };
 }
 
@@ -172,7 +227,9 @@ export default function InventoryOverview() {
 
   // Settings
   const [idealWeeksCoverage, setIdealWeeksCoverage] = useState(10);
-  const [safetyStockBuffer, setSafetyStockBuffer] = useState(0);
+  const [serviceLevel, setServiceLevel] = useState<ServiceLevel>('97.5');
+  const [leadTimeDays, setLeadTimeDays] = useState(30);
+  const [leadTimeVarianceDays, setLeadTimeVarianceDays] = useState(7);
   const [promotionalEvents, setPromotionalEvents] = useState<PromotionalEvent[]>(DEFAULT_EVENTS);
   const [showSettings, setShowSettings] = useState(false);
 
@@ -202,10 +259,10 @@ export default function InventoryOverview() {
   const metricsMap = useMemo(() => {
     const map = new Map<string, ComputedMetrics>();
     for (const sku of inventoryData) {
-      map.set(sku.sku, computeSkuMetrics(sku, idealWeeksCoverage, safetyStockBuffer, promotionalEvents));
+      map.set(sku.sku, computeSkuMetrics(sku, idealWeeksCoverage, serviceLevel, promotionalEvents, leadTimeDays, leadTimeVarianceDays));
     }
     return map;
-  }, [idealWeeksCoverage, safetyStockBuffer, promotionalEvents]);
+  }, [idealWeeksCoverage, serviceLevel, promotionalEvents, leadTimeDays, leadTimeVarianceDays]);
 
   const filteredData = useMemo(() => {
     let data = inventoryData;
@@ -249,6 +306,8 @@ export default function InventoryOverview() {
         case 'weeksOnHand': av = ma.weeksOnHand; bv = mb.weeksOnHand; break;
         case 'idealInventory': av = ma.idealInventory; bv = mb.idealInventory; break;
         case 'reorderQty': av = ma.reorderQty; bv = mb.reorderQty; break;
+        case 'safetyStock': av = ma.safetyStock; bv = mb.safetyStock; break;
+        case 'daysUntilReorder': av = ma.daysUntilReorder; bv = mb.daysUntilReorder; break;
         case 'revenueAtRisk': av = a.revenueAtRisk; bv = b.revenueAtRisk; break;
       }
       if (typeof av === 'string') return sortDir === 'asc' ? av.localeCompare(bv as string) : (bv as string).localeCompare(av);
@@ -335,7 +394,7 @@ export default function InventoryOverview() {
           <h3 className="text-sm font-semibold text-gray-900 mb-4">Forecast & Reorder Settings</h3>
           <div className="grid grid-cols-1 xl:grid-cols-[auto_1fr] gap-6">
             {/* Left: numeric inputs */}
-            <div className="flex items-start gap-6">
+            <div className="flex items-start gap-6 flex-wrap">
               <div>
                 <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1.5">
                   Ideal Weeks of Coverage
@@ -352,20 +411,54 @@ export default function InventoryOverview() {
               </div>
               <div>
                 <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1.5">
-                  Safety Stock Buffer
+                  Lead Time (days)
                 </label>
-                <div className="flex items-center gap-1">
-                  <input
-                    type="number"
-                    min={0}
-                    max={100}
-                    value={safetyStockBuffer}
-                    onChange={(e) => setSafetyStockBuffer(Math.max(0, Math.min(100, Number(e.target.value) || 0)))}
-                    className="w-16 px-2.5 py-1.5 text-sm font-semibold rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-cx-500/20 focus:border-cx-400 text-center"
-                  />
-                  <span className="text-sm font-semibold text-gray-400">%</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={180}
+                  value={leadTimeDays}
+                  onChange={(e) => setLeadTimeDays(Math.max(1, Math.min(180, Number(e.target.value) || 1)))}
+                  className="w-20 px-2.5 py-1.5 text-sm font-semibold rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-cx-500/20 focus:border-cx-400 text-center"
+                />
+                <p className="text-[10px] text-gray-400 mt-1">Supplier delivery time</p>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1.5">
+                  Lead Time Variance (±days)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  max={60}
+                  value={leadTimeVarianceDays}
+                  onChange={(e) => setLeadTimeVarianceDays(Math.max(0, Math.min(60, Number(e.target.value) || 0)))}
+                  className="w-20 px-2.5 py-1.5 text-sm font-semibold rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-cx-500/20 focus:border-cx-400 text-center"
+                />
+                <p className="text-[10px] text-gray-400 mt-1">Delivery variability</p>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1.5">
+                  Service Level
+                </label>
+                <div className="flex items-center rounded-lg border border-gray-200 bg-white overflow-hidden">
+                  {(['90', '95', '97.5', '99'] as ServiceLevel[]).map((sl) => (
+                    <button
+                      key={sl}
+                      onClick={() => setServiceLevel(sl)}
+                      className={`px-3 py-1.5 text-[11px] font-semibold transition-colors ${
+                        serviceLevel === sl
+                          ? 'bg-cx-500 text-white'
+                          : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      {sl}%
+                    </button>
+                  ))}
                 </div>
-                <p className="text-[10px] text-gray-400 mt-1">Extra buffer for high-velocity SKUs</p>
+                <p className="text-[10px] text-gray-400 mt-1">
+                  Z={SERVICE_LEVEL_Z[serviceLevel].toFixed(2)} — higher = more safety stock
+                </p>
               </div>
             </div>
 
@@ -425,7 +518,7 @@ export default function InventoryOverview() {
                 ))}
               </div>
               <p className="text-[10px] text-gray-400 mt-1.5">
-                Multiplier boosts median weekly sales during event week (e.g. ×2.5 = 150% increase)
+                Multiplier boosts median weekly sales during event week (e.g. ×2.5 = 150% increase). Safety stock is computed from demand & lead time variability at the selected service level.
               </p>
             </div>
           </div>
@@ -435,8 +528,8 @@ export default function InventoryOverview() {
       {/* ─── KPI Row ─── */}
       <KPIRow kpis={controlTowerKPIs} currency={currency} activeFilter={activeKpiFilter} onFilter={setActiveKpiFilter} />
 
-      {/* ─── Action Queue ─── */}
-      <ActionQueue />
+      {/* ─── Replenishment Action Panel ─── */}
+      <ReplenishmentActionPanel metricsMap={metricsMap} currency={currency} />
 
       {/* ─── Risk Table ─── */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
@@ -455,12 +548,14 @@ export default function InventoryOverview() {
                 <SortableHeader label="SKU" sortKey="sku" currentKey={sortKey} dir={sortDir} onSort={handleSort} />
                 <SortableHeader label="Product" sortKey="title" currentKey={sortKey} dir={sortDir} onSort={handleSort} className="min-w-[160px]" />
                 <SortableHeader label="Status" sortKey="status" currentKey={sortKey} dir={sortDir} onSort={handleSort} />
-                <SortableHeader label="Avail (A+I)" sortKey="availableUnits" currentKey={sortKey} dir={sortDir} onSort={handleSort} />
-                <SortableHeader label="Median/wk" sortKey="medianPerWeek" currentKey={sortKey} dir={sortDir} onSort={handleSort} />
-                <SortableHeader label="Wks on Hand" sortKey="weeksOnHand" currentKey={sortKey} dir={sortDir} onSort={handleSort} />
-                <SortableHeader label="Ideal Inv." sortKey="idealInventory" currentKey={sortKey} dir={sortDir} onSort={handleSort} />
-                <SortableHeader label="Reorder" sortKey="reorderQty" currentKey={sortKey} dir={sortDir} onSort={handleSort} />
-                <SortableHeader label="Rev. at Risk" sortKey="revenueAtRisk" currentKey={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortableHeader label="Avail (A+I)" sortKey="availableUnits" currentKey={sortKey} dir={sortDir} onSort={handleSort} tooltip="Available + Inbound units. Available = on-hand minus reserved. Inbound = confirmed shipments in transit." />
+                <SortableHeader label="Median/wk" sortKey="medianPerWeek" currentKey={sortKey} dir={sortDir} onSort={handleSort} tooltip="Median weekly unit sales over the last 12 weeks. Uses median (not mean) to reduce the impact of promo spikes or stockout weeks." />
+                <SortableHeader label="Wks on Hand" sortKey="weeksOnHand" currentKey={sortKey} dir={sortDir} onSort={handleSort} tooltip="Weeks of supply remaining = Available ÷ Adjusted Weekly Sales. Adjusted sales factor in upcoming promotional events." />
+                <SortableHeader label="Safety Stk" sortKey="safetyStock" currentKey={sortKey} dir={sortDir} onSort={handleSort} tooltip="King formula safety stock: Z × √(LT × σ²_demand + avgDemand² × σ²_LT). Accounts for both demand variability and lead time variability at the selected service level." />
+                <SortableHeader label="Ideal Inv." sortKey="idealInventory" currentKey={sortKey} dir={sortDir} onSort={handleSort} tooltip="Target on-hand inventory = (Adjusted Weekly Sales × Coverage Weeks) + Safety Stock. DDLT is not included here — it drives WHEN to order (ROP), not how much to stock." />
+                <SortableHeader label="Reorder" sortKey="reorderQty" currentKey={sortKey} dir={sortDir} onSort={handleSort} tooltip="Suggested reorder quantity = Ideal Inventory − Available Units. Shows 'OK' when current stock exceeds the ideal level." />
+                <SortableHeader label="Reorder In" sortKey="daysUntilReorder" currentKey={sortKey} dir={sortDir} onSort={handleSort} tooltip="Days until stock hits the reorder point (ROP). 'NOW' = already below ROP. 'TODAY' = hits ROP today. Factors in lead time so you order before stockout." />
+                <SortableHeader label="Rev. at Risk" sortKey="revenueAtRisk" currentKey={sortKey} dir={sortDir} onSort={handleSort} tooltip="Estimated revenue that could be lost if stock runs out before replenishment arrives, based on current sell-through rate and days of projected stockout." />
                 <th className="px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-gray-500 whitespace-nowrap">Flags</th>
               </tr>
             </thead>
@@ -473,11 +568,13 @@ export default function InventoryOverview() {
                   currency={currency}
                   expanded={expandedSkus.has(sku.sku)}
                   onToggle={() => toggleExpand(sku.sku)}
+                  serviceLevel={serviceLevel}
+                  leadTimeVarianceDays={leadTimeVarianceDays}
                 />
               ))}
               {filteredData.length === 0 && (
                 <tr>
-                  <td colSpan={11} className="px-5 py-12 text-center text-sm text-gray-400">
+                  <td colSpan={13} className="px-5 py-12 text-center text-sm text-gray-400">
                     No SKUs match the current filters
                   </td>
                 </tr>
@@ -536,47 +633,278 @@ function KPIRow({
   );
 }
 
-// ─── Action Queue ───────────────────────────────────────────────────────────
+// ─── Replenishment Action Panel ──────────────────────────────────────────────
 
-function ActionQueue() {
-  const topItems = actionQueueItems.slice(0, 8);
+interface ActionSku {
+  sku: InventorySKU;
+  metrics: ComputedMetrics;
+  orderByDate: Date;
+  stockoutDate: Date;
+  arrivalDate: Date;
+}
+
+function ReplenishmentActionPanel({
+  metricsMap,
+  currency,
+}: {
+  metricsMap: Map<string, ComputedMetrics>;
+  currency: string;
+}) {
+  const [showMonitor, setShowMonitor] = useState(false);
+  const today = useMemo(() => new Date(), []);
+  const fmtDate = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const addDays = (base: Date, n: number) => new Date(base.getTime() + n * 86400000);
+
+  // Build enriched list sorted by urgency
+  const allItems = useMemo(() => {
+    const items: ActionSku[] = [];
+
+    for (const sku of inventoryData) {
+      const m = metricsMap.get(sku.sku);
+      if (!m) continue;
+      // Only include SKUs that need replenishment
+      if (m.reorderQty <= 0) continue;
+
+      items.push({
+        sku,
+        metrics: m,
+        orderByDate: addDays(today, Math.max(0, m.daysUntilReorder)),
+        stockoutDate: addDays(today, m.daysUntilStockout),
+        arrivalDate: addDays(today, Math.max(0, m.daysUntilReorder) + m.leadTimeDays),
+      });
+    }
+
+    // Sort: most urgent first (OOS → fewest days until stockout → fewest days until reorder)
+    items.sort((a, b) => a.metrics.daysUntilStockout - b.metrics.daysUntilStockout);
+    return items;
+  }, [metricsMap, today]);
+
+  const urgent = allItems.filter((i) => i.metrics.needsReorderNow || i.metrics.daysUntilStockout === 0);
+  const soon = allItems.filter((i) => !i.metrics.needsReorderNow && i.metrics.daysUntilStockout > 0 && i.metrics.daysUntilReorder <= 14);
+  const later = allItems.filter((i) => !i.metrics.needsReorderNow && i.metrics.daysUntilStockout > 0 && i.metrics.daysUntilReorder > 14);
+
+  const totalUnits = allItems.reduce((s, i) => s + i.metrics.reorderQty, 0);
+  const totalCost = allItems.reduce((s, i) => s + i.metrics.reorderQty * i.sku.unitCost, 0);
+
+  // CSV export
+  const exportCsv = useCallback(() => {
+    const header = 'SKU,ASIN,Product,Supplier,Status,Current Stock,Reorder Qty,Order By,Stockout Date,Est. Arrival,Unit Cost,Line Total';
+    const rows = allItems.map((item) => {
+      const m = item.metrics;
+      const s = item.sku;
+      const isOOS = m.daysUntilStockout === 0;
+      const status = isOOS ? 'Out of Stock' : m.needsReorderNow ? 'Order Now' : m.daysUntilReorder <= 14 ? 'Order Soon' : 'Monitor';
+      return [
+        s.sku,
+        s.asin,
+        `"${s.title.replace(/"/g, '""')}"`,
+        `"${s.supplier}"`,
+        status,
+        m.availableUnits,
+        m.reorderQty,
+        fmtDate(item.orderByDate),
+        fmtDate(item.stockoutDate),
+        fmtDate(item.arrivalDate),
+        s.unitCost.toFixed(2),
+        (m.reorderQty * s.unitCost).toFixed(2),
+      ].join(',');
+    });
+    const csv = [header, ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `replenishment-${today.toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [allItems, today]);
+
+  const urgencyBadge = (item: ActionSku) => {
+    const m = item.metrics;
+    if (m.daysUntilStockout === 0) return { label: 'OOS', cls: 'bg-red-600 text-white' };
+    if (m.needsReorderNow) return { label: 'NOW', cls: 'bg-red-100 text-red-700' };
+    if (m.daysUntilReorder <= 14) return { label: 'SOON', cls: 'bg-orange-100 text-orange-700' };
+    return { label: 'PLAN', cls: 'bg-yellow-100 text-yellow-700' };
+  };
+
+  if (allItems.length === 0) {
+    return (
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+        <div className="flex items-center gap-2 mb-1">
+          <Package className="w-4 h-4 text-green-500" />
+          <h3 className="text-sm font-semibold text-gray-900">Replenishment Plan</h3>
+        </div>
+        <p className="text-[11px] text-gray-500">All SKUs are sufficiently stocked. No replenishment needed.</p>
+      </div>
+    );
+  }
+
+  const renderRows = (items: ActionSku[]) =>
+    items.map((item) => {
+      const m = item.metrics;
+      const badge = urgencyBadge(item);
+      const isOOS = m.daysUntilStockout === 0;
+      return (
+        <tr key={item.sku.sku} className="border-t border-gray-50 hover:bg-gray-50/50 transition-colors">
+          <td className="px-3 py-2">
+            <span className={`text-[8px] font-bold uppercase px-1.5 py-0.5 rounded ${badge.cls}`}>
+              {badge.label}
+            </span>
+          </td>
+          <td className="px-3 py-2">
+            <span className="text-[11px] font-mono font-semibold text-gray-700">{item.sku.sku}</span>
+          </td>
+          <td className="px-3 py-2 max-w-[200px]">
+            <span className="text-[10px] text-gray-600 truncate block">{item.sku.title}</span>
+          </td>
+          <td className="px-3 py-2 text-right">
+            <span className="text-[11px] text-gray-700">{m.availableUnits.toLocaleString()}</span>
+          </td>
+          <td className="px-3 py-2 text-right">
+            <span className={`text-[11px] font-semibold ${isOOS ? 'text-red-600' : m.needsReorderNow ? 'text-red-600' : 'text-gray-800'}`}>
+              {isOOS ? '0d' : `${m.daysUntilStockout}d`}
+            </span>
+          </td>
+          <td className="px-3 py-2 text-right">
+            <span className="text-[10px] text-gray-600">{fmtDate(item.orderByDate)}</span>
+          </td>
+          <td className="px-3 py-2 text-right">
+            <span className={`text-[10px] font-semibold ${isOOS || m.needsReorderNow ? 'text-red-600' : 'text-gray-600'}`}>
+              {fmtDate(item.stockoutDate)}
+            </span>
+          </td>
+          <td className="px-3 py-2 text-right">
+            <span className="text-[11px] font-semibold text-gray-800">{m.reorderQty.toLocaleString()}</span>
+          </td>
+          <td className="px-3 py-2 text-right">
+            <span className="text-[10px] text-gray-500">{fc(m.reorderQty * item.sku.unitCost, currency)}</span>
+          </td>
+        </tr>
+      );
+    });
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-      <div className="flex items-center justify-between mb-3">
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+      {/* Header */}
+      <div className="flex items-center justify-between px-5 pt-4 pb-3">
         <div className="flex items-center gap-2">
-          <AlertTriangle className="w-4 h-4 text-orange-500" />
-          <h3 className="text-sm font-semibold text-gray-900">Today's Action Queue</h3>
-          <span className="text-[10px] text-gray-400 font-medium">
-            {actionQueueItems.length} items
-          </span>
+          <Package className="w-4 h-4 text-gray-700" />
+          <h3 className="text-sm font-semibold text-gray-900">Replenishment Plan</h3>
+          <InfoTooltip content="SKUs that need reordering, sorted by urgency. Quantities are computed from your coverage, lead time, and service level settings. OOS = out of stock, NOW = past reorder point, SOON = reorder within 14 days, PLAN = reorder within 30 days." />
+          <div className="flex items-center gap-2 ml-2">
+            {urgent.length > 0 && (
+              <span className="text-[9px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">
+                {urgent.length} urgent
+              </span>
+            )}
+            <span className="text-[10px] text-gray-400">
+              {allItems.length} SKUs · {totalUnits.toLocaleString()} units · {fc(totalCost, currency)}
+            </span>
+          </div>
         </div>
+        <button
+          onClick={exportCsv}
+          className="flex items-center gap-1.5 text-[10px] font-semibold text-gray-600 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-md transition-colors"
+        >
+          <Download className="w-3 h-3" />
+          Export CSV
+        </button>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-2">
-        {topItems.map((item, i) => (
-          <div
-            key={`${item.sku}-${item.type}-${i}`}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-gray-100 hover:border-gray-200 transition-colors group"
-          >
-            <span className={`shrink-0 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${PRIORITY_BADGE[item.priority]}`}>
-              {item.priority}
-            </span>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span className="text-[11px] font-mono font-semibold text-gray-700">{item.sku}</span>
-                <span className="text-[10px] text-gray-400 truncate">{item.title}</span>
-              </div>
-              <p className="text-[11px] text-gray-600 truncate">{item.message}</p>
-            </div>
-            {item.deadline && (
-              <span className="shrink-0 text-[10px] font-semibold text-red-500">{item.deadline}</span>
+      {/* Table */}
+      <div className="overflow-x-auto">
+        <table className="w-full text-left">
+          <thead>
+            <tr className="border-t border-gray-100">
+              <th className="px-3 py-2 text-[9px] font-bold uppercase tracking-wider text-gray-400 w-14">Status</th>
+              <th className="px-3 py-2 text-[9px] font-bold uppercase tracking-wider text-gray-400">SKU</th>
+              <th className="px-3 py-2 text-[9px] font-bold uppercase tracking-wider text-gray-400">Product</th>
+              <th className="px-3 py-2 text-[9px] font-bold uppercase tracking-wider text-gray-400 text-right">On Hand</th>
+              <th className="px-3 py-2 text-[9px] font-bold uppercase tracking-wider text-gray-400 text-right">
+                <span className="inline-flex items-center gap-0.5">Supply Left <InfoTooltip content="Days of inventory remaining at current sell-through rate before stockout." /></span>
+              </th>
+              <th className="px-3 py-2 text-[9px] font-bold uppercase tracking-wider text-gray-400 text-right">
+                <span className="inline-flex items-center gap-0.5">Order By <InfoTooltip content="Latest date to place order so restock arrives before stockout, accounting for lead time." /></span>
+              </th>
+              <th className="px-3 py-2 text-[9px] font-bold uppercase tracking-wider text-gray-400 text-right">
+                <span className="inline-flex items-center gap-0.5">Stockout <InfoTooltip content="Projected date when available inventory hits zero at current velocity." /></span>
+              </th>
+              <th className="px-3 py-2 text-[9px] font-bold uppercase tracking-wider text-gray-400 text-right">
+                <span className="inline-flex items-center gap-0.5">Order Qty <InfoTooltip content="Suggested reorder quantity: Ideal Inventory (coverage demand + safety stock) minus current available." /></span>
+              </th>
+              <th className="px-3 py-2 text-[9px] font-bold uppercase tracking-wider text-gray-400 text-right">Est. Cost</th>
+            </tr>
+          </thead>
+          <tbody>
+            {/* Urgent section */}
+            {urgent.length > 0 && (
+              <>
+                <tr>
+                  <td colSpan={9} className="px-3 pt-2 pb-1">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                      <span className="text-[9px] font-bold uppercase tracking-wider text-red-600">Order Immediately</span>
+                      <div className="flex-1 h-px bg-red-100" />
+                    </div>
+                  </td>
+                </tr>
+                {renderRows(urgent)}
+              </>
             )}
-            <button className="shrink-0 opacity-0 group-hover:opacity-100 text-[10px] font-semibold text-cx-500 hover:text-cx-600 transition-all whitespace-nowrap">
-              Create PO
-            </button>
-          </div>
-        ))}
+
+            {/* Soon section */}
+            {soon.length > 0 && (
+              <>
+                <tr>
+                  <td colSpan={9} className="px-3 pt-3 pb-1">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />
+                      <span className="text-[9px] font-bold uppercase tracking-wider text-orange-600">Order Soon</span>
+                      <div className="flex-1 h-px bg-orange-100" />
+                    </div>
+                  </td>
+                </tr>
+                {renderRows(soon)}
+              </>
+            )}
+
+            {/* Monitor section */}
+            {later.length > 0 && (
+              <>
+                <tr
+                  className="cursor-pointer"
+                  onClick={() => setShowMonitor(!showMonitor)}
+                >
+                  <td colSpan={9} className="px-3 pt-3 pb-1">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-1.5 h-1.5 rounded-full bg-yellow-500" />
+                      <span className="text-[9px] font-bold uppercase tracking-wider text-yellow-600">Plan Ahead</span>
+                      <span className="text-[9px] text-gray-400">{later.length} SKUs</span>
+                      <div className="flex-1 h-px bg-yellow-100" />
+                      <ChevronDown className={`w-3 h-3 text-gray-400 transition-transform ${showMonitor ? 'rotate-180' : ''}`} />
+                    </div>
+                  </td>
+                </tr>
+                {showMonitor && renderRows(later)}
+              </>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Footer totals */}
+      <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100">
+        <span className="text-[10px] text-gray-400">
+          {allItems.length} SKUs need replenishment
+        </span>
+        <div className="flex items-center gap-4">
+          <span className="text-[10px] text-gray-500">
+            Total units: <span className="font-semibold text-gray-700">{totalUnits.toLocaleString()}</span>
+          </span>
+          <span className="text-[10px] text-gray-500">
+            Est. cost: <span className="font-semibold text-gray-700">{fc(totalCost, currency)}</span>
+          </span>
+        </div>
       </div>
     </div>
   );
@@ -585,7 +913,7 @@ function ActionQueue() {
 // ─── Sortable Header ────────────────────────────────────────────────────────
 
 function SortableHeader({
-  label, sortKey: key, currentKey, dir, onSort, className = '',
+  label, sortKey: key, currentKey, dir, onSort, className = '', tooltip,
 }: {
   label: string;
   sortKey: SortKey;
@@ -593,6 +921,7 @@ function SortableHeader({
   dir: 'asc' | 'desc';
   onSort: (key: SortKey) => void;
   className?: string;
+  tooltip?: string;
 }) {
   const isActive = key === currentKey;
   return (
@@ -602,6 +931,7 @@ function SortableHeader({
     >
       <span className="inline-flex items-center gap-1">
         {label}
+        {tooltip && <InfoTooltip content={tooltip} />}
         {isActive ? (
           <ArrowUpDown className="w-3 h-3 text-cx-500" />
         ) : (
@@ -618,13 +948,15 @@ function SortableHeader({
 // ─── Risk Table Row ─────────────────────────────────────────────────────────
 
 function RiskTableRow({
-  sku, metrics, currency, expanded, onToggle,
+  sku, metrics, currency, expanded, onToggle, serviceLevel, leadTimeVarianceDays,
 }: {
   sku: InventorySKU;
   metrics: ComputedMetrics;
   currency: import('../contexts/CurrencyContext').Currency;
   expanded: boolean;
   onToggle: () => void;
+  serviceLevel: ServiceLevel;
+  leadTimeVarianceDays: number;
 }) {
   const tint = ROW_TINT[sku.status] || '';
   const flags: string[] = [];
@@ -685,9 +1017,16 @@ function RiskTableRow({
           )}
         </td>
 
+        {/* Safety Stock */}
+        <td className="px-3 py-2.5 text-xs text-gray-700">
+          <span className="font-semibold">{metrics.safetyStock.toLocaleString()}</span>
+          <span className="block text-[10px] text-gray-400">ROP: {metrics.reorderPoint.toLocaleString()}</span>
+        </td>
+
         {/* Ideal Inventory */}
         <td className="px-3 py-2.5 text-xs text-gray-700">
           <span className="font-semibold">{metrics.idealInventory.toLocaleString()}</span>
+          <span className="block text-[10px] text-gray-400">DDLT: {metrics.demandDuringLeadTime.toLocaleString()}</span>
         </td>
 
         {/* Reorder Qty */}
@@ -696,6 +1035,19 @@ function RiskTableRow({
             <span className="font-bold text-cx-500">{metrics.reorderQty.toLocaleString()}</span>
           ) : (
             <span className="text-green-500 font-semibold">OK</span>
+          )}
+        </td>
+
+        {/* Days Until Reorder */}
+        <td className="px-3 py-2.5 text-xs">
+          {metrics.needsReorderNow ? (
+            <span className="font-bold text-red-600">NOW</span>
+          ) : metrics.daysUntilReorder === 0 ? (
+            <span className="font-bold text-orange-500">TODAY</span>
+          ) : (
+            <span className={`font-semibold ${metrics.daysUntilReorder < 7 ? 'text-orange-500' : metrics.daysUntilReorder < 14 ? 'text-yellow-600' : 'text-gray-700'}`}>
+              {metrics.daysUntilReorder}d
+            </span>
           )}
         </td>
 
@@ -727,7 +1079,7 @@ function RiskTableRow({
       {/* ─── Expanded Detail ─── */}
       {expanded && (
         <tr className="bg-gray-50/50">
-          <td colSpan={11} className="px-6 py-4">
+          <td colSpan={13} className="px-6 py-4">
             {/* Timeline Chart */}
             <TimelineChart
               weeklyVelocity={sku.weeklyVelocity}
@@ -735,17 +1087,26 @@ function RiskTableRow({
               medianPerWeek={metrics.medianPerWeek}
             />
 
+            {/* Runway Timeline */}
+            <RunwayTimeline metrics={metrics} sku={sku} leadTimeVariance={leadTimeVarianceDays} />
+
             {/* Metrics summary */}
-            <div className="grid grid-cols-5 gap-3 mt-4 mb-4">
+            <div className="grid grid-cols-4 xl:grid-cols-8 gap-3 mt-4 mb-4">
               {[
-                { label: 'Median/wk', value: metrics.medianPerWeek.toLocaleString(), sub: 'units' },
-                { label: 'Available Units', value: metrics.availableUnits.toLocaleString(), sub: `A:${sku.available.toLocaleString()} + I:${sku.inbound.toLocaleString()}` },
-                { label: 'Weeks on Hand', value: wohDisplay, sub: metrics.riskLevel },
-                { label: 'Ideal Inventory', value: metrics.idealInventory.toLocaleString(), sub: `Adj. ${metrics.adjustedWeeklySales.toLocaleString()}/wk` },
-                { label: 'Reorder Qty', value: metrics.reorderQty.toLocaleString(), sub: metrics.reorderQty > 0 ? 'units to order' : 'well stocked' },
+                { label: 'Median/wk', value: metrics.medianPerWeek.toLocaleString(), sub: 'units', tip: 'Median weekly unit sales over last 12 weeks' },
+                { label: 'Available', value: metrics.availableUnits.toLocaleString(), sub: `A:${sku.available.toLocaleString()} + I:${sku.inbound.toLocaleString()}`, tip: 'Available (on-hand − reserved) + Inbound units in transit' },
+                { label: 'Weeks on Hand', value: wohDisplay, sub: metrics.riskLevel, tip: 'Available ÷ Adjusted Weekly Sales — how long current stock lasts' },
+                { label: 'Safety Stock', value: metrics.safetyStock.toLocaleString(), sub: `Z=${SERVICE_LEVEL_Z[serviceLevel].toFixed(2)}`, tip: 'King formula: Z × √(LT × σ²_demand + avgDemand² × σ²_LT)' },
+                { label: 'Reorder Point', value: metrics.reorderPoint.toLocaleString(), sub: `DDLT: ${metrics.demandDuringLeadTime.toLocaleString()}`, tip: 'ROP = Demand During Lead Time + Safety Stock. When stock hits this level, place a new order.' },
+                { label: 'Ideal Inventory', value: metrics.idealInventory.toLocaleString(), sub: `Adj. ${metrics.adjustedWeeklySales.toLocaleString()}/wk`, tip: '(Adjusted Weekly Sales × Coverage Weeks) + Safety Stock. DDLT drives when to order (ROP), not how much to stock.' },
+                { label: 'Reorder Qty', value: metrics.reorderQty.toLocaleString(), sub: metrics.reorderQty > 0 ? 'units to order' : 'well stocked', tip: 'Ideal Inventory − Available. How many units to order to reach ideal stock.' },
+                { label: 'Lead Time', value: `${metrics.leadTimeDays}d`, sub: `±${leadTimeVarianceDays}d variance`, tip: 'Supplier lead time in days. Set globally in Forecast Settings. Variance (±) reflects delivery variability — higher variance increases safety stock.' },
               ].map((m) => (
                 <div key={m.label} className="px-3 py-2 rounded-lg border border-gray-100 bg-white text-center">
-                  <p className="text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">{m.label}</p>
+                  <p className="text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">
+                    {m.label}
+                    {m.tip && <span className="ml-1 inline-block align-middle"><InfoTooltip content={m.tip} /></span>}
+                  </p>
                   <p className="text-sm font-bold text-gray-800">{m.value}</p>
                   <p className="text-[10px] text-gray-400">{m.sub}</p>
                 </div>
@@ -776,6 +1137,259 @@ function RiskTableRow({
         </tr>
       )}
     </>
+  );
+}
+
+// ─── Runway Timeline ─────────────────────────────────────────────────────────
+// Horizontal bar showing stock runway vs. lead time window vs. stockout gap
+
+function RunwayTimeline({
+  metrics, sku, leadTimeVariance,
+}: {
+  metrics: ComputedMetrics;
+  sku: InventorySKU;
+  leadTimeVariance: number;
+}) {
+  const { daysUntilStockout, leadTimeDays, daysUntilReorder, needsReorderNow, safetyStock, reorderPoint } = metrics;
+  const avgDaily = metrics.medianPerWeek / 7;
+  const isOOS = daysUntilStockout === 0;
+
+  // Total timeline scale
+  const totalDays = Math.max(leadTimeDays * 2, 90, Math.min(daysUntilStockout + leadTimeDays + 30, 365));
+
+  const coveredDays = Math.min(daysUntilStockout, totalDays);
+  const safetyDays = avgDaily > 0 ? Math.round(safetyStock / avgDaily) : 0;
+
+  // Order trigger day & arrival
+  const orderByDay = Math.max(0, daysUntilReorder);
+  const arrivalDay = Math.min(orderByDay + leadTimeDays, totalDays);
+  // Gap = days between stockout and when new stock could arrive (if ordered now/on time)
+  const gapDays = isOOS ? leadTimeDays : Math.max(0, arrivalDay - coveredDays);
+
+  const toPct = (d: number) => Math.min(100, Math.max(0, (d / totalDays) * 100));
+
+  // Segment percentages
+  const healthyDays = Math.max(0, coveredDays - safetyDays);
+  const healthyPct = toPct(healthyDays);
+  const safetyPct = toPct(Math.min(safetyDays, coveredDays));
+  const gapStart = toPct(coveredDays);
+  const gapPct = toPct(gapDays);
+
+  // Lead time bracket position
+  const ltLeft = toPct(orderByDay);
+  const ltWidth = toPct(leadTimeDays);
+
+  return (
+    <div className="mb-4">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-1.5">
+          <h4 className="text-[11px] font-semibold text-gray-700">Stock Runway Timeline</h4>
+          <InfoTooltip content="Visual projection of current stock runway. Green = healthy supply, yellow = safety stock buffer being consumed, red = projected stockout gap, blue bracket = supplier lead time window." />
+        </div>
+        <div className="flex items-center gap-4">
+          {[
+            { color: 'bg-green-500', label: 'Covered' },
+            { color: 'bg-yellow-400', label: 'Safety Buffer' },
+            { color: 'bg-red-400', label: 'Stockout Gap' },
+            { color: 'bg-blue-400', label: 'Lead Time' },
+          ].map(({ color, label }) => (
+            <div key={label} className="flex items-center gap-1.5">
+              <div className={`w-2.5 h-2.5 rounded-sm ${color}`} />
+              <span className="text-[10px] text-gray-500">{label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg border border-gray-100 p-4">
+        {/* OOS banner */}
+        {isOOS && (
+          <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg bg-red-50 border border-red-200">
+            <AlertTriangle className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
+            <span className="text-[11px] font-semibold text-red-700">
+              Out of Stock — even if ordered today, restock arrives in ~{leadTimeDays} days
+            </span>
+          </div>
+        )}
+
+        {/* Main bar */}
+        <div className="relative h-8 bg-gray-100 rounded-md">
+          {/* Healthy coverage (green) */}
+          {healthyPct > 0 && (
+            <div
+              className="absolute top-0 h-full bg-green-400/80 rounded-l-md"
+              style={{ left: 0, width: `${healthyPct}%` }}
+            />
+          )}
+          {/* Safety stock zone (yellow) */}
+          {safetyPct > 0 && (
+            <div
+              className="absolute top-0 h-full bg-yellow-300/70"
+              style={{ left: `${healthyPct}%`, width: `${safetyPct}%` }}
+            />
+          )}
+          {/* Stockout gap (red) */}
+          {gapPct > 0 && (
+            <div
+              className="absolute top-0 h-full bg-red-300/60"
+              style={{ left: `${gapStart}%`, width: `${gapPct}%` }}
+            />
+          )}
+
+          {/* Lead time bracket (rendered on top, no overflow clip) */}
+          {ltWidth > 0 && (
+            <div
+              className="absolute top-0 h-full bg-blue-400/10 border-l-2 border-r-2 border-blue-500/60"
+              style={{ left: `${ltLeft}%`, width: `${ltWidth}%` }}
+            />
+          )}
+
+          {/* Reorder trigger marker */}
+          {!isOOS && orderByDay > 0 && orderByDay < totalDays && (
+            <div
+              className="absolute top-0 h-full w-0.5 bg-orange-500 z-10"
+              style={{ left: `${toPct(orderByDay)}%` }}
+            />
+          )}
+
+          {/* Stockout marker */}
+          {coveredDays > 0 && coveredDays < totalDays && (
+            <div
+              className="absolute top-0 h-full w-0.5 bg-red-600 z-10"
+              style={{ left: `${gapStart}%` }}
+            />
+          )}
+
+          {/* Inbound arrival marker */}
+          {sku.inboundETA && sku.inbound > 0 && (
+            <div
+              className="absolute top-0 h-full z-10 flex flex-col items-center"
+              style={{ left: `${toPct(Math.max(5, coveredDays * 0.4))}%` }}
+            >
+              <div className="w-0.5 h-full bg-emerald-600" />
+            </div>
+          )}
+        </div>
+
+        {/* Date-stamped timeline labels */}
+        {(() => {
+          const today = new Date();
+          const fmtDate = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          const addDays = (d: Date, n: number) => new Date(d.getTime() + n * 86400000);
+
+          const todayStr = fmtDate(today);
+          const orderByDate = addDays(today, orderByDay);
+          const stockoutDate = addDays(today, coveredDays);
+          const arrivalDate = addDays(today, arrivalDay);
+          const endDate = addDays(today, totalDays);
+
+          return (
+            <>
+              {/* Marker labels positioned on the bar */}
+              <div className="relative mt-1 h-5">
+                {/* Today marker */}
+                <span className="absolute text-[9px] font-bold text-gray-600" style={{ left: 0 }}>
+                  {todayStr}
+                </span>
+
+                {/* Order-by marker */}
+                {!isOOS && orderByDay > 0 && orderByDay < totalDays && (
+                  <span
+                    className="absolute text-[9px] font-semibold text-orange-600 -translate-x-1/2 whitespace-nowrap"
+                    style={{ left: `${toPct(orderByDay)}%` }}
+                  >
+                    {fmtDate(orderByDate)}
+                  </span>
+                )}
+
+                {/* Stockout marker */}
+                {coveredDays > 0 && coveredDays < totalDays && (
+                  <span
+                    className="absolute text-[9px] font-semibold text-red-600 -translate-x-1/2 whitespace-nowrap"
+                    style={{ left: `${toPct(coveredDays)}%` }}
+                  >
+                    {fmtDate(stockoutDate)}
+                  </span>
+                )}
+
+                {/* End date */}
+                <span className="absolute right-0 text-[9px] text-gray-400">
+                  {fmtDate(endDate)}
+                </span>
+              </div>
+
+              {/* Explicit action summary */}
+              <div className="mt-2 pt-2 border-t border-gray-100 space-y-1">
+                {/* Current stock status */}
+                {isOOS ? (
+                  <div className="flex items-start gap-1.5">
+                    <span className="text-[10px] font-bold text-red-600">⬤</span>
+                    <span className="text-[10px] text-red-700 font-semibold">
+                      Out of stock now. If you place an order today, restock arrives ~{fmtDate(addDays(today, leadTimeDays))} ({leadTimeDays} days).
+                    </span>
+                  </div>
+                ) : needsReorderNow ? (
+                  <div className="flex items-start gap-1.5">
+                    <span className="text-[10px] font-bold text-red-600">⬤</span>
+                    <span className="text-[10px] text-red-700 font-semibold">
+                      Stock runs out {fmtDate(stockoutDate)} ({coveredDays}d). Place order immediately — restock arrives ~{fmtDate(arrivalDate)}.
+                    </span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-start gap-1.5">
+                      <span className="text-[10px] font-bold text-green-600">⬤</span>
+                      <span className="text-[10px] text-gray-700">
+                        <span className="font-semibold">{coveredDays} days of stock</span> remaining (until {fmtDate(stockoutDate)}).
+                      </span>
+                    </div>
+                    {orderByDay > 0 && orderByDay < totalDays && (
+                      <div className="flex items-start gap-1.5">
+                        <span className="text-[10px] font-bold text-orange-500">⬤</span>
+                        <span className="text-[10px] text-gray-700">
+                          <span className="font-semibold text-orange-700">Place order by {fmtDate(orderByDate)}</span> ({orderByDay}d from now) to receive restock before stockout.
+                          Delivery expected ~{fmtDate(arrivalDate)}.
+                        </span>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* Safety buffer info */}
+                {safetyDays > 0 && (
+                  <div className="flex items-start gap-1.5">
+                    <span className="text-[10px] font-bold text-yellow-500">⬤</span>
+                    <span className="text-[10px] text-gray-600">
+                      {safetyDays}-day safety buffer included. Lead time: {leadTimeDays}d (±{leadTimeVariance}d variance). ROP: {reorderPoint.toLocaleString()} units.
+                    </span>
+                  </div>
+                )}
+
+                {/* Stockout gap warning */}
+                {gapDays > 0 && !isOOS && (
+                  <div className="flex items-start gap-1.5">
+                    <span className="text-[10px] font-bold text-red-500">⬤</span>
+                    <span className="text-[10px] text-red-600 font-semibold">
+                      {gapDays}-day stockout gap projected. Even if ordered today, stock arrives {gapDays}d after running out.
+                    </span>
+                  </div>
+                )}
+
+                {/* Inbound shipment */}
+                {sku.inboundETA && sku.inbound > 0 && (
+                  <div className="flex items-start gap-1.5">
+                    <span className="text-[10px] font-bold text-emerald-500">⬤</span>
+                    <span className="text-[10px] text-emerald-700 font-semibold">
+                      +{sku.inbound.toLocaleString()} units inbound, arriving {sku.inboundETA}.
+                    </span>
+                  </div>
+                )}
+              </div>
+            </>
+          );
+        })()}
+      </div>
+    </div>
   );
 }
 

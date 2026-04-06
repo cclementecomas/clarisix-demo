@@ -1,10 +1,6 @@
 import { useState, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer,
-} from 'recharts';
-import {
   LayoutGrid, List, Download, ChevronDown, Search, MousePointer2,
 } from 'lucide-react';
 
@@ -15,17 +11,15 @@ import DeepDiveTable, {
   pctShareFormatter,
 } from './deepdive/DeepDiveTable';
 import ColumnToggle from './deepdive/ColumnToggle';
+import InfoTooltip from './InfoTooltip';
 import LastRefreshed from './LastRefreshed';
 import { useCurrency } from '../contexts/CurrencyContext';
 import type { Currency } from '../contexts/CurrencyContext';
 import {
   placementRows, placementRowsSP, placementRowsSB,
   audienceRows,
-  tacticData,
-  funnelData,
   adTypeRows,
   searchTermData,
-  hourlyData,
   campaignData,
 } from '../data/advertisingDeepdiveData';
 import * as XLSX from 'xlsx';
@@ -55,14 +49,6 @@ const STANDARD_METRICS: MetricDef[] = [
   { key: 'cpa',    label: 'CPA',    color: '#EF4444', isCurrency: true },
   { key: 'cvr',    label: 'CVR',    color: '#06B6D4', isPercent: true },
   { key: 'ctr',    label: 'CTR',    color: '#F97316', isPercent: true },
-];
-
-const HOURLY_METRICS: MetricDef[] = [
-  { key: 'spend',  label: 'Spend',  color: '#3B82F6', isCurrency: true },
-  { key: 'sales',  label: 'Sales',  color: '#10B981', isCurrency: true },
-  { key: 'acos',   label: 'ACOS',   color: '#F59E0B', isPercent: true },
-  { key: 'cvr',    label: 'CVR',    color: '#06B6D4', isPercent: true },
-  { key: 'orders', label: 'Orders', color: '#8B5CF6' },
 ];
 
 const SEARCH_METRICS: MetricDef[] = [
@@ -301,122 +287,6 @@ function SmallMultiplesChart({
   );
 }
 
-// ─── HourlyLineChart ──────────────────────────────────────────────────────────
-// Time-series: one area panel per metric group (currency vs %).
-// Avoids scale confusion by splitting into separate panels with shared X-axis.
-
-function HourlyLineChart({
-  data,
-  metrics,
-  selectedMetrics,
-  currency,
-}: {
-  data: any[];
-  metrics: MetricDef[];
-  selectedMetrics: string[];
-  currency: string;
-}) {
-  const sym = currency === 'USD' ? '$' : currency === 'GBP' ? '£' : '€';
-  const visibleMetrics = metrics.filter((m) => selectedMetrics.includes(m.key));
-
-  // Group into currency/count panel and percent panel
-  const currencyMetrics = visibleMetrics.filter((m) => m.isCurrency || (!m.isPercent));
-  const percentMetrics  = visibleMetrics.filter((m) => m.isPercent);
-  const panels = [
-    ...(currencyMetrics.length ? [{ metrics: currencyMetrics, isPercent: false }] : []),
-    ...(percentMetrics.length  ? [{ metrics: percentMetrics,  isPercent: true  }] : []),
-  ];
-
-  const fmtTick = (v: number, isPercent: boolean) => {
-    if (isPercent) return `${v}%`;
-    if (v >= 1000) return `${sym}${(v / 1000).toFixed(0)}k`;
-    return `${sym}${v}`;
-  };
-
-  return (
-    <div className="space-y-4">
-      {panels.map((panel, pi) => (
-        <div key={pi}>
-          {/* Panel metric labels */}
-          <div className="flex items-center gap-3 mb-2">
-            {panel.metrics.map((m) => (
-              <div key={m.key} className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: m.color }} />
-                <span className="text-[11px] font-semibold text-gray-500">{m.label}</span>
-              </div>
-            ))}
-          </div>
-          <div style={{ height: 160 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                <defs>
-                  {panel.metrics.map((m) => (
-                    <linearGradient key={m.key} id={`grad-${m.key}`} x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={m.color} stopOpacity={0.15} />
-                      <stop offset="100%" stopColor={m.color} stopOpacity={0.02} />
-                    </linearGradient>
-                  ))}
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
-                <XAxis
-                  dataKey="label"
-                  tick={{ fontSize: 10, fill: '#94A3B8' }}
-                  axisLine={false}
-                  tickLine={false}
-                  interval={2}
-                />
-                <YAxis
-                  tick={{ fontSize: 10, fill: '#94A3B8' }}
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={(v) => fmtTick(v, panel.isPercent)}
-                  width={48}
-                />
-                <Tooltip
-                  content={({ active, payload, label }) => {
-                    if (!active || !payload?.length) return null;
-                    return (
-                      <div className="bg-gray-900 text-white text-xs px-3 py-2 rounded-lg shadow-xl">
-                        <p className="font-semibold mb-1">{label}</p>
-                        {payload.map((p: any) => {
-                          const m = metrics.find((mm) => mm.key === p.dataKey);
-                          if (!m) return null;
-                          const val = p.value as number;
-                          const display = m.isCurrency
-                            ? `${sym}${val >= 1000 ? `${(val / 1000).toFixed(1)}k` : val.toFixed(0)}`
-                            : m.isPercent ? `${val.toFixed(1)}%`
-                            : val.toLocaleString();
-                          return (
-                            <p key={p.dataKey} style={{ color: m.color }}>
-                              {m.label}: {display}
-                            </p>
-                          );
-                        })}
-                      </div>
-                    );
-                  }}
-                />
-                {panel.metrics.map((m) => (
-                  <Area
-                    key={m.key}
-                    type="monotone"
-                    dataKey={m.key}
-                    stroke={m.color}
-                    strokeWidth={2}
-                    fill={`url(#grad-${m.key})`}
-                    dot={false}
-                    activeDot={{ r: 3, fill: m.color }}
-                  />
-                ))}
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 // ─── Column builder helpers ────────────────────────────────────────────────────
 
 function popSubField(popKey: string, goodDir: 'up' | 'down' = 'up') {
@@ -504,14 +374,6 @@ export default function AdvertisingDeepDive() {
   const [audView,   setAudView]   = useState<ViewMode>('table');
   const [audMet,    setAudMet]    = useState(['spend', 'sales', 'acos']);
 
-  // ── Tactic ──
-  const [tacView, setTacView] = useState<ViewMode>('table');
-  const [tacMet,  setTacMet]  = useState(['spend', 'sales', 'acos']);
-
-  // ── Funnel ──
-  const [funView, setFunView] = useState<ViewMode>('table');
-  const [funMet,  setFunMet]  = useState(['spend', 'sales', 'acos']);
-
   // ── Ad Type ──
   const [atView, setAtView] = useState<ViewMode>('table');
   const [atMet,  setAtMet]  = useState(['spend', 'sales', 'acos']);
@@ -519,9 +381,6 @@ export default function AdvertisingDeepDive() {
   // ── Search Term ──
   const [stView, setStView] = useState<ViewMode>('table');
   const [stMet,  setStMet]  = useState(['spend', 'sales', 'acos']);
-
-  // ── Hourly ──
-  const [hourMet, setHourMet] = useState(['spend', 'sales']);
 
   // Placement data filtered by global ad type
   const placData = adType === 'SP' ? placementRowsSP
@@ -541,8 +400,6 @@ export default function AdvertisingDeepDive() {
 
   const placCols = useMemo(() => buildCols('placement', 'Placement', currency as Currency), [currency]);
   const audCols  = useMemo(() => buildCols('segment',   'Audience',  currency as Currency), [currency]);
-  const tacCols  = useMemo(() => buildCols('tactic',    'Tactic',    currency as Currency), [currency]);
-  const funCols  = useMemo(() => buildCols('stage',     'Funnel Stage', currency as Currency), [currency]);
   const atCols   = useMemo(() => buildCols('adType',    'Ad Type',   currency as Currency), [currency]);
   const stCols   = useMemo((): ColumnDef[] => [
     ...buildCols('searchTerm', 'Search Term', currency as Currency, [
@@ -590,12 +447,10 @@ export default function AdvertisingDeepDive() {
   // Per-section table controls (PoP, LY, Select, column visibility)
   const plac = useSectionControls(placCols);
   const aud  = useSectionControls(audCols);
-  const tac  = useSectionControls(tacCols);
-  const fun  = useSectionControls(funCols);
   const at   = useSectionControls(atCols);
   const camp = useSectionControls(campCols);
   const st   = useSectionControls(stCols);
-  void plac.selVals; void aud.selVals; void tac.selVals; void fun.selVals; void at.selVals; void camp.selVals; void st.selVals;
+  void plac.selVals; void aud.selVals; void at.selVals; void camp.selVals; void st.selVals;
 
   const sectionCard = (content: React.ReactNode) => (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
@@ -617,9 +472,13 @@ export default function AdvertisingDeepDive() {
       selMode: boolean; setSelMode: (v: boolean) => void;
       visCols: Set<string>; toggleCol: (field: string) => void;
     },
+    tooltip?: string,
   ) => (
     <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
-      <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
+      <div className="flex items-center gap-1.5">
+        <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
+        {tooltip && <InfoTooltip content={tooltip} />}
+      </div>
       <div className="flex items-center gap-2">
         {adType && <AdTypeToggle value={adType.value} onChange={adType.onChange} />}
         {view === 'chart'
@@ -674,7 +533,7 @@ export default function AdvertisingDeepDive() {
 
       {/* 1 — Performance by Placement */}
       {sectionCard(<>
-        {sectionHeader('Performance by Placement', placView, setPlacView, STANDARD_METRICS, placMet, setPlacMet, placData, undefined, true, { cols: placCols, showPoP: plac.showPoP, setShowPoP: plac.setShowPoP, showLY: plac.showLY, setShowLY: plac.setShowLY, selMode: plac.selMode, setSelMode: plac.setSelMode, visCols: plac.visCols, toggleCol: plac.toggleCol })}
+        {sectionHeader('Performance by Placement', placView, setPlacView, STANDARD_METRICS, placMet, setPlacMet, placData, undefined, true, { cols: placCols, showPoP: plac.showPoP, setShowPoP: plac.setShowPoP, showLY: plac.showLY, setShowLY: plac.setShowLY, selMode: plac.selMode, setSelMode: plac.setSelMode, visCols: plac.visCols, toggleCol: plac.toggleCol }, 'Ad metrics split by placement (Top of Search, Rest of Search, Product Pages).')}
         {placView === 'chart'
           ? <div className="p-5"><SmallMultiplesChart data={placData} dimKey="placement" metrics={STANDARD_METRICS} selectedMetrics={placMet} currency={currency} /></div>
           : <DeepDiveTable title="" embedded showPoP={plac.showPoP} onPoPChange={plac.setShowPoP} showLY={plac.showLY} onLYChange={plac.setShowLY} selectMode={plac.selMode} onSelectModeChange={plac.setSelMode} onSelectedValuesChange={plac.setSelVals} visibleColumnsOverride={plac.visCols} rowData={placData} columnDefs={placCols} />}
@@ -682,31 +541,15 @@ export default function AdvertisingDeepDive() {
 
       {/* 2 — Performance by Audience */}
       {sectionCard(<>
-        {sectionHeader('Performance by Audience', audView, setAudView, STANDARD_METRICS, audMet, setAudMet, audData, undefined, true, { cols: audCols, showPoP: aud.showPoP, setShowPoP: aud.setShowPoP, showLY: aud.showLY, setShowLY: aud.setShowLY, selMode: aud.selMode, setSelMode: aud.setSelMode, visCols: aud.visCols, toggleCol: aud.toggleCol })}
+        {sectionHeader('Performance by Audience', audView, setAudView, STANDARD_METRICS, audMet, setAudMet, audData, undefined, true, { cols: audCols, showPoP: aud.showPoP, setShowPoP: aud.setShowPoP, showLY: aud.showLY, setShowLY: aud.setShowLY, selMode: aud.selMode, setSelMode: aud.setSelMode, visCols: aud.visCols, toggleCol: aud.toggleCol }, 'Ad metrics split by audience segment (e.g., remarketing, in-market, lifestyle).')}
         {audView === 'chart'
           ? <div className="p-5"><SmallMultiplesChart data={audData} dimKey="segment" metrics={STANDARD_METRICS} selectedMetrics={audMet} currency={currency} /></div>
           : <DeepDiveTable title="" embedded showPoP={aud.showPoP} onPoPChange={aud.setShowPoP} showLY={aud.showLY} onLYChange={aud.setShowLY} selectMode={aud.selMode} onSelectModeChange={aud.setSelMode} onSelectedValuesChange={aud.setSelVals} visibleColumnsOverride={aud.visCols} rowData={audData} columnDefs={audCols} />}
       </>)}
 
-      {/* 3 — Performance by Tactic */}
+      {/* 3 — Performance by Ad Type */}
       {sectionCard(<>
-        {sectionHeader('Performance by Tactic', tacView, setTacView, STANDARD_METRICS, tacMet, setTacMet, tacticData, undefined, true, { cols: tacCols, showPoP: tac.showPoP, setShowPoP: tac.setShowPoP, showLY: tac.showLY, setShowLY: tac.setShowLY, selMode: tac.selMode, setSelMode: tac.setSelMode, visCols: tac.visCols, toggleCol: tac.toggleCol })}
-        {tacView === 'chart'
-          ? <div className="p-5"><SmallMultiplesChart data={tacticData} dimKey="tactic" metrics={STANDARD_METRICS} selectedMetrics={tacMet} currency={currency} /></div>
-          : <DeepDiveTable title="" embedded showPoP={tac.showPoP} onPoPChange={tac.setShowPoP} showLY={tac.showLY} onLYChange={tac.setShowLY} selectMode={tac.selMode} onSelectModeChange={tac.setSelMode} onSelectedValuesChange={tac.setSelVals} visibleColumnsOverride={tac.visCols} rowData={tacticData} columnDefs={tacCols} />}
-      </>)}
-
-      {/* 4 — Performance by Funnel */}
-      {sectionCard(<>
-        {sectionHeader('Performance by Funnel', funView, setFunView, STANDARD_METRICS, funMet, setFunMet, funnelData, undefined, true, { cols: funCols, showPoP: fun.showPoP, setShowPoP: fun.setShowPoP, showLY: fun.showLY, setShowLY: fun.setShowLY, selMode: fun.selMode, setSelMode: fun.setSelMode, visCols: fun.visCols, toggleCol: fun.toggleCol })}
-        {funView === 'chart'
-          ? <div className="p-5"><SmallMultiplesChart data={funnelData} dimKey="stage" metrics={STANDARD_METRICS} selectedMetrics={funMet} currency={currency} /></div>
-          : <DeepDiveTable title="" embedded showPoP={fun.showPoP} onPoPChange={fun.setShowPoP} showLY={fun.showLY} onLYChange={fun.setShowLY} selectMode={fun.selMode} onSelectModeChange={fun.setSelMode} onSelectedValuesChange={fun.setSelVals} visibleColumnsOverride={fun.visCols} rowData={funnelData} columnDefs={funCols} />}
-      </>)}
-
-      {/* 5 — Performance by Ad Type */}
-      {sectionCard(<>
-        {sectionHeader('Performance by Ad Type', atView, setAtView, STANDARD_METRICS, atMet, setAtMet, adTypeRows, undefined, true, { cols: atCols, showPoP: at.showPoP, setShowPoP: at.setShowPoP, showLY: at.showLY, setShowLY: at.setShowLY, selMode: at.selMode, setSelMode: at.setSelMode, visCols: at.visCols, toggleCol: at.toggleCol })}
+        {sectionHeader('Performance by Ad Type', atView, setAtView, STANDARD_METRICS, atMet, setAtMet, adTypeRows, undefined, true, { cols: atCols, showPoP: at.showPoP, setShowPoP: at.setShowPoP, showLY: at.showLY, setShowLY: at.setShowLY, selMode: at.selMode, setSelMode: at.setSelMode, visCols: at.visCols, toggleCol: at.toggleCol }, 'Ad metrics split by campaign type (Sponsored Products, Sponsored Brands, Sponsored Display).')}
         {atView === 'chart'
           ? <div className="p-5"><SmallMultiplesChart data={adTypeRows} dimKey="adType" metrics={STANDARD_METRICS} selectedMetrics={atMet} currency={currency} /></div>
           : <DeepDiveTable title="" embedded showPoP={at.showPoP} onPoPChange={at.setShowPoP} showLY={at.showLY} onLYChange={at.setShowLY} selectMode={at.selMode} onSelectModeChange={at.setSelMode} onSelectedValuesChange={at.setSelVals} visibleColumnsOverride={at.visCols} rowData={adTypeRows} columnDefs={atCols} />}
@@ -715,7 +558,10 @@ export default function AdvertisingDeepDive() {
       {/* 6 — Performance by Campaign */}
       {sectionCard(<>
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
-          <h3 className="text-sm font-semibold text-gray-900">Performance by Campaign</h3>
+          <div className="flex items-center gap-1.5">
+            <h3 className="text-sm font-semibold text-gray-900">Performance by Campaign</h3>
+            <InfoTooltip content="Ad metrics per campaign. Expand a row to see placement-level breakdown." />
+          </div>
           <div className="flex items-center gap-2">
             <ColumnToggle columns={campCols} visibleColumns={camp.visCols} onToggle={camp.toggleCol} />
             <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
@@ -752,23 +598,10 @@ export default function AdvertisingDeepDive() {
 
       {/* 7 — Performance by Search Term */}
       {sectionCard(<>
-        {sectionHeader('Performance by Search Term', stView, setStView, SEARCH_METRICS, stMet, setStMet, searchTermData, undefined, true, { cols: stCols, showPoP: st.showPoP, setShowPoP: st.setShowPoP, showLY: st.showLY, setShowLY: st.setShowLY, selMode: st.selMode, setSelMode: st.setSelMode, visCols: st.visCols, toggleCol: st.toggleCol })}
+        {sectionHeader('Performance by Search Term', stView, setStView, SEARCH_METRICS, stMet, setStMet, searchTermData, undefined, true, { cols: stCols, showPoP: st.showPoP, setShowPoP: st.setShowPoP, showLY: st.showLY, setShowLY: st.setShowLY, selMode: st.selMode, setSelMode: st.setSelMode, visCols: st.visCols, toggleCol: st.toggleCol }, 'Ad metrics per search term. Shows which keywords drive spend, clicks, and conversions.')}
         {stView === 'chart'
           ? <div className="p-5"><SmallMultiplesChart data={searchTermData.slice(0, 15)} dimKey="searchTerm" metrics={SEARCH_METRICS} selectedMetrics={stMet} currency={currency} /></div>
           : <DeepDiveTable title="" embedded showPoP={st.showPoP} onPoPChange={st.setShowPoP} showLY={st.showLY} onLYChange={st.setShowLY} selectMode={st.selMode} onSelectModeChange={st.setSelMode} onSelectedValuesChange={st.setSelVals} visibleColumnsOverride={st.visCols} rowData={searchTermData} columnDefs={stCols} />}
-      </>)}
-
-      {/* 7 — Hourly Performance */}
-      {sectionCard(<>
-        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
-          <h3 className="text-sm font-semibold text-gray-900">Hourly Performance</h3>
-          <div className="flex items-center gap-2">
-            <MetricPicker metrics={HOURLY_METRICS} selected={hourMet} onChange={setHourMet} />
-          </div>
-        </div>
-        <div className="p-5">
-          <HourlyLineChart data={hourlyData} metrics={HOURLY_METRICS} selectedMetrics={hourMet} currency={currency} />
-        </div>
       </>)}
 
       <LastRefreshed offsetMinutes={12} />

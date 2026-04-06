@@ -44,6 +44,8 @@ export interface InventorySKU {
   safetyStock: number;
   suggestedQty: number;
   leadTimeDays: number;
+  leadTimeVarianceDays: number;
+  demandStdDevDaily: number;
   estStockoutDate: string;
   revenueAtRisk: number;
   // Status
@@ -64,6 +66,7 @@ export interface InventorySKU {
   storageCostMonthlyPoP: number;
   storageCostMonthlyDiffLY: number;
   cogs: number;
+  unitCost: number;
   inventoryValue: number;
   roi: number;
   roiPoP: number;
@@ -193,12 +196,35 @@ function generateInventory(): InventorySKU[] {
       ? Math.round(available / avgDailySales)
       : currentStock > 0 ? 999 : 0;
 
-    const safetyStock = Math.round(avgDailySales * (7 + rand() * 7));
+    // Lead time variance: reliable suppliers ±2-5 days, unreliable ±10-20 days
+    const leadTimeVarianceDays = Math.round(2 + rand() * 18);
+
+    // Demand std dev (daily) — simulate from avgDailySales with CV between 0.15 and 0.6
+    const demandCV = 0.15 + rand() * 0.45;
+    const demandStdDevDaily = Math.round(avgDailySales * demandCV * 100) / 100;
+
+    // Safety stock via King formula: SS = Z × √(LT × σ²_demand + avgDemand² × σ²_LT)
+    // Z = 1.96 for 97.5% service level
+    const Z = 1.96;
+    const safetyStock = Math.round(
+      Z * Math.sqrt(
+        leadTimeDays * (demandStdDevDaily ** 2) +
+        (avgDailySales ** 2) * (leadTimeVarianceDays ** 2)
+      )
+    );
+
+    // Reorder point = demand during lead time + safety stock
     const reorderPoint = Math.round(avgDailySales * leadTimeDays + safetyStock);
 
-    // Suggested reorder qty: covers 60 days of sales + safety stock - current available - inbound
-    const targetCover = Math.round(avgDailySales * 60 + safetyStock);
-    const suggestedQty = Math.max(0, targetCover - available - inbound);
+    // Suggested reorder qty with DDLT:
+    // covers demand during lead time + safety stock + 60 days of coverage - available - inbound
+    const coverageDays = 60;
+    const suggestedQty = Math.max(
+      0,
+      Math.round(
+        avgDailySales * leadTimeDays + safetyStock + avgDailySales * coverageDays - available - inbound
+      )
+    );
 
     // Stockout date
     let estStockoutDate = '—';
@@ -283,6 +309,8 @@ function generateInventory(): InventorySKU[] {
       safetyStock,
       suggestedQty,
       leadTimeDays,
+      leadTimeVarianceDays,
+      demandStdDevDaily,
       estStockoutDate,
       revenueAtRisk,
       status: statusHint,
@@ -301,6 +329,7 @@ function generateInventory(): InventorySKU[] {
       storageCostMonthlyPoP: randPoP(rand),
       storageCostMonthlyDiffLY: randLY(rand),
       cogs,
+      unitCost: Math.round(avgUnitCost * 100) / 100,
       inventoryValue,
       roi,
       roiPoP: randPoP(rand),

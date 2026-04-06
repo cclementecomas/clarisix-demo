@@ -7,6 +7,21 @@ import { fc } from '../../utils/currency';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+const AD_KPI_TOOLTIPS: Record<string, string> = {
+  'Ad Sales': 'Revenue attributed to ad clicks within the attribution window. Sourced from Amazon Advertising console.',
+  'Ad Spend': 'Total spend across all ad campaigns (SP, SB, SD) for the selected period.',
+  'ACOS/ROAS': 'ACOS = ad spend ÷ ad sales. ROAS = ad sales ÷ ad spend. Measures ad efficiency on attributed revenue only.',
+  'TACOS/TROAS': 'TACOS = ad spend ÷ total sales (organic + paid). TROAS = total sales ÷ ad spend. Measures ad efficiency on the full business.',
+  'CPC': 'Cost Per Click — average ad spend per click across all campaign types.',
+  'CPA': 'Cost Per Acquisition — ad spend ÷ ad-attributed orders. What you pay per order from ads.',
+  'TCPA': 'Total Cost Per Acquisition — ad spend ÷ total orders (organic + paid). Blended cost per order.',
+  'Ads Conversion Rate': 'Ad clicks that resulted in a purchase ÷ total ad clicks.',
+  'Impressions': 'Total ad impressions (times your ads were displayed) across all campaign types.',
+  'Clicks': 'Total ad clicks across all campaign types for the selected period.',
+  'CTR': 'Click-Through Rate — ad clicks ÷ ad impressions. Reflects ad relevance and creative quality.',
+  'Orders': 'Total orders attributed to ad clicks within the attribution window.',
+};
+
 export default function AdvertisingKPICards() {
   const { currency } = useCurrency();
   return (
@@ -53,7 +68,7 @@ function KPICard({ kpi, idx, currency }: KPICardProps) {
         <p className={`text-[10px] font-bold uppercase tracking-widest ${labelColor}`}>
           {kpi.label}
         </p>
-        <InfoTooltip />
+        <InfoTooltip content={AD_KPI_TOOLTIPS[kpi.label]} />
       </div>
 
       <div className="flex items-center justify-center my-1">

@@ -106,6 +106,7 @@ export default function AdvertisingOverview() {
 
       <DeepDiveTable
         title="Performance by Marketplace"
+        tooltip="Ad metrics aggregated by Amazon marketplace. PoP = period-over-period."
         rowData={adByMarketplace}
         columnDefs={cols}
         pinnedBottomRowData={totalsRow}
@@ -113,6 +114,7 @@ export default function AdvertisingOverview() {
 
       <DeepDiveTable
         title="Performance by Category"
+        tooltip="Ad metrics aggregated by product category. PoP = period-over-period."
         rowData={adByCategory}
         columnDefs={cols}
         pinnedBottomRowData={totalsRow}
@@ -120,6 +122,7 @@ export default function AdvertisingOverview() {
 
       <DeepDiveTable
         title="Performance by Subcategory"
+        tooltip="Ad metrics aggregated by product subcategory. PoP = period-over-period."
         rowData={adBySubcategory}
         columnDefs={cols}
         pinnedBottomRowData={totalsRow}
@@ -127,6 +130,7 @@ export default function AdvertisingOverview() {
 
       <DeepDiveTable
         title="Performance by ASIN"
+        tooltip="Ad metrics per ASIN. PoP = period-over-period."
         rowData={adByASIN}
         columnDefs={cols}
         pinnedBottomRowData={totalsRow}

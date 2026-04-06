@@ -87,7 +87,7 @@ export const advertisingKpiData: AdvertisingKPI[] = [
     cardPositive: false,
   },
   {
-    label: 'Conversion Rate',
+    label: 'Ads Conversion Rate',
     value: '9.49%',
     popChange: -9.57,
     popPositive: false,

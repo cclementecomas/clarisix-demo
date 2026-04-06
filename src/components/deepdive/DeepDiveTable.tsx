@@ -17,6 +17,7 @@ export interface ColumnDef {
   cellStyle?: Record<string, string> | ((params: { value: unknown; row: any }) => Record<string, string>);
   valueFormatter?: (params: { value: unknown; row: any }) => string | React.ReactNode;
   hide?: boolean;
+  tooltip?: string;
   subFields?: { field: string; label?: string; formatter?: (params: { value: unknown; row: any }) => string | React.ReactNode; cellStyle?: (params: { value: unknown; row: any }) => Record<string, string> }[];
 }
 
@@ -41,6 +42,7 @@ interface DeepDiveTableProps {
   rowKeyField?: string;
   childLabelField?: string;
   hideHeader?: boolean;
+  tooltip?: string;
   embedded?: boolean; // strips outer card + title/InfoTooltip/Export when nested inside a section card
   showPoP?: boolean;
   onPoPChange?: (v: boolean) => void;
@@ -144,7 +146,7 @@ function getRectCells(
   return cells;
 }
 
-export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottomRowData, childRowsMap, rowKeyField, childLabelField, hideHeader = false, embedded = false, showPoP: propShowPoP, onPoPChange, showLY: propShowLY, onLYChange, selectMode: propSelectMode, onSelectModeChange, onSelectedValuesChange, visibleColumnsOverride, copyablePinnedCell = false }: DeepDiveTableProps) {
+export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottomRowData, childRowsMap, rowKeyField, childLabelField, tooltip, hideHeader = false, embedded = false, showPoP: propShowPoP, onPoPChange, showLY: propShowLY, onLYChange, selectMode: propSelectMode, onSelectModeChange, onSelectedValuesChange, visibleColumnsOverride, copyablePinnedCell = false }: DeepDiveTableProps) {
   const [selectedCells, setSelectedCells] = useState<SelectedCell[]>([]);
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>(null);
@@ -458,7 +460,7 @@ export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottom
       {!hideHeader && !embedded && <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
         <div className="flex items-center gap-1.5">
           {!embedded && title && <h3 className="text-sm font-semibold text-gray-900">{title}</h3>}
-          {!embedded && <InfoTooltip />}
+          {!embedded && <InfoTooltip content={tooltip} />}
         </div>
         <div className="flex items-center gap-3">
           {hasChildren && (
@@ -587,6 +589,7 @@ export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottom
                   >
                     <span className="inline-flex items-center gap-1">
                       {col.headerName}
+                      {col.tooltip && <InfoTooltip content={col.tooltip} />}
                       {sortField === col.field && sortDir === 'asc' && <ArrowUp className="w-3 h-3 text-cx-500 flex-shrink-0" />}
                       {sortField === col.field && sortDir === 'desc' && <ArrowDown className="w-3 h-3 text-cx-500 flex-shrink-0" />}
                     </span>

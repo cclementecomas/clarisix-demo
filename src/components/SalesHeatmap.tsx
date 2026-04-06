@@ -1,4 +1,5 @@
 // ─── Monthly Performance Heatmap ─────────────────────────────────────────────
+import InfoTooltip from './InfoTooltip';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -25,9 +26,12 @@ const LEGEND_STEPS = [-25, -16, -9, -3, 0, 4, 12, 20, 30];
 export default function SalesHeatmap() {
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-8 py-6 w-full">
-      <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-5">
-        Monthly Performance Heatmap
-      </h3>
+      <div className="flex items-center gap-1.5 mb-5">
+        <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">
+          Monthly Performance Heatmap
+        </h3>
+        <InfoTooltip content="Month-over-month sales change by year. Green = growth, red = decline vs. the same month last year." />
+      </div>
 
       <div className="overflow-x-auto">
         <table className="w-full table-fixed">

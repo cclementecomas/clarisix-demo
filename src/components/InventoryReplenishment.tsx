@@ -57,6 +57,7 @@ export default function InventoryReplenishment() {
           avgDailySales: d.avgDailySales,
           avgDailySalesPoP: d.avgDailySalesPoP,
           avgDailySalesDiffLY: d.avgDailySalesDiffLY,
+          demandStdDevDaily: d.demandStdDevDaily,
           daysOfSupply: d.daysOfSupply,
           daysOfSupplyPoP: d.daysOfSupplyPoP,
           daysOfSupplyDiffLY: d.daysOfSupplyDiffLY,
@@ -64,6 +65,8 @@ export default function InventoryReplenishment() {
           safetyStock: d.safetyStock,
           suggestedQty: d.suggestedQty,
           leadTimeDays: d.leadTimeDays,
+          leadTimeVarianceDays: d.leadTimeVarianceDays,
+          demandDuringLT: Math.round(d.avgDailySales * d.leadTimeDays),
           estStockoutDate: d.estStockoutDate,
           revenueAtRisk: d.revenueAtRisk,
         })),
@@ -89,6 +92,7 @@ export default function InventoryReplenishment() {
             avgDailySales: 0,
             avgDailySalesPoP: 0,
             avgDailySalesDiffLY: 0,
+            demandStdDevDaily: 0,
             daysOfSupply: 0,
             daysOfSupplyPoP: 0,
             daysOfSupplyDiffLY: 0,
@@ -96,6 +100,8 @@ export default function InventoryReplenishment() {
             safetyStock: 0,
             suggestedQty: 0,
             leadTimeDays: 0,
+            leadTimeVarianceDays: 0,
+            demandDuringLT: 0,
             estStockoutDate: '',
             revenueAtRisk: 0,
           })),
@@ -127,6 +133,7 @@ export default function InventoryReplenishment() {
       avgDailySales: Math.round(inventoryData.reduce((s, d) => s + d.avgDailySales, 0) * 10) / 10,
       avgDailySalesPoP: avg('avgDailySalesPoP'),
       avgDailySalesDiffLY: avg('avgDailySalesDiffLY'),
+      demandStdDevDaily: avg('demandStdDevDaily'),
       daysOfSupply: totalAvgDaily > 0 ? Math.round(totalAvail / (totalAvgDaily * n)) : 0,
       daysOfSupplyPoP: avg('daysOfSupplyPoP'),
       daysOfSupplyDiffLY: avg('daysOfSupplyDiffLY'),
@@ -134,6 +141,8 @@ export default function InventoryReplenishment() {
       safetyStock: sum('safetyStock'),
       suggestedQty: sum('suggestedQty'),
       leadTimeDays: Math.round(avg('leadTimeDays')),
+      leadTimeVarianceDays: Math.round(avg('leadTimeVarianceDays')),
+      demandDuringLT: Math.round(inventoryData.reduce((s, d) => s + d.avgDailySales * d.leadTimeDays, 0)),
       estStockoutDate: '',
       revenueAtRisk: Math.round(sum('revenueAtRisk') * 100) / 100,
     }];
@@ -164,6 +173,23 @@ export default function InventoryReplenishment() {
         subFields: pctSub('avgDailySales'),
       },
       {
+        field: 'demandStdDevDaily', headerName: 'Demand σ', width: 90,
+        tooltip: 'Daily demand standard deviation (σ). Color-coded by coefficient of variation (CV = σ/avg): red if CV > 0.5 (highly erratic), yellow if CV > 0.3.',
+        valueFormatter: (p) => {
+          const v = p.value as number;
+          return v > 0 ? `±${v.toFixed(1)}` : '—';
+        },
+        cellStyle: (p) => {
+          const v = p.value as number;
+          const row = p.row as Row | undefined;
+          const avg = (row?.avgDailySales as number) || 1;
+          const cv = v / avg;
+          if (cv > 0.5) return { color: '#DC2626' };
+          if (cv > 0.3) return { color: '#CA8A04' };
+          return {};
+        },
+      },
+      {
         field: 'daysOfSupply', headerName: 'Days of Supply', width: 130,
         valueFormatter: daysFormatter,
         cellStyle: (p) => {
@@ -176,10 +202,11 @@ export default function InventoryReplenishment() {
         },
         subFields: pctSub('daysOfSupply'),
       },
-      { field: 'reorderPoint', headerName: 'Reorder Point', valueFormatter: numberFormatter, width: 120 },
-      { field: 'safetyStock', headerName: 'Safety Stock', valueFormatter: numberFormatter, width: 110 },
+      { field: 'reorderPoint', headerName: 'Reorder Point', valueFormatter: numberFormatter, width: 120, tooltip: 'ROP = DDLT + Safety Stock. When stock drops to this level, trigger a replenishment order.' },
+      { field: 'safetyStock', headerName: 'Safety Stock', valueFormatter: numberFormatter, width: 110, tooltip: 'King formula: Z × √(LT × σ²_demand + avgDemand² × σ²_LT). Buffer against demand and lead time variability.' },
       {
         field: 'suggestedQty', headerName: 'Suggested Qty', width: 120,
+        tooltip: 'DDLT + Safety Stock + (60-day coverage demand) − Available − Inbound. The recommended order quantity to maintain optimal stock levels.',
         valueFormatter: (p) => {
           const v = p.value as number;
           return v > 0 ? v.toLocaleString() : '—';
@@ -190,10 +217,33 @@ export default function InventoryReplenishment() {
         },
       },
       {
+        field: 'demandDuringLT', headerName: 'DDLT', width: 90,
+        tooltip: 'Demand During Lead Time = Avg Daily Sales × Lead Time Days. The expected units sold while waiting for a replenishment order to arrive.',
+        valueFormatter: (p) => {
+          const v = p.value as number;
+          return v > 0 ? v.toLocaleString() : '—';
+        },
+        cellStyle: () => ({ color: '#6B21A8' }),
+      },
+      {
         field: 'leadTimeDays', headerName: 'Lead Time', width: 100,
         valueFormatter: (p) => {
           const v = p.value as number;
           return v > 0 ? `${v}d` : '—';
+        },
+      },
+      {
+        field: 'leadTimeVarianceDays', headerName: 'LT ±', width: 70,
+        tooltip: 'Lead time variance in days. Higher variance means less predictable delivery times, which increases safety stock requirements. Red if ≥15d, yellow if ≥8d.',
+        valueFormatter: (p) => {
+          const v = p.value as number;
+          return v > 0 ? `±${v}d` : '—';
+        },
+        cellStyle: (p) => {
+          const v = p.value as number;
+          if (v >= 15) return { color: '#DC2626', fontWeight: '600' };
+          if (v >= 8) return { color: '#CA8A04' };
+          return {};
         },
       },
       { field: 'supplier', headerName: 'Supplier', width: 160 },

@@ -149,6 +149,69 @@ Loading States (ClarisixSpinner.tsx)
 - Applied to TableLoader, TableOverlay, SectionLoader as default message. Custom `message` prop overrides cycling if provided.
 
 
+Inventory Overview (InventoryOverview.tsx)
+
+Settings Panel
+- 4 global settings: Ideal Weeks of Coverage (default 10), Lead Time (default 30d), Lead Time Variance (default ±7d), Service Level (90/95/97.5/99%).
+- Lead time is a global setting, not per-SKU. All SKU metrics recompute reactively when settings change.
+- Promotional Events: configurable list with name, date, and sales multiplier. Boosts forecast demand for affected weeks.
+
+Core Formulas (computeSkuMetrics)
+- Safety Stock (King formula): SS = Z × √(LT × σ²_demand + avgDemand² × σ²_LT). Z-scores: 90%=1.282, 95%=1.645, 97.5%=1.96, 99%=2.326.
+- DDLT (Demand During Lead Time) = avgDailySales × leadTimeDays. Used only for ROP, NOT in ideal inventory.
+- ROP (Reorder Point) = DDLT + Safety Stock. Tells WHEN to order.
+- Ideal Inventory = (adjustedWeeklySales × coverageWeeks) + Safety Stock. Tells HOW MUCH to stock.
+- Reorder Qty = max(0, Ideal Inventory − Available).
+- daysUntilStockout = available / avgDailySales. daysUntilReorder = daysUntilStockout − leadTimeDays.
+
+Inventory Risk Table
+- Sortable table with all SKUs. Columns: SKU, ASIN, Stock, Available, Avg Daily Sales, Days of Supply, Reorder Qty, Risk Level.
+- All column headers have InfoTooltip with formula explanations.
+- Expandable row detail cards showing computed metrics (Safety Stock, DDLT, ROP, Ideal Inventory, etc.) with tooltips.
+- KPI filter row: Revenue at Risk, Stranded, Unfulfillable, Overstock, Low DOC.
+
+Stock Runway Timeline (RunwayTimeline)
+- Horizontal bar: green (healthy coverage), yellow (safety buffer), red (stockout gap), blue bracket (lead time window).
+- Date-stamped markers below bar (actual dates, not "Xd").
+- Explicit action summary with colored bullets: stock remaining, order-by deadline with date, safety buffer details, gap warnings.
+
+Replenishment Plan Panel
+- Replaces old "Today's Action Queue". Clean table view, not card-based.
+- 3 urgency sections: Order Immediately (red, OOS/past ROP), Order Soon (orange, reorder within 14d), Plan Ahead (yellow, collapsed by default).
+- Columns: Status badge (OOS/NOW/SOON/PLAN), SKU, Product, On Hand, Supply Left, Order By date, Stockout date, Order Qty, Est. Cost.
+- Uses unitCost (per-unit COGS, $3–$23 range) for realistic cost estimates.
+- Export CSV button: downloads full replenishment list with all columns, date-stamped filename.
+- Footer with total SKU count, total units, total estimated cost.
+- Fully reactive to settings changes (coverage, lead time, service level).
+
+Inventory Replenishment (InventoryReplenishment.tsx)
+- DeepDive-style table with tooltip-equipped columns: Demand σ, DDLT, LT ±, Reorder Point, Safety Stock, Suggested Qty.
+
+InfoTooltips — Global Rollout
+- All KPI cards across all sections now have contextual tooltip content (not empty placeholders).
+- Homepage KPIs (KPICards.tsx): Sales, TACOS, Profitability, Out of Stock, Content Score, Customer Experience.
+- Advertising KPIs (AdvertisingKPICards.tsx): Ad Sales, Ad Spend, ACOS/ROAS, TACOS/TROAS, CPC, CPA, TCPA, Conversion Rate, Impressions, Clicks, CTR, Orders.
+- Traffic KPIs (Traffic.tsx): Total Sessions, Page Views, Conv. Rate, Organic Share, Ad Impressions, Avg CTR.
+- Section headers: SalesHeatmap, BreakdownCharts (bullet charts), Conversion Funnel, Sessions & Conversion Rate.
+- DeepDiveTable: tooltip prop on ColumnDef interface renders InfoTooltip in header.
+
+
+Traffic Overview (Traffic.tsx)
+
+Sources Breakdown Redesign
+- Replaced stacked bar chart with stacked area chart for traffic sources over time.
+- Added absolute/percentage toggle (showPct state) to switch between raw values and 100% stacked view.
+- Source keys: organic, external, sponsoredProducts, sponsoredBrands, sponsoredDisplay, dsp.
+
+Advertising Deep Dive (AdvertisingDeepDive.tsx)
+
+Cleanup
+- Removed unused HourlyLineChart component and associated hourly data imports.
+- Removed unused tacticData, funnelData, hourlyData imports.
+- Removed unused HOURLY_METRICS constant.
+- Added InfoTooltip import for search term table headers.
+
+
 Content Tracker (ContentTracker.tsx)
 
 - CopyableAsin component: click-to-copy for ASIN cells with copy/check icon feedback. Used in comparison table rows.

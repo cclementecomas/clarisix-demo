@@ -1,6 +1,6 @@
 import { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import {
-  AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  AreaChart, Area, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
 import {
@@ -77,6 +77,15 @@ function GranularitySelector({
 
 // ─── KPI tiles — home page style ─────────────────────────────────────────────
 
+const TRAFFIC_KPI_TOOLTIPS: Record<string, string> = {
+  'Total Sessions': 'Unique visitor sessions across all traffic sources (organic + paid) for the selected period.',
+  'Page Views': 'Total detail page views (glance views) across all active ASINs.',
+  'Conv. Rate': 'Unit session percentage — units ordered ÷ total sessions. Decline signals listing or pricing issues.',
+  'Organic Share': '% of total sessions from non-paid sources. Higher organic share reduces ad dependency.',
+  'Ad Impressions': 'Total impressions across SP, SB, SD, and DSP ad campaigns.',
+  'Avg CTR': 'Click-through rate — ad clicks ÷ ad impressions. Reflects ad creative and targeting effectiveness.',
+};
+
 function KPIRow() {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
@@ -104,7 +113,7 @@ function KPIRow() {
               <p className={`text-[10px] font-bold uppercase tracking-widest ${labelColor}`}>
                 {kpi.label}
               </p>
-              <InfoTooltip />
+              <InfoTooltip content={TRAFFIC_KPI_TOOLTIPS[kpi.label]} />
             </div>
 
             <div className="flex items-center justify-center my-1">
@@ -202,7 +211,10 @@ function TrafficFunnel() {
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 flex flex-col h-full">
       <div className="flex items-center justify-between mb-4 flex-shrink-0">
         <div>
-          <h3 className="text-sm font-semibold text-gray-900">Conversion Funnel</h3>
+          <div className="flex items-center gap-1.5">
+            <h3 className="text-sm font-semibold text-gray-900">Conversion Funnel</h3>
+            <InfoTooltip content="Impressions → clicks → cart adds → purchases from Search Query Performance data. Rates show step-to-step conversion." />
+          </div>
           <p className="text-[11px] text-gray-400 mt-0.5">Source: Search Query Performance</p>
         </div>
       </div>
@@ -292,7 +304,10 @@ function SessionsTrend() {
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 flex flex-col h-full">
       <div className="flex items-center justify-between mb-3 flex-shrink-0">
         <div>
-          <h3 className="text-sm font-semibold text-gray-900">Sessions & Conversion Rate</h3>
+          <div className="flex items-center gap-1.5">
+            <h3 className="text-sm font-semibold text-gray-900">Sessions & Conversion Rate</h3>
+            <InfoTooltip content="Organic + paid sessions stacked with CVR % overlay. CVR = units ordered ÷ sessions." />
+          </div>
           <p className="text-xs text-gray-500 mt-0.5">Organic + paid sessions with CVR overlay</p>
         </div>
         <GranularitySelector value={gran} onChange={setGran} />
@@ -355,39 +370,127 @@ const SOURCE_LABELS: Record<string, string> = {
   sponsoredBrands: 'SB Ads', sponsoredDisplay: 'SD Ads', dsp: 'DSP',
 };
 
+const SOURCE_KEYS = Object.keys(SOURCE_COLORS) as (keyof typeof SOURCE_COLORS)[];
+
+function fmtSourceVal(v: number) {
+  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
+  if (v >= 1_000) return `${(v / 1_000).toFixed(1)}K`;
+  return v.toLocaleString();
+}
+
 function SourcesBreakdown() {
   const [gran, setGran] = useState<TrendGranularity>('week');
+  const [showPct, setShowPct] = useState(false);
   const data = trafficSourcesByGranularity[gran];
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-sm font-semibold text-gray-900">Traffic Sources</h3>
+          <div className="flex items-center gap-1.5">
+            <h3 className="text-sm font-semibold text-gray-900">Traffic Sources</h3>
+            <InfoTooltip content="Sessions broken down by source: organic search, Sponsored Products, Sponsored Brands, Sponsored Display, and DSP." />
+          </div>
           <p className="text-xs text-gray-500 mt-0.5">Sessions by source type</p>
         </div>
-        <GranularitySelector value={gran} onChange={setGran} />
+        <div className="flex items-center gap-2">
+          <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
+            <button
+              onClick={() => setShowPct(false)}
+              className={`px-2.5 py-1 text-[11px] font-semibold transition-colors ${!showPct ? 'bg-cx-500 text-white' : 'bg-white text-gray-400 hover:text-gray-600'}`}
+            >
+              Actuals
+            </button>
+            <div className="w-px h-4 bg-gray-200" />
+            <button
+              onClick={() => setShowPct(true)}
+              className={`px-2.5 py-1 text-[11px] font-semibold transition-colors ${showPct ? 'bg-cx-500 text-white' : 'bg-white text-gray-400 hover:text-gray-600'}`}
+            >
+              % of Total
+            </button>
+          </div>
+          <GranularitySelector value={gran} onChange={setGran} />
+        </div>
       </div>
-      <ResponsiveContainer width="100%" height={220}>
-        <BarChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
-          <XAxis
-            dataKey="label"
-            tick={{ fontSize: 10, fill: '#94A3B8' }}
-            axisLine={false} tickLine={false}
-            interval={gran === 'day' ? 4 : 0}
-          />
-          <YAxis tick={{ fontSize: 10, fill: '#94A3B8' }} axisLine={false} tickLine={false} width={40} />
-          <Tooltip
-            contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}
-            formatter={(val: number, name: string) => [val.toLocaleString(), SOURCE_LABELS[name] ?? name]}
-          />
-          <Legend wrapperStyle={{ fontSize: 10 }} formatter={(v) => SOURCE_LABELS[v] ?? v} />
-          {(Object.keys(SOURCE_COLORS) as (keyof typeof SOURCE_COLORS)[]).map((key) => (
-            <Bar key={key} dataKey={key} stackId="a" fill={SOURCE_COLORS[key]} isAnimationActive={false} />
-          ))}
-        </BarChart>
-      </ResponsiveContainer>
+
+      {/* Legend */}
+      <div className="flex items-center gap-4 mb-3">
+        {SOURCE_KEYS.map((key) => (
+          <div key={key} className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: SOURCE_COLORS[key] }} />
+            <span className="text-[11px] text-gray-500 font-medium">{SOURCE_LABELS[key]}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Horizontal stacked bars */}
+      <div className="space-y-1.5">
+        {(() => {
+          const totals = data.map((row) => SOURCE_KEYS.reduce((sum, k) => sum + row[k], 0));
+          const maxTotal = Math.max(...totals);
+
+          return data.map((row, i) => {
+            const total = totals[i];
+            const barWidthPct = showPct ? 100 : (maxTotal > 0 ? (total / maxTotal) * 100 : 0);
+
+            return (
+              <div key={row.label} className="relative flex items-center gap-2 group">
+                <span className="text-[10px] font-medium text-gray-500 w-12 text-right flex-shrink-0 tabular-nums">
+                  {row.label}
+                </span>
+                <div className="flex-1 h-6 bg-gray-50 rounded">
+                  <div
+                    className="flex h-full rounded overflow-hidden transition-all duration-300"
+                    style={{ width: `${barWidthPct}%` }}
+                  >
+                    {SOURCE_KEYS.map((key) => {
+                      const val = row[key];
+                      const pct = total > 0 ? (val / total) * 100 : 0;
+                      if (pct < 0.5) return null;
+                      return (
+                        <div
+                          key={key}
+                          className="relative h-full transition-all duration-300"
+                          style={{ width: `${pct}%`, backgroundColor: SOURCE_COLORS[key] }}
+                        >
+                          {pct > 8 && (
+                            <span className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold text-white/90 truncate px-1">
+                              {showPct ? `${pct.toFixed(0)}%` : fmtSourceVal(val)}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+                <span className="text-[10px] font-semibold text-gray-600 w-10 text-right flex-shrink-0 tabular-nums">
+                  {showPct ? '100%' : fmtSourceVal(total)}
+                </span>
+                {/* Hover tooltip with full breakdown */}
+                <div className="absolute left-16 bottom-full mb-1 z-50 hidden group-hover:block pointer-events-none">
+                  <div className="bg-gray-900 text-white text-[11px] px-3 py-2 rounded-lg shadow-xl min-w-[180px]">
+                    <p className="font-semibold mb-1.5 text-xs">{row.label} — {fmtSourceVal(total)} total</p>
+                    {SOURCE_KEYS.map((key) => {
+                      const val = row[key];
+                      const pct = total > 0 ? (val / total) * 100 : 0;
+                      return (
+                        <div key={key} className="flex items-center justify-between gap-3 py-0.5">
+                          <span className="flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-sm flex-shrink-0" style={{ backgroundColor: SOURCE_COLORS[key] }} />
+                            {SOURCE_LABELS[key]}
+                          </span>
+                          <span className="font-semibold tabular-nums">{val.toLocaleString()} <span className="text-gray-400 font-normal">({pct.toFixed(1)}%)</span></span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900 ml-6" />
+                </div>
+              </div>
+            );
+          });
+        })()}
+      </div>
     </div>
   );
 }
@@ -601,7 +704,7 @@ function ProductTable({ cvrThreshold }: { cvrThreshold: number }) {
       <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
         <div className="flex items-center gap-1.5">
           <h3 className="text-sm font-semibold text-gray-900">Product Traffic</h3>
-          <InfoTooltip />
+          <InfoTooltip content="Per-ASIN traffic metrics with status flags. Critical/warning thresholds based on CVR and session trends." />
         </div>
         <div className="flex items-center gap-3">
           <SelectionStats cells={selectedCells} />
@@ -826,7 +929,10 @@ function TrafficAlertsPanel({
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
       <div className="flex items-center justify-between mb-3 flex-wrap gap-3">
-        <h3 className="text-sm font-semibold text-gray-900">Traffic Alerts</h3>
+        <div className="flex items-center gap-1.5">
+          <h3 className="text-sm font-semibold text-gray-900">Traffic Alerts</h3>
+          <InfoTooltip content="Auto-generated alerts when CVR or session trends breach the configured threshold." />
+        </div>
         <label className="flex items-center gap-2 text-xs text-gray-600">
           CVR warning threshold
           <div className="flex items-center gap-1">

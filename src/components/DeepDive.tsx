@@ -145,18 +145,21 @@ export default function DeepDive() {
     <div className="space-y-6">
       <DeepDiveTable
         title="Best Selling Marketplaces"
+        tooltip="Sales and advertising metrics aggregated by Amazon marketplace. PoP = period-over-period; LY = vs. last year."
         rowData={marketplaceData}
         columnDefs={marketplaceCols}
         pinnedBottomRowData={marketplaceTotals}
       />
       <DeepDiveTable
         title="Best Selling Categories"
+        tooltip="Sales and advertising metrics aggregated by product category. PoP = period-over-period; LY = vs. last year."
         rowData={categoryData}
         columnDefs={categoryCols}
         pinnedBottomRowData={categoryTotals}
       />
       <DeepDiveTable
         title="Best Selling ASINs"
+        tooltip="Sales and advertising metrics per ASIN. Expand a row to see SKU-level breakdown. PoP = period-over-period; LY = vs. last year."
         rowData={asinData}
         columnDefs={asinCols}
         pinnedBottomRowData={asinTotals}

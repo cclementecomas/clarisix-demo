@@ -94,7 +94,7 @@ export default function BudgetTracker() {
         <div>
           <div className="flex items-center gap-1.5 mb-1">
             <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Sales Run Rate</h2>
-            <InfoTooltip />
+            <InfoTooltip content="Month-to-date sales with a daily average and end-of-month projection based on the current run rate." />
           </div>
           <p className="text-3xl font-bold text-gray-900">{fc(mtdTotal, currency, { compact: false })}</p>
           <p className="text-sm text-gray-400 mt-0.5">Month-to-date sales</p>

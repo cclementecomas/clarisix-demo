@@ -204,7 +204,7 @@ export default function SalesOverview() {
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-1.5">
           <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Sales Overview</h2>
-          <InfoTooltip />
+          <InfoTooltip content="Stacked bar chart of organic vs. ad-attributed sales. Slope shows trend over the selected granularity." />
         </div>
         <div className="flex items-center bg-gray-100 rounded-lg p-0.5">
           {granularityOptions.map((opt) => (

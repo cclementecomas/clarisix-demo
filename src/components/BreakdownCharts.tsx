@@ -81,14 +81,14 @@ function BulletBar({
   );
 }
 
-function BulletChart({ title, data }: { title: string; data: DataItem[] }) {
+function BulletChart({ title, data, tooltip }: { title: string; data: DataItem[]; tooltip?: string }) {
   const maxValue = Math.max(...data.map((d) => Math.max(d.value, d.previous))) * 1.08;
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
       <div className="flex items-center gap-1.5 mb-5">
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">{title}</h2>
-        <InfoTooltip />
+        <InfoTooltip content={tooltip} />
       </div>
       <div className="space-y-[10px]">
         {data.map((item, index) => (
@@ -105,7 +105,7 @@ function BulletChart({ title, data }: { title: string; data: DataItem[] }) {
   );
 }
 
-function ASINBulletChart({ title, data }: { title: string; data: ASINDataItem[] }) {
+function ASINBulletChart({ title, data, tooltip }: { title: string; data: ASINDataItem[]; tooltip?: string }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const maxValue = Math.max(...data.map((d) => Math.max(d.value, d.previous))) * 1.08;
 
@@ -122,7 +122,7 @@ function ASINBulletChart({ title, data }: { title: string; data: ASINDataItem[] 
     <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
       <div className="flex items-center gap-1.5 mb-5">
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">{title}</h2>
-        <InfoTooltip />
+        <InfoTooltip content={tooltip} />
       </div>
       <div className="space-y-[6px]">
         {data.map((item, index) => {
@@ -246,9 +246,9 @@ function ChartLegend() {
 export default function BreakdownCharts() {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <BulletChart title="Sales by Marketplace" data={salesByMarketplace} />
-      <BulletChart title="Sales by Category" data={salesByCategory} />
-      <ASINBulletChart title="Sales by ASIN" data={salesByASIN} />
+      <BulletChart title="Sales by Marketplace" data={salesByMarketplace} tooltip="Revenue split by Amazon marketplace. Gray marker shows the prior period for comparison." />
+      <BulletChart title="Sales by Category" data={salesByCategory} tooltip="Revenue split by product category. Gray marker shows the prior period for comparison." />
+      <ASINBulletChart title="Sales by ASIN" data={salesByASIN} tooltip="Revenue per ASIN, expandable to show individual SKUs. Gray marker shows the prior period for comparison." />
     </div>
   );
 }
