@@ -190,7 +190,7 @@ Inventory Replenishment (InventoryReplenishment.tsx)
 InfoTooltips — Global Rollout
 - All KPI cards across all sections now have contextual tooltip content (not empty placeholders).
 - Homepage KPIs (KPICards.tsx): Sales, TACOS, Profitability, Out of Stock, Content Score, Customer Experience.
-- Advertising KPIs (AdvertisingKPICards.tsx): Ad Sales, Ad Spend, ACOS/ROAS, TACOS/TROAS, CPC, CPA, TCPA, Conversion Rate, Impressions, Clicks, CTR, Orders.
+- Advertising KPIs (AdvertisingKPICards.tsx): Ad Sales, Ad Spend, ACOS, TACOS, CPC, CPA, TCPA, Conversion Rate, Impressions, Clicks, CTR, Orders.
 - Traffic KPIs (Traffic.tsx): Total Sessions, Page Views, Conv. Rate, Organic Share, Ad Impressions, Avg CTR.
 - Section headers: SalesHeatmap, BreakdownCharts (bullet charts), Conversion Funnel, Sessions & Conversion Rate.
 - DeepDiveTable: tooltip prop on ColumnDef interface renders InfoTooltip in header.
@@ -203,7 +203,19 @@ Sources Breakdown Redesign
 - Added absolute/percentage toggle (showPct state) to switch between raw values and 100% stacked view.
 - Source keys: organic, external, sponsoredProducts, sponsoredBrands, sponsoredDisplay, dsp.
 
-Advertising Deep Dive (AdvertisingDeepDive.tsx)
+Advertising Overview & Deep Dive (AdvertisingOverview.tsx, AdvertisingDeepDive.tsx)
+
+KPI Card Naming
+- Main ad KPI cards renamed: "ACOS/ROAS" → "ACOS", "TACOS/TROAS" → "TACOS".
+- Cleaner labels avoid the dual-metric ambiguity. ROAS available as a togglable column at the table level.
+
+ROAS Column in Tables
+- All ad deep-dive tables (Placement, Audience, Ad Type, Search Term, Campaign) have a ROAS column right after ACOS.
+- Unticked by default in the column toggle dropdown — opt-in for users who prefer the ratio view.
+- Computed dynamically as `sales ÷ spend` via `withRoas()` helper applied to all data arrays.
+- Format: "x.xx×". Color coded: green ≥5×, red <3×.
+- TACOS/TROAS not added at row level — these require blended (organic + paid) sales which is a business-level metric, not per-segment.
+- `useSectionControls(initCols, hiddenByDefault)` extended to accept a list of fields to exclude from initial visible columns.
 
 Cleanup
 - Removed unused HourlyLineChart component and associated hourly data imports.
