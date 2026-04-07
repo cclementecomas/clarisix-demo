@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  LayoutGrid, List, Download, ChevronDown, Search, MousePointer2,
+  LayoutGrid, List, Download, ChevronDown, Search, MousePointer2, Lock,
 } from 'lucide-react';
 
 import DeepDiveTable, {
@@ -563,15 +563,7 @@ export default function AdvertisingDeepDive() {
           : <DeepDiveTable title="" embedded showPoP={plac.showPoP} onPoPChange={plac.setShowPoP} showLY={plac.showLY} onLYChange={plac.setShowLY} selectMode={plac.selMode} onSelectModeChange={plac.setSelMode} onSelectedValuesChange={plac.setSelVals} visibleColumnsOverride={plac.visCols} rowData={placData} columnDefs={placCols} />}
       </>)}
 
-      {/* 2 — Performance by Audience */}
-      {sectionCard(<>
-        {sectionHeader('Performance by Audience', audView, setAudView, STANDARD_METRICS, audMet, setAudMet, audData, undefined, true, { cols: audCols, showPoP: aud.showPoP, setShowPoP: aud.setShowPoP, showLY: aud.showLY, setShowLY: aud.setShowLY, selMode: aud.selMode, setSelMode: aud.setSelMode, visCols: aud.visCols, toggleCol: aud.toggleCol }, 'Ad metrics split by audience segment (e.g., remarketing, in-market, lifestyle).')}
-        {audView === 'chart'
-          ? <div className="p-5"><SmallMultiplesChart data={audData} dimKey="segment" metrics={STANDARD_METRICS} selectedMetrics={audMet} currency={currency} /></div>
-          : <DeepDiveTable title="" embedded showPoP={aud.showPoP} onPoPChange={aud.setShowPoP} showLY={aud.showLY} onLYChange={aud.setShowLY} selectMode={aud.selMode} onSelectModeChange={aud.setSelMode} onSelectedValuesChange={aud.setSelVals} visibleColumnsOverride={aud.visCols} rowData={audData} columnDefs={audCols} />}
-      </>)}
-
-      {/* 3 — Performance by Ad Type */}
+      {/* 2 — Performance by Ad Type */}
       {sectionCard(<>
         {sectionHeader('Performance by Ad Type', atView, setAtView, STANDARD_METRICS, atMet, setAtMet, adTypeData, undefined, true, { cols: atCols, showPoP: at.showPoP, setShowPoP: at.setShowPoP, showLY: at.showLY, setShowLY: at.setShowLY, selMode: at.selMode, setSelMode: at.setSelMode, visCols: at.visCols, toggleCol: at.toggleCol }, 'Ad metrics split by campaign type (Sponsored Products, Sponsored Brands, Sponsored Display).')}
         {atView === 'chart'
@@ -626,6 +618,39 @@ export default function AdvertisingDeepDive() {
         {stView === 'chart'
           ? <div className="p-5"><SmallMultiplesChart data={stData.slice(0, 15)} dimKey="searchTerm" metrics={SEARCH_METRICS} selectedMetrics={stMet} currency={currency} /></div>
           : <DeepDiveTable title="" embedded showPoP={st.showPoP} onPoPChange={st.setShowPoP} showLY={st.showLY} onLYChange={st.setShowLY} selectMode={st.selMode} onSelectModeChange={st.setSelMode} onSelectedValuesChange={st.setSelVals} visibleColumnsOverride={st.visCols} rowData={stData} columnDefs={stCols} />}
+      </>)}
+
+      {/* 6 — Performance by Audience (locked / requires account-level setup) */}
+      {sectionCard(<>
+        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+          <div className="flex items-center gap-1.5">
+            <h3 className="text-sm font-semibold text-gray-900">Performance by Audience</h3>
+            <InfoTooltip content="Ad metrics split by audience segment (e.g., remarketing, in-market, lifestyle). Requires audience labeling to be configured at the account level." />
+          </div>
+          <div className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-amber-50 text-amber-700 border border-amber-200">
+            <Lock className="w-3 h-3" />
+            Not configured
+          </div>
+        </div>
+        <div className="relative">
+          <div className="pointer-events-none select-none opacity-30 blur-[1.5px]">
+            {audView === 'chart'
+              ? <div className="p-5"><SmallMultiplesChart data={audData} dimKey="segment" metrics={STANDARD_METRICS} selectedMetrics={audMet} currency={currency} /></div>
+              : <DeepDiveTable title="" embedded showPoP={aud.showPoP} onPoPChange={aud.setShowPoP} showLY={aud.showLY} onLYChange={aud.setShowLY} selectMode={aud.selMode} onSelectModeChange={aud.setSelMode} onSelectedValuesChange={aud.setSelVals} visibleColumnsOverride={aud.visCols} rowData={audData} columnDefs={audCols} />}
+          </div>
+          <div className="absolute inset-0 flex items-center justify-center p-6">
+            <div className="max-w-md text-center bg-white border border-gray-200 rounded-xl shadow-lg px-6 py-5">
+              <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-amber-50 mb-3">
+                <Lock className="w-5 h-5 text-amber-600" />
+              </div>
+              <h4 className="text-sm font-semibold text-gray-900 mb-1.5">Audience labeling not enabled</h4>
+              <p className="text-xs text-gray-600 leading-relaxed">
+                Audience-level reporting requires audience segments to be configured for this account.
+                Contact your <span className="font-semibold text-gray-800">Clarisix account manager</span> to unlock this view.
+              </p>
+            </div>
+          </div>
+        </div>
       </>)}
 
       <LastRefreshed offsetMinutes={12} />
