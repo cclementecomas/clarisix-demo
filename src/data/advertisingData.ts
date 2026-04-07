@@ -34,7 +34,7 @@ export const advertisingKpiData: AdvertisingKPI[] = [
     cardPositive: true,
   },
   {
-    label: 'ACOS/ROAS',
+    label: 'ACOS',
     value: '25.38%',
     popChange: -8.99,
     popPositive: false,
@@ -44,7 +44,7 @@ export const advertisingKpiData: AdvertisingKPI[] = [
     cardPositive: false,
   },
   {
-    label: 'TACOS/TROAS',
+    label: 'TACOS',
     value: '11.54%',
     popChange: 11.47,
     popPositive: true,

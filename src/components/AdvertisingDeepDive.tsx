@@ -318,11 +318,17 @@ function buildCols(
     return v == null ? '' : `${v.toFixed(1)}%`;
   };
 
+  const roasFmt = ({ value }: { value: unknown }) => {
+    const v = value as number;
+    return v == null ? '' : `${v.toFixed(2)}x`;
+  };
+
   return [
     { field: dimField, headerName: dimHeader, pinned: 'left', width: 200 },
     { field: 'spend',  headerName: 'Spend',  valueFormatter: cf,     subFields: [popSubField('spendPoP')] },
     { field: 'sales',  headerName: 'Sales',  valueFormatter: cf,     subFields: [popSubField('salesPoP')] },
     { field: 'acos',   headerName: 'ACOS',   valueFormatter: pctFmt, subFields: [popSubField('acosPoP', 'down')], cellStyle: ({ value }: { value: unknown }): Record<string, string> => { const v = value as number; return v > 35 ? { color: '#991B1B' } : v < 20 ? { color: '#166534' } : {}; } },
+    { field: 'roas',   headerName: 'ROAS',   valueFormatter: roasFmt, tooltip: 'Return on Ad Spend — ad sales ÷ ad spend. Inverse of ACOS. Higher is better.', cellStyle: ({ value }: { value: unknown }): Record<string, string> => { const v = value as number; return v >= 5 ? { color: '#166534' } : v < 3 ? { color: '#991B1B' } : {}; } },
     { field: 'cpc',    headerName: 'CPC',    valueFormatter: cf,     subFields: [popSubField('cpcPoP', 'down')] },
     { field: 'cpa',    headerName: 'CPA',    valueFormatter: cf,     subFields: [popSubField('cpaPoP', 'down')] },
     { field: 'cvr',    headerName: 'CVR',    valueFormatter: pctFmt, subFields: [popSubField('cvrPoP')] },
@@ -344,13 +350,13 @@ function exportSection(title: string, data: any[]) {
 
 // ─── Per-section table controls hook ─────────────────────────────────────────
 
-function useSectionControls(initCols: ColumnDef[]) {
+function useSectionControls(initCols: ColumnDef[], hiddenByDefault: string[] = []) {
   const [showPoP, setShowPoP] = useState(true);
   const [showLY, setShowLY] = useState(false);
   const [selMode, setSelMode] = useState(false);
   const [selVals, setSelVals] = useState<number[]>([]);
   const [visCols, setVisCols] = useState<Set<string>>(
-    () => new Set(initCols.map((c) => c.field))
+    () => new Set(initCols.map((c) => c.field).filter((f) => !hiddenByDefault.includes(f)))
   );
   const toggleCol = useCallback((field: string) => {
     setVisCols((prev) => { const s = new Set(prev); s.has(field) ? s.delete(field) : s.add(field); return s; });
@@ -382,13 +388,20 @@ export default function AdvertisingDeepDive() {
   const [stView, setStView] = useState<ViewMode>('table');
   const [stMet,  setStMet]  = useState(['spend', 'sales', 'acos']);
 
+  // Helper: enrich row with computed ROAS (ad sales ÷ ad spend)
+  const withRoas = <T extends { spend: number; sales: number }>(rows: T[]) =>
+    rows.map((r) => ({ ...r, roas: r.spend > 0 ? Math.round((r.sales / r.spend) * 100) / 100 : 0 }));
+
   // Placement data filtered by global ad type
-  const placData = adType === 'SP' ? placementRowsSP
+  const placData = withRoas(
+    adType === 'SP' ? placementRowsSP
     : adType === 'SB' ? placementRowsSB
     : adType === 'SBV' ? placementRows.map((r) => ({ ...r, spend: Math.round(r.spend * 0.12), sales: Math.round(r.sales * 0.12) }))
     : adType === 'SD' ? placementRows.map((r) => ({ ...r, spend: Math.round(r.spend * 0.18), sales: Math.round(r.sales * 0.18) }))
-    : placementRows;
-  const audData  = adType === 'SP'
+    : placementRows
+  );
+  const audData = withRoas(
+    adType === 'SP'
     ? audienceRows.map((r) => ({ ...r, spend: Math.round(r.spend * 0.62), sales: Math.round(r.sales * 0.62) }))
     : adType === 'SB'
     ? audienceRows.map((r) => ({ ...r, spend: Math.round(r.spend * 0.38), sales: Math.round(r.sales * 0.38) }))
@@ -396,7 +409,10 @@ export default function AdvertisingDeepDive() {
     ? audienceRows.map((r) => ({ ...r, spend: Math.round(r.spend * 0.12), sales: Math.round(r.sales * 0.12) }))
     : adType === 'SD'
     ? audienceRows.map((r) => ({ ...r, spend: Math.round(r.spend * 0.18), sales: Math.round(r.sales * 0.18) }))
-    : audienceRows;
+    : audienceRows
+  );
+  const adTypeData = withRoas(adTypeRows);
+  const stData = withRoas(searchTermData);
 
   const placCols = useMemo(() => buildCols('placement', 'Placement', currency as Currency), [currency]);
   const audCols  = useMemo(() => buildCols('segment',   'Audience',  currency as Currency), [currency]);
@@ -424,17 +440,25 @@ export default function AdvertisingDeepDive() {
       { field: 'pctTotal', headerName: '% Total', width: 80, valueFormatter: ({ value }: { value: unknown }) => { const v = value as number; return v == null ? '' : `${v.toFixed(1)}%`; } },
       { field: 'sales', headerName: 'Sales', valueFormatter: cf, subFields: [popSubField('salesPoP')] },
       { field: 'acos', headerName: 'ACOS', valueFormatter: pctFmt, subFields: [popSubField('acosPoP', 'down')], cellStyle: ({ value }: { value: unknown }): Record<string, string> => { const v = value as number; return v > 35 ? { color: '#991B1B' } : v < 20 ? { color: '#166534' } : {}; } },
+      { field: 'roas', headerName: 'ROAS', valueFormatter: ({ value }: { value: unknown }) => { const v = value as number; return v == null ? '' : `${v.toFixed(2)}x`; }, tooltip: 'Return on Ad Spend — ad sales ÷ ad spend. Inverse of ACOS. Higher is better.', cellStyle: ({ value }: { value: unknown }): Record<string, string> => { const v = value as number; return v >= 5 ? { color: '#166534' } : v < 3 ? { color: '#991B1B' } : {}; } },
       { field: 'cpc', headerName: 'CPC', valueFormatter: cf, subFields: [popSubField('cpcPoP', 'down')] },
       { field: 'cvr', headerName: 'CVR', valueFormatter: pctFmt, subFields: [popSubField('cvrPoP')] },
       { field: 'ctr', headerName: 'CTR', valueFormatter: ({ value }: { value: unknown }) => { const v = value as number; return v == null ? '' : `${v.toFixed(1)}%`; }, subFields: [popSubField('ctrPoP')] },
     ];
   }, [currency]);
 
-  // Campaign data filtered by global ad type
-  const filteredCampaignData = useMemo(
-    () => adType === 'All' ? campaignData : campaignData.filter((r) => r.type === adType),
-    [adType]
-  );
+  // Campaign data filtered by global ad type, enriched with ROAS
+  const filteredCampaignData = useMemo(() => {
+    const base = adType === 'All' ? campaignData : campaignData.filter((r) => r.type === adType);
+    return base.map((r) => ({
+      ...r,
+      roas: r.spend > 0 ? Math.round((r.sales / r.spend) * 100) / 100 : 0,
+      placements: r.placements?.map((p) => ({
+        ...p,
+        roas: p.spend > 0 ? Math.round((p.sales / p.spend) * 100) / 100 : 0,
+      })),
+    }));
+  }, [adType]);
 
   const campChildRowsMap = useMemo(() => {
     const map: Record<string, any[]> = {};
@@ -445,11 +469,11 @@ export default function AdvertisingDeepDive() {
   }, [filteredCampaignData]);
 
   // Per-section table controls (PoP, LY, Select, column visibility)
-  const plac = useSectionControls(placCols);
-  const aud  = useSectionControls(audCols);
-  const at   = useSectionControls(atCols);
-  const camp = useSectionControls(campCols);
-  const st   = useSectionControls(stCols);
+  const plac = useSectionControls(placCols, ['roas']);
+  const aud  = useSectionControls(audCols, ['roas']);
+  const at   = useSectionControls(atCols, ['roas']);
+  const camp = useSectionControls(campCols, ['roas']);
+  const st   = useSectionControls(stCols, ['roas']);
   void plac.selVals; void aud.selVals; void at.selVals; void camp.selVals; void st.selVals;
 
   const sectionCard = (content: React.ReactNode) => (
@@ -549,10 +573,10 @@ export default function AdvertisingDeepDive() {
 
       {/* 3 — Performance by Ad Type */}
       {sectionCard(<>
-        {sectionHeader('Performance by Ad Type', atView, setAtView, STANDARD_METRICS, atMet, setAtMet, adTypeRows, undefined, true, { cols: atCols, showPoP: at.showPoP, setShowPoP: at.setShowPoP, showLY: at.showLY, setShowLY: at.setShowLY, selMode: at.selMode, setSelMode: at.setSelMode, visCols: at.visCols, toggleCol: at.toggleCol }, 'Ad metrics split by campaign type (Sponsored Products, Sponsored Brands, Sponsored Display).')}
+        {sectionHeader('Performance by Ad Type', atView, setAtView, STANDARD_METRICS, atMet, setAtMet, adTypeData, undefined, true, { cols: atCols, showPoP: at.showPoP, setShowPoP: at.setShowPoP, showLY: at.showLY, setShowLY: at.setShowLY, selMode: at.selMode, setSelMode: at.setSelMode, visCols: at.visCols, toggleCol: at.toggleCol }, 'Ad metrics split by campaign type (Sponsored Products, Sponsored Brands, Sponsored Display).')}
         {atView === 'chart'
-          ? <div className="p-5"><SmallMultiplesChart data={adTypeRows} dimKey="adType" metrics={STANDARD_METRICS} selectedMetrics={atMet} currency={currency} /></div>
-          : <DeepDiveTable title="" embedded showPoP={at.showPoP} onPoPChange={at.setShowPoP} showLY={at.showLY} onLYChange={at.setShowLY} selectMode={at.selMode} onSelectModeChange={at.setSelMode} onSelectedValuesChange={at.setSelVals} visibleColumnsOverride={at.visCols} rowData={adTypeRows} columnDefs={atCols} />}
+          ? <div className="p-5"><SmallMultiplesChart data={adTypeData} dimKey="adType" metrics={STANDARD_METRICS} selectedMetrics={atMet} currency={currency} /></div>
+          : <DeepDiveTable title="" embedded showPoP={at.showPoP} onPoPChange={at.setShowPoP} showLY={at.showLY} onLYChange={at.setShowLY} selectMode={at.selMode} onSelectModeChange={at.setSelMode} onSelectedValuesChange={at.setSelVals} visibleColumnsOverride={at.visCols} rowData={adTypeData} columnDefs={atCols} />}
       </>)}
 
       {/* 6 — Performance by Campaign */}
@@ -598,10 +622,10 @@ export default function AdvertisingDeepDive() {
 
       {/* 7 — Performance by Search Term */}
       {sectionCard(<>
-        {sectionHeader('Performance by Search Term', stView, setStView, SEARCH_METRICS, stMet, setStMet, searchTermData, undefined, true, { cols: stCols, showPoP: st.showPoP, setShowPoP: st.setShowPoP, showLY: st.showLY, setShowLY: st.setShowLY, selMode: st.selMode, setSelMode: st.setSelMode, visCols: st.visCols, toggleCol: st.toggleCol }, 'Ad metrics per search term. Shows which keywords drive spend, clicks, and conversions.')}
+        {sectionHeader('Performance by Search Term', stView, setStView, SEARCH_METRICS, stMet, setStMet, stData, undefined, true, { cols: stCols, showPoP: st.showPoP, setShowPoP: st.setShowPoP, showLY: st.showLY, setShowLY: st.setShowLY, selMode: st.selMode, setSelMode: st.setSelMode, visCols: st.visCols, toggleCol: st.toggleCol }, 'Ad metrics per search term. Shows which keywords drive spend, clicks, and conversions.')}
         {stView === 'chart'
-          ? <div className="p-5"><SmallMultiplesChart data={searchTermData.slice(0, 15)} dimKey="searchTerm" metrics={SEARCH_METRICS} selectedMetrics={stMet} currency={currency} /></div>
-          : <DeepDiveTable title="" embedded showPoP={st.showPoP} onPoPChange={st.setShowPoP} showLY={st.showLY} onLYChange={st.setShowLY} selectMode={st.selMode} onSelectModeChange={st.setSelMode} onSelectedValuesChange={st.setSelVals} visibleColumnsOverride={st.visCols} rowData={searchTermData} columnDefs={stCols} />}
+          ? <div className="p-5"><SmallMultiplesChart data={stData.slice(0, 15)} dimKey="searchTerm" metrics={SEARCH_METRICS} selectedMetrics={stMet} currency={currency} /></div>
+          : <DeepDiveTable title="" embedded showPoP={st.showPoP} onPoPChange={st.setShowPoP} showLY={st.showLY} onLYChange={st.setShowLY} selectMode={st.selMode} onSelectModeChange={st.setSelMode} onSelectedValuesChange={st.setSelVals} visibleColumnsOverride={st.visCols} rowData={stData} columnDefs={stCols} />}
       </>)}
 
       <LastRefreshed offsetMinutes={12} />

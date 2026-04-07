@@ -10,8 +10,8 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 const AD_KPI_TOOLTIPS: Record<string, string> = {
   'Ad Sales': 'Revenue attributed to ad clicks within the attribution window. Sourced from Amazon Advertising console.',
   'Ad Spend': 'Total spend across all ad campaigns (SP, SB, SD) for the selected period.',
-  'ACOS/ROAS': 'ACOS = ad spend ÷ ad sales. ROAS = ad sales ÷ ad spend. Measures ad efficiency on attributed revenue only.',
-  'TACOS/TROAS': 'TACOS = ad spend ÷ total sales (organic + paid). TROAS = total sales ÷ ad spend. Measures ad efficiency on the full business.',
+  'ACOS': 'Advertising Cost of Sale — ad spend ÷ ad-attributed sales. Measures ad efficiency on attributed revenue only. Lower is better.',
+  'TACOS': 'Total Advertising Cost of Sale — ad spend ÷ total sales (organic + paid). Measures ad efficiency on the full business. Lower is better.',
   'CPC': 'Cost Per Click — average ad spend per click across all campaign types.',
   'CPA': 'Cost Per Acquisition — ad spend ÷ ad-attributed orders. What you pay per order from ads.',
   'TCPA': 'Total Cost Per Acquisition — ad spend ÷ total orders (organic + paid). Blended cost per order.',
