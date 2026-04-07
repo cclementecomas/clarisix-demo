@@ -254,6 +254,7 @@ export interface AdPerfRow {
   spend: number;   spendPoP: number;
   sales: number;   salesPoP: number;
   acos: number;    acosPoP: number;
+  roas: number;    roasPoP: number;
   tacos: number;   tacosPoP: number;
   orders: number;  ordersPoP: number;
   cpc: number;     cpcPoP: number;
@@ -267,6 +268,7 @@ function makeAdRow(name: string, spendBase: number): AdPerfRow {
   const spend   = Math.round(spendBase * (0.85 + ra() * 0.30));
   const sales   = Math.round(spend * (3.5 + ra() * 1.5));
   const acos    = Math.round((spend / sales) * 1000) / 10;
+  const roas    = Math.round((sales / Math.max(1, spend)) * 100) / 100;
   const tacos   = Math.round(acos * (0.4 + ra() * 0.2) * 10) / 10;
   const orders  = Math.round(sales / (45 + ra() * 30));
   const cpc     = Math.round((spend / Math.max(1, orders * (8 + ra() * 4))) * 100) / 100;
@@ -275,7 +277,7 @@ function makeAdRow(name: string, spendBase: number): AdPerfRow {
   const ctr     = Math.round((0.4 + ra() * 0.5) * 100) / 100;
   const ntbPct  = Math.round((15 + ra() * 45) * 10) / 10;
   const pop = () => Math.round((-15 + ra() * 30) * 10) / 10;
-  return { name, spend, spendPoP: pop(), sales, salesPoP: pop(), acos, acosPoP: pop(), tacos, tacosPoP: pop(), orders, ordersPoP: pop(), cpc, cpcPoP: pop(), cpa, cpaPoP: pop(), cvr, cvrPoP: pop(), ctr, ctrPoP: pop(), ntbPct, ntbPctPoP: pop() };
+  return { name, spend, spendPoP: pop(), sales, salesPoP: pop(), acos, acosPoP: pop(), roas, roasPoP: pop(), tacos, tacosPoP: pop(), orders, ordersPoP: pop(), cpc, cpcPoP: pop(), cpa, cpaPoP: pop(), cvr, cvrPoP: pop(), ctr, ctrPoP: pop(), ntbPct, ntbPctPoP: pop() };
 }
 
 export const adByMarketplace: AdPerfRow[] = [
@@ -344,6 +346,7 @@ function sumAdPerf(rows: AdPerfRow[]): AdPerfRow {
     spend: totSpend, spendPoP: Math.round(rows.reduce((a,r)=>a+r.spendPoP,0)/rows.length*10)/10,
     sales: totSales, salesPoP: Math.round(rows.reduce((a,r)=>a+r.salesPoP,0)/rows.length*10)/10,
     acos: Math.round((totSpend/totSales)*1000)/10, acosPoP: 0,
+    roas: Math.round((totSales/Math.max(1,totSpend))*100)/100, roasPoP: 0,
     tacos: Math.round((totSpend/totSales)*1000*0.45)/10, tacosPoP: 0,
     orders: totOrders, ordersPoP: Math.round(rows.reduce((a,r)=>a+r.ordersPoP,0)/rows.length*10)/10,
     cpc: Math.round((totSpend/Math.max(1,totOrders*10))*100)/100, cpcPoP: 0,

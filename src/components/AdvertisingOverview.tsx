@@ -52,6 +52,14 @@ function useAdPerfCols(): ColumnDef[] {
       subFields: [{ field: 'acosPoP', label: 'PoP', formatter: ({ value }) => { const v = value as number; return v == null ? '' : `${v > 0 ? '+' : ''}${v.toFixed(1)}%`; }, cellStyle: ({ value }) => { const v = value as number; return v > 0 ? { color: '#991B1B' } : v < 0 ? { color: '#166534' } : {}; } }],
     },
     {
+      field: 'roas',
+      headerName: 'ROAS',
+      hide: true,
+      valueFormatter: ({ value }) => { const v = value as number; return v == null ? '' : `${v.toFixed(2)}×`; },
+      cellStyle: ({ value }) => { const v = value as number; return v >= 5 ? { color: '#166534' } : v < 3 ? { color: '#991B1B' } : {}; },
+      subFields: [{ field: 'roasPoP', label: 'PoP', formatter: ({ value }) => { const v = value as number; return v == null ? '' : `${v > 0 ? '+' : ''}${v.toFixed(1)}%`; }, cellStyle: ({ value }) => { const v = value as number; return v > 0 ? { color: '#166534' } : v < 0 ? { color: '#991B1B' } : {}; } }],
+    },
+    {
       field: 'tacos',
       headerName: 'TACOS',
       valueFormatter: ({ value }) => { const v = value as number; return v == null ? '' : `${v.toFixed(1)}%`; },
