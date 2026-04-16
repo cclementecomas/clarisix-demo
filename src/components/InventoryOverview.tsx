@@ -5,7 +5,7 @@ import {
 } from 'recharts';
 import {
   Search, ChevronDown, ChevronRight, AlertTriangle, Package, ArrowUpDown,
-  Settings, Plus, X, Calendar, Download,
+  Settings, Plus, X, Calendar, Download, ListChecks, Table2,
 } from 'lucide-react';
 import {
   inventoryData,
@@ -43,6 +43,9 @@ interface ComputedMetrics {
   daysUntilReorder: number;
   leadTimeDays: number;
   needsReorderNow: boolean;
+  // Demand variability (migrated from Replenishment page)
+  demandStdDevDaily: number;
+  demandCV: number;
 }
 
 interface ForecastWeek {
@@ -83,7 +86,7 @@ const RISK_BADGE: Record<string, string> = {
   healthy: 'text-green-600',
 };
 
-type SortKey = 'sku' | 'title' | 'status' | 'availableUnits' | 'medianPerWeek' | 'weeksOnHand' | 'idealInventory' | 'reorderQty' | 'revenueAtRisk' | 'safetyStock' | 'daysUntilReorder';
+type SortKey = 'sku' | 'title' | 'status' | 'availableUnits' | 'medianPerWeek' | 'demandCV' | 'weeksOnHand' | 'idealInventory' | 'reorderQty' | 'revenueAtRisk' | 'safetyStock' | 'daysUntilReorder';
 
 type ServiceLevel = '90' | '95' | '97.5' | '99';
 
@@ -201,6 +204,8 @@ function computeSkuMetrics(
   const idealInventory = coverageDemand + safetyStock;
   const reorderQty = Math.max(0, idealInventory - availableUnits);
 
+  const demandCV = avgDailyFromMedian > 0 ? demandStdDev / avgDailyFromMedian : 0;
+
   return {
     medianPerWeek: Math.round(medianPerWeek),
     availableUnits,
@@ -217,6 +222,8 @@ function computeSkuMetrics(
     daysUntilReorder,
     leadTimeDays,
     needsReorderNow,
+    demandStdDevDaily: Math.round(demandStdDev * 100) / 100,
+    demandCV: Math.round(demandCV * 100) / 100,
   };
 }
 
@@ -240,6 +247,12 @@ export default function InventoryOverview() {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [expandedSkus, setExpandedSkus] = useState<Set<string>>(new Set());
   const [activeKpiFilter, setActiveKpiFilter] = useState<string | null>(null);
+  const [activeView, setActiveView] = useState<'actions' | 'skus'>('actions');
+
+  const handleKpiFilter = useCallback((key: string | null) => {
+    setActiveKpiFilter(key);
+    if (key) setActiveView('skus');
+  }, []);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
@@ -303,6 +316,7 @@ export default function InventoryOverview() {
         }
         case 'availableUnits': av = ma.availableUnits; bv = mb.availableUnits; break;
         case 'medianPerWeek': av = ma.medianPerWeek; bv = mb.medianPerWeek; break;
+        case 'demandCV': av = ma.demandCV; bv = mb.demandCV; break;
         case 'weeksOnHand': av = ma.weeksOnHand; bv = mb.weeksOnHand; break;
         case 'idealInventory': av = ma.idealInventory; bv = mb.idealInventory; break;
         case 'reorderQty': av = ma.reorderQty; bv = mb.reorderQty; break;
@@ -526,12 +540,48 @@ export default function InventoryOverview() {
       )}
 
       {/* ─── KPI Row ─── */}
-      <KPIRow kpis={controlTowerKPIs} currency={currency} activeFilter={activeKpiFilter} onFilter={setActiveKpiFilter} />
+      <KPIRow kpis={controlTowerKPIs} currency={currency} activeFilter={activeKpiFilter} onFilter={handleKpiFilter} />
+
+      {/* ─── View Switcher ─── */}
+      <div className="flex items-center justify-between">
+        <div className="inline-flex items-center rounded-lg border border-gray-200 bg-white overflow-hidden shadow-sm">
+          <button
+            onClick={() => { setActiveView('actions'); setActiveKpiFilter(null); }}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 text-[11px] font-semibold transition-colors ${
+              activeView === 'actions'
+                ? 'bg-cx-500 text-white'
+                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            <ListChecks className="w-3.5 h-3.5" />
+            Action Queue
+          </button>
+          <button
+            onClick={() => setActiveView('skus')}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 text-[11px] font-semibold transition-colors ${
+              activeView === 'skus'
+                ? 'bg-cx-500 text-white'
+                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            <Table2 className="w-3.5 h-3.5" />
+            SKU Inventory
+          </button>
+        </div>
+        <span className="text-[10px] text-gray-400">
+          {activeView === 'actions'
+            ? 'Decisions to make this week — only SKUs that need replenishing'
+            : 'Full SKU state — filter via the KPI cards above'}
+        </span>
+      </div>
 
       {/* ─── Replenishment Action Panel ─── */}
-      <ReplenishmentActionPanel metricsMap={metricsMap} currency={currency} />
+      {activeView === 'actions' && (
+        <ReplenishmentActionPanel metricsMap={metricsMap} currency={currency} />
+      )}
 
       {/* ─── Risk Table ─── */}
+      {activeView === 'skus' && (
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
         <div className="flex items-center justify-between px-5 pt-4 pb-3">
           <h3 className="text-sm font-semibold text-gray-900">Inventory Risk Table</h3>
@@ -540,23 +590,23 @@ export default function InventoryOverview() {
           </span>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
+        <div>
+          <table className="w-full text-left table-fixed">
             <thead>
               <tr className="border-y border-gray-100">
-                <th className="w-8 px-2" />
+                <th className="w-6 px-1" />
                 <SortableHeader label="SKU" sortKey="sku" currentKey={sortKey} dir={sortDir} onSort={handleSort} />
-                <SortableHeader label="Product" sortKey="title" currentKey={sortKey} dir={sortDir} onSort={handleSort} className="min-w-[160px]" />
+                <SortableHeader label="Product" sortKey="title" currentKey={sortKey} dir={sortDir} onSort={handleSort} />
                 <SortableHeader label="Status" sortKey="status" currentKey={sortKey} dir={sortDir} onSort={handleSort} />
-                <SortableHeader label="Avail (A+I)" sortKey="availableUnits" currentKey={sortKey} dir={sortDir} onSort={handleSort} tooltip="Available + Inbound units. Available = on-hand minus reserved. Inbound = confirmed shipments in transit." />
-                <SortableHeader label="Median/wk" sortKey="medianPerWeek" currentKey={sortKey} dir={sortDir} onSort={handleSort} tooltip="Median weekly unit sales over the last 12 weeks. Uses median (not mean) to reduce the impact of promo spikes or stockout weeks." />
-                <SortableHeader label="Wks on Hand" sortKey="weeksOnHand" currentKey={sortKey} dir={sortDir} onSort={handleSort} tooltip="Weeks of supply remaining = Available ÷ Adjusted Weekly Sales. Adjusted sales factor in upcoming promotional events." />
-                <SortableHeader label="Safety Stk" sortKey="safetyStock" currentKey={sortKey} dir={sortDir} onSort={handleSort} tooltip="King formula safety stock: Z × √(LT × σ²_demand + avgDemand² × σ²_LT). Accounts for both demand variability and lead time variability at the selected service level." />
-                <SortableHeader label="Ideal Inv." sortKey="idealInventory" currentKey={sortKey} dir={sortDir} onSort={handleSort} tooltip="Target on-hand inventory = (Adjusted Weekly Sales × Coverage Weeks) + Safety Stock. DDLT is not included here — it drives WHEN to order (ROP), not how much to stock." />
+                <SortableHeader label="Avail" sortKey="availableUnits" currentKey={sortKey} dir={sortDir} onSort={handleSort} tooltip="Available + Inbound units. Available = on-hand minus reserved. Inbound = confirmed shipments in transit." />
+                <SortableHeader label="Med/wk" sortKey="medianPerWeek" currentKey={sortKey} dir={sortDir} onSort={handleSort} tooltip="Median weekly unit sales over the last 12 weeks. Uses median (not mean) to reduce the impact of promo spikes or stockout weeks." />
+                <SortableHeader label="σ / CV" sortKey="demandCV" currentKey={sortKey} dir={sortDir} onSort={handleSort} tooltip="Daily demand standard deviation (σ) and Coefficient of Variation (CV = σ ÷ avg). Red if CV > 0.5 (highly erratic), yellow if CV > 0.3. Erratic demand inflates required safety stock." />
+                <SortableHeader label="WoH" sortKey="weeksOnHand" currentKey={sortKey} dir={sortDir} onSort={handleSort} tooltip="Weeks on Hand = Available ÷ Adjusted Weekly Sales. Adjusted sales factor in upcoming promotional events." />
+                <SortableHeader label="Safety" sortKey="safetyStock" currentKey={sortKey} dir={sortDir} onSort={handleSort} tooltip="Buffer units above expected demand to absorb sales spikes and supplier delays — sized for your chosen service level (e.g. 95%). Grows when demand or lead time gets more erratic. ROP (Reorder Point) shown below." />
+                <SortableHeader label="Ideal" sortKey="idealInventory" currentKey={sortKey} dir={sortDir} onSort={handleSort} tooltip="Target on-hand inventory = (Adjusted Weekly Sales × Coverage Weeks) + Safety Stock. DDLT shown below drives WHEN to order (ROP), not how much to stock." />
                 <SortableHeader label="Reorder" sortKey="reorderQty" currentKey={sortKey} dir={sortDir} onSort={handleSort} tooltip="Suggested reorder quantity = Ideal Inventory − Available Units. Shows 'OK' when current stock exceeds the ideal level." />
-                <SortableHeader label="Reorder In" sortKey="daysUntilReorder" currentKey={sortKey} dir={sortDir} onSort={handleSort} tooltip="Days until stock hits the reorder point (ROP). 'NOW' = already below ROP. 'TODAY' = hits ROP today. Factors in lead time so you order before stockout." />
-                <SortableHeader label="Rev. at Risk" sortKey="revenueAtRisk" currentKey={sortKey} dir={sortDir} onSort={handleSort} tooltip="Estimated revenue that could be lost if stock runs out before replenishment arrives, based on current sell-through rate and days of projected stockout." />
-                <th className="px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-gray-500 whitespace-nowrap">Flags</th>
+                <SortableHeader label="In" sortKey="daysUntilReorder" currentKey={sortKey} dir={sortDir} onSort={handleSort} tooltip="Days until stock hits the reorder point (ROP). 'NOW' = already below ROP. 'TODAY' = hits ROP today. Factors in lead time so you order before stockout." />
+                <SortableHeader label="Rev @ Risk" sortKey="revenueAtRisk" currentKey={sortKey} dir={sortDir} onSort={handleSort} tooltip="Estimated revenue that could be lost if stock runs out before replenishment arrives, based on current sell-through rate and days of projected stockout." />
               </tr>
             </thead>
             <tbody>
@@ -583,6 +633,7 @@ export default function InventoryOverview() {
           </table>
         </div>
       </div>
+      )}
 
       <div className="flex justify-end">
         <LastRefreshed offsetMinutes={6} />
@@ -688,7 +739,7 @@ function ReplenishmentActionPanel({
 
   // CSV export
   const exportCsv = useCallback(() => {
-    const header = 'SKU,ASIN,Product,Supplier,Status,Current Stock,Reorder Qty,Order By,Stockout Date,Est. Arrival,Unit Cost,Line Total';
+    const header = 'SKU,ASIN,Title,Supplier,Status,Current Stock,Reorder Quantity,Order By Date,Stockout Date,Arrival Date,Unit Cost,Line Total';
     const rows = allItems.map((item) => {
       const m = item.metrics;
       const s = item.sku;
@@ -714,7 +765,7 @@ function ReplenishmentActionPanel({
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `replenishment-${today.toISOString().slice(0, 10)}.csv`;
+    a.download = `clarisix-replenishment-plan-${today.toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }, [allItems, today]);
@@ -959,10 +1010,6 @@ function RiskTableRow({
   leadTimeVarianceDays: number;
 }) {
   const tint = ROW_TINT[sku.status] || '';
-  const flags: string[] = [];
-  if (sku.isStranded) flags.push('Stranded');
-  if (sku.isUnfulfillable) flags.push('Unfulfillable');
-  if (sku.ageBucket === '365+') flags.push('Aging 365+');
 
   const wohDisplay = metrics.weeksOnHand >= 999 ? '∞' : `${metrics.weeksOnHand}`;
 
@@ -1003,6 +1050,24 @@ function RiskTableRow({
         {/* Median/wk */}
         <td className="px-3 py-2.5 text-xs text-gray-700">
           <span className="font-semibold">{metrics.medianPerWeek.toLocaleString()}</span>
+        </td>
+
+        {/* Demand σ + CV */}
+        <td className="px-3 py-2.5 text-xs">
+          {metrics.demandStdDevDaily > 0 ? (
+            <>
+              <span className={`font-semibold ${
+                metrics.demandCV > 0.5 ? 'text-red-600'
+                  : metrics.demandCV > 0.3 ? 'text-yellow-600'
+                  : 'text-gray-700'
+              }`}>
+                ±{metrics.demandStdDevDaily.toFixed(1)}
+              </span>
+              <span className="block text-[10px] text-gray-400">CV {metrics.demandCV.toFixed(2)}</span>
+            </>
+          ) : (
+            <span className="text-gray-300">—</span>
+          )}
         </td>
 
         {/* Weeks on Hand */}
@@ -1060,20 +1125,6 @@ function RiskTableRow({
           )}
         </td>
 
-        {/* Flags */}
-        <td className="px-3 py-2.5">
-          {flags.length > 0 ? (
-            <div className="flex flex-wrap gap-1">
-              {flags.map((f) => (
-                <span key={f} className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-orange-100 text-orange-700">
-                  {f}
-                </span>
-              ))}
-            </div>
-          ) : (
-            <span className="text-gray-300 text-xs">—</span>
-          )}
-        </td>
       </tr>
 
       {/* ─── Expanded Detail ─── */}
@@ -1093,10 +1144,26 @@ function RiskTableRow({
             {/* Metrics summary */}
             <div className="grid grid-cols-4 xl:grid-cols-8 gap-3 mt-4 mb-4">
               {[
-                { label: 'Median/wk', value: metrics.medianPerWeek.toLocaleString(), sub: 'units', tip: 'Median weekly unit sales over last 12 weeks' },
+                {
+                  label: 'Median/wk',
+                  value: metrics.medianPerWeek.toLocaleString(),
+                  sub: 'units',
+                  tip: 'Median weekly unit sales over last 12 weeks',
+                },
                 { label: 'Available', value: metrics.availableUnits.toLocaleString(), sub: `A:${sku.available.toLocaleString()} + I:${sku.inbound.toLocaleString()}`, tip: 'Available (on-hand − reserved) + Inbound units in transit' },
-                { label: 'Weeks on Hand', value: wohDisplay, sub: metrics.riskLevel, tip: 'Available ÷ Adjusted Weekly Sales — how long current stock lasts' },
-                { label: 'Safety Stock', value: metrics.safetyStock.toLocaleString(), sub: `Z=${SERVICE_LEVEL_Z[serviceLevel].toFixed(2)}`, tip: 'King formula: Z × √(LT × σ²_demand + avgDemand² × σ²_LT)' },
+                {
+                  label: 'Weeks on Hand',
+                  value: wohDisplay,
+                  sub: metrics.riskLevel,
+                  tip: 'Available ÷ Adjusted Weekly Sales — how long current stock lasts',
+                },
+                {
+                  label: 'Demand σ / CV',
+                  value: metrics.demandStdDevDaily > 0 ? `±${metrics.demandStdDevDaily.toFixed(1)}` : '—',
+                  sub: `CV ${metrics.demandCV.toFixed(2)}`,
+                  tip: 'Daily demand standard deviation and Coefficient of Variation (σ ÷ avg). Higher volatility drives larger safety stock. CV > 0.5 = highly erratic.',
+                },
+                { label: 'Safety Stock', value: metrics.safetyStock.toLocaleString(), sub: `Z=${SERVICE_LEVEL_Z[serviceLevel].toFixed(2)}`, tip: 'Buffer units held on top of expected demand to absorb sales spikes and supplier delays. Sized so you have a 95% chance (at Z=1.96) of not stocking out before your next delivery. Grows when demand or lead time gets more erratic.' },
                 { label: 'Reorder Point', value: metrics.reorderPoint.toLocaleString(), sub: `DDLT: ${metrics.demandDuringLeadTime.toLocaleString()}`, tip: 'ROP = Demand During Lead Time + Safety Stock. When stock hits this level, place a new order.' },
                 { label: 'Ideal Inventory', value: metrics.idealInventory.toLocaleString(), sub: `Adj. ${metrics.adjustedWeeklySales.toLocaleString()}/wk`, tip: '(Adjusted Weekly Sales × Coverage Weeks) + Safety Stock. DDLT drives when to order (ROP), not how much to stock.' },
                 { label: 'Reorder Qty', value: metrics.reorderQty.toLocaleString(), sub: metrics.reorderQty > 0 ? 'units to order' : 'well stocked', tip: 'Ideal Inventory − Available. How many units to order to reach ideal stock.' },

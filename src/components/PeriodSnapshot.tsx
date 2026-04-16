@@ -11,7 +11,7 @@ const NAV_MAP: Record<string, { section: string; sub: string }> = {
   Sales: { section: 'Sales', sub: 'Overview' },
   TACOS: { section: 'Advertising', sub: 'Overview' },
   Profitability: { section: 'Profitability', sub: 'Overview' },
-  'Out of Stock': { section: 'Inventory', sub: 'Overview' },
+  'Out of Stock': { section: 'Inventory', sub: 'Planner' },
   'Content Score': { section: 'Content', sub: 'Content App Tracking' },
   'Customer Experience': { section: 'Customer Experience', sub: 'Ratings and Reviews' },
 };

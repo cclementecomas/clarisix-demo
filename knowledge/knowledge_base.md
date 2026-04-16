@@ -184,8 +184,84 @@ Replenishment Plan Panel
 - Footer with total SKU count, total units, total estimated cost.
 - Fully reactive to settings changes (coverage, lead time, service level).
 
-Inventory Replenishment (InventoryReplenishment.tsx)
-- DeepDive-style table with tooltip-equipped columns: Demand σ, DDLT, LT ±, Reorder Point, Safety Stock, Suggested Qty.
+Inventory Section Restructure (2026-04-16)
+
+Rationale
+- Replenishment page was redundant with Overview's Replenishment Action Panel. Both answered the same question (what to order, when, how much) but Replenishment used pre-baked static values with no configurable levers. The Overview's live forecast engine (coverage, lead time, service level, promo events) plus urgency bucketing and order-by dates already solved the workflow end-to-end.
+- Performance page was the only distinct view — it answers a different question: "is capital working hard?" (turnover, ROI, sell-through, storage cost, days-on-hand). Kept and enhanced.
+
+Nav Changes
+- Inventory sub-items collapsed from ['Overview', 'Replenishment', 'Performance'] → ['Planner', 'Performance'].
+- 'Overview' renamed to 'Planner' to signal action-oriented ownership of the replenishment workflow. Default sub = 'Planner'.
+- Updated references: dashboardData.ts (KPI navSub, alert navSub), PeriodSnapshot.tsx (Out of Stock card), App.tsx routing.
+- InventoryReplenishment.tsx deleted.
+
+Planner = Former Overview (InventoryOverview.tsx)
+- View switcher (segmented control) below KPI row toggles between two panels:
+  - "Action Queue" (default) — ReplenishmentActionPanel with NOW/SOON/PLAN urgency buckets, order-by dates, CSV export.
+  - "SKU Inventory" — full Risk Table with all SKUs.
+- KPI card clicks auto-switch to "SKU Inventory" view and apply the filter (keeps discoverable filter UX while defaulting users to the action-oriented view).
+- Migrated from Replenishment:
+  - Demand σ / CV column added to Risk Table between Median/wk and Wks on Hand. CV > 0.5 = red (highly erratic), CV > 0.3 = yellow.
+  - avgDailySales PoP/LY deltas now render inline under Median/wk cell (DeltaLine helper).
+  - daysOfSupply PoP/LY deltas render under Wks on Hand cell.
+  - Expanded row metric grid expanded from 8 → 9 tiles, adding Demand σ / CV tile, plus DeltaLine under Median/wk and Weeks on Hand tiles.
+- DeltaLine component: green/red/gray "PoP +X.X% · LY +Y.Y%" in 10px font under the primary value.
+- ComputedMetrics type extended with demandStdDevDaily + demandCV fields.
+
+Performance (InventoryPerformance.tsx)
+- Sticky filter bar at top (parity with Planner): search, category dropdown, Dead Stock toggle button with count badge.
+- 4 summary cards above the table:
+  - Capital Parked (red tint, clickable) — inventoryValue summed across dead-stock SKUs (daysOnHand > 180). Clicking activates the dead-stock filter.
+  - Monthly Storage Drag (orange tint) — storageCostMonthly summed across dead-stock SKUs.
+  - Avg Turnover (neutral) — portfolio mean, baseline 6–10x healthy.
+  - Avg ROI (neutral) — portfolio mean gross profit ÷ inventory value.
+- Dead Stock Action Strip — when the Dead Stock Only filter is active, a red banner appears above the table with inline CTAs: Liquidate / Discount Campaign / Create Removal Order.
+- Trend column — inline SVG sparkline over 12-week weeklyVelocity. Stroke color green if end > start, red otherwise. Uses valueFormatter returning React.ReactNode.
+- DEAD_STOCK_THRESHOLD_DAYS = 180.
+- Warehouse child rows removed (were static clones of the parent — not useful here; Planner has them on expansion).
+- Totals row now reflects the filtered subset, not the full dataset.
+
+Files Changed
+- src/data/dashboardData.ts — menu labels, KPI/alert navSub refs.
+- src/App.tsx — removed import/route; Inventory now matches activeSub 'Planner'.
+- src/components/PeriodSnapshot.tsx — Out of Stock card now navigates to Inventory/Planner.
+- src/components/InventoryOverview.tsx — Demand σ column, DeltaLine, tab switcher, expanded row metric grid.
+- src/components/InventoryPerformance.tsx — rewritten with filters, summary cards, sparkline, dead-stock CTAs.
+- src/components/InventoryReplenishment.tsx — deleted.
+
+Inventory Refinements (2026-04-16)
+
+Risk Table Condensation (Planner)
+- Flags column removed — low signal, crowded the row (Stranded / Unfulfillable / Aging 365+ are already visible via the tinted row background and status badge).
+- PoP/LY DeltaLine removed from Wks on Hand and Median/wk cells (and matching expanded-row tiles). Absolute values drive action on Planner; period deltas belong on Sales/Performance.
+- Table switched to `table-fixed`, `overflow-x-auto` dropped. Column headers shortened (Avail, Med/wk, σ / CV, WoH, Safety, Ideal, Reorder, In, Rev @ Risk) so 13 columns fit without horizontal scroll.
+- DeltaLine component deleted (no remaining callers). colSpan updated 14 → 13.
+
+Safety Stock Tooltip (Planner)
+- Replaced the raw King formula with plain-English: "Buffer units above expected demand to absorb sales spikes and supplier delays, sized for your chosen service level (e.g. 95%). Grows when demand or lead time gets more erratic."
+- Applied to both column header and expanded-row metric tile.
+
+Replenishment Plan CSV
+- Column headers aligned to deep-dive Title Case: Product→Title, Reorder Qty→Reorder Quantity, Order By→Order By Date, Est. Arrival→Arrival Date. SKU/ASIN stay uppercase.
+- Filename pattern aligned to app-wide `clarisix-<thing>-YYYY-MM-DD.ext` (matches snapshot, trend, score exports): `replenishment-YYYY-MM-DD.csv` → `clarisix-replenishment-plan-YYYY-MM-DD.csv`.
+
+GMROI Redesign (Performance)
+- ROI column renamed GMROI, annualized (×12 from monthly basis) to match industry-standard framing. Bands shifted to industry benchmark: ≥300% green, 150–300% yellow, <150% red.
+- Tooltip rewritten to expose the identity: "GMROI = Gross Margin % × Inventory Turns. 100% = inventory paid back once per year; 300% = three times. Gross only — excludes ads, FBA fees, storage."
+- New Gross Margin column added (gross profit ÷ revenue, derived on the fly from existing roi + cogs + inventoryValue). Bands: ≥50% green, 30–50% yellow, <30% red.
+- Summary cards 4 → 5: inserted Avg Gross Margin between Avg Turnover and Avg GMROI. Each card's tooltip names its role in the GMROI = Margin × Turns identity.
+- Rationale: plain ROI over a spot snapshot was period-ambiguous and poorly benchmarked. Annualizing makes the number comparable to ad ROAS / T-bills, and showing the decomposition exposes the two levers (margin vs turnover) an operator can act on.
+- Known limitations documented in tooltip: gross only (excludes ads/FBA/storage); annualized extrapolation distorts for launches and seasonal SKUs.
+
+Performance Table PoP/LY Cleanup
+- All PoP/LY subcolumns removed from Performance table (Units Sold, Sell-Through %, Turnover, Storage Cost/mo, GMROI). These KPIs are steady-state capital-efficiency ratios — "is this SKU pulling its weight now?" reads — not week-over-week trend indicators.
+- pctSub/ppSub helpers and percentFormatter/percentCellStyle/ppFormatter imports removed.
+
+DeepDiveTable — Auto-hide PoP/LY Toggle
+- The PoP/LY toggle button group in the table toolbar now only renders when at least one column has `subFields`. Prevents dead controls on tables where period deltas aren't defined (e.g. Inventory Performance).
+- Non-breaking for every other page: sales, advertising, profitability deep dives still show the toggle because their columns carry subFields.
+
 
 InfoTooltips — Global Rollout
 - All KPI cards across all sections now have contextual tooltip content (not empty placeholders).

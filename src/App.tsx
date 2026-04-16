@@ -10,7 +10,6 @@ import AdvertisingOverview from './components/AdvertisingOverview';
 import AdvertisingDeepDive from './components/AdvertisingDeepDive';
 import Budgets from './components/Budgets';
 import InventoryOverview from './components/InventoryOverview';
-import InventoryReplenishment from './components/InventoryReplenishment';
 import InventoryPerformance from './components/InventoryPerformance';
 import ContentTracker from './components/ContentTracker';
 import Profitability from './components/Profitability';
@@ -138,11 +137,8 @@ export default function App() {
     if (activeSection === 'Advertising' && activeSub === 'Budgets') {
       return <Budgets />;
     }
-    if (activeSection === 'Inventory' && activeSub === 'Overview') {
+    if (activeSection === 'Inventory' && activeSub === 'Planner') {
       return <InventoryOverview />;
-    }
-    if (activeSection === 'Inventory' && activeSub === 'Replenishment') {
-      return <InventoryReplenishment />;
     }
     if (activeSection === 'Inventory' && activeSub === 'Performance') {
       return <InventoryPerformance />;

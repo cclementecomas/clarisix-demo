@@ -533,29 +533,31 @@ export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottom
               </div>
             </div>
           )}
-          <div className="flex items-center gap-1 border border-gray-200 rounded-lg overflow-hidden">
-            <button
-              onClick={() => setShowPoP(!showPoP)}
-              className={`px-2.5 py-1 text-[11px] font-semibold transition-colors ${
-                showPoP
-                  ? 'bg-cx-500 text-white'
-                  : 'bg-white text-gray-400 hover:text-gray-600'
-              }`}
-            >
-              PoP
-            </button>
-            <div className="w-px h-4 bg-gray-200" />
-            <button
-              onClick={() => setShowLY(!showLY)}
-              className={`px-2.5 py-1 text-[11px] font-semibold transition-colors ${
-                showLY
-                  ? 'bg-cx-500 text-white'
-                  : 'bg-white text-gray-400 hover:text-gray-600'
-              }`}
-            >
-              LY
-            </button>
-          </div>
+          {columnDefs.some((c) => c.subFields && c.subFields.length > 0) && (
+            <div className="flex items-center gap-1 border border-gray-200 rounded-lg overflow-hidden">
+              <button
+                onClick={() => setShowPoP(!showPoP)}
+                className={`px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                  showPoP
+                    ? 'bg-cx-500 text-white'
+                    : 'bg-white text-gray-400 hover:text-gray-600'
+                }`}
+              >
+                PoP
+              </button>
+              <div className="w-px h-4 bg-gray-200" />
+              <button
+                onClick={() => setShowLY(!showLY)}
+                className={`px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                  showLY
+                    ? 'bg-cx-500 text-white'
+                    : 'bg-white text-gray-400 hover:text-gray-600'
+                }`}
+              >
+                LY
+              </button>
+            </div>
+          )}
           <ColumnToggle
             columns={columnDefs}
             visibleColumns={visibleColumns}

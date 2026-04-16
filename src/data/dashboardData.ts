@@ -47,7 +47,7 @@ export const kpiData = [
     lyPositive: false,
     sparkline: [2.8, 3.1, 2.5, 3.4, 3.0, 3.6, 3.2, 3.8, 3.5, 4.0, 3.9, 4.2],
     navSection: 'Inventory',
-    navSub: 'Overview',
+    navSub: 'Planner',
   },
   {
     label: 'Content Score',
@@ -184,7 +184,7 @@ export const homeAlerts: HomeAlert[] = [
     description: 'B0DEMO001X, B0DEMO002X, and B0DEMO003X will run out within 7 days based on current velocity.',
     timestamp: '2 hours ago',
     navSection: 'Inventory',
-    navSub: 'Overview',
+    navSub: 'Planner',
   },
   {
     id: 'a2',
@@ -408,8 +408,8 @@ export const menuItems = [
   {
     label: 'Inventory',
     icon: 'Package',
-    subItems: ['Overview', 'Replenishment', 'Performance'],
-    defaultSub: 'Overview',
+    subItems: ['Planner', 'Performance'],
+    defaultSub: 'Planner',
     comingSoonSubs: [],
   },
   {
