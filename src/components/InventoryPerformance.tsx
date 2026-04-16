@@ -56,13 +56,7 @@ export default function InventoryPerformance() {
 
   // Filter state
   const [searchQuery, setSearchQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState<string>('All');
   const [deadStockOnly, setDeadStockOnly] = useState(false);
-
-  const categories = useMemo(() => {
-    const set = new Set(inventoryData.map((d) => d.category));
-    return ['All', ...Array.from(set).sort()];
-  }, []);
 
   // ─── Dead-stock summary ───────────────────────────────────────────────────
   const deadStockItems = useMemo(
@@ -108,14 +102,11 @@ export default function InventoryPerformance() {
           d.category.toLowerCase().includes(q)
       );
     }
-    if (categoryFilter !== 'All') {
-      data = data.filter((d) => d.category === categoryFilter);
-    }
     if (deadStockOnly) {
       data = data.filter((d) => d.daysOnHand > DEAD_STOCK_THRESHOLD_DAYS);
     }
     return [...data].sort((a, b) => b.unitsSold - a.unitsSold);
-  }, [searchQuery, categoryFilter, deadStockOnly]);
+  }, [searchQuery, deadStockOnly]);
 
   const rows = useMemo<Row[]>(
     () =>
@@ -296,16 +287,6 @@ export default function InventoryPerformance() {
               className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-cx-500/20 focus:border-cx-400"
             />
           </div>
-
-          <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
-            className="px-3 py-1.5 text-[11px] font-semibold rounded-lg border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-cx-500/20 text-gray-700"
-          >
-            {categories.map((c) => (
-              <option key={c} value={c}>{c === 'All' ? 'All Categories' : c}</option>
-            ))}
-          </select>
 
           <button
             onClick={() => setDeadStockOnly((v) => !v)}

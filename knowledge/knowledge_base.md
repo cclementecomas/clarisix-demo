@@ -262,6 +262,10 @@ DeepDiveTable — Auto-hide PoP/LY Toggle
 - The PoP/LY toggle button group in the table toolbar now only renders when at least one column has `subFields`. Prevents dead controls on tables where period deltas aren't defined (e.g. Inventory Performance).
 - Non-breaking for every other page: sales, advertising, profitability deep dives still show the toggle because their columns carry subFields.
 
+Category Filter Removed from Performance Controls
+- Local "All Categories" dropdown removed from Performance sticky controls bar — redundant with the global Marketplace / Brand / Category filters at the page-header level. `categoryFilter` state, `categories` memo, and filter branch all removed.
+- Sticky controls bar now only carries search + Dead Stock toggle (the two filters that don't have a global equivalent).
+
 
 InfoTooltips — Global Rollout
 - All KPI cards across all sections now have contextual tooltip content (not empty placeholders).
