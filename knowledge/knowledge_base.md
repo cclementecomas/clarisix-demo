@@ -292,6 +292,11 @@ Advertising Filter Bar Scoping (2026-04-17)
 - All other pages (Sales, Inventory, Profitability, Traffic, etc.) keep the full filter set unchanged.
 - Implementation: Navigation.tsx checks `activeSection === 'Advertising'` and `campaignNamingEnabled` from AccountSpecificsContext to conditionally render filters.
 
+Advertising Budgets — Global Filters Removed (2026-04-17)
+- Entire global filter bar (Marketplace, Brand, Category, etc.) and date filter (From/To + calendar picker) hidden on the Advertising Budgets page. Budgets is a forward-looking planning view — historical date ranges and dimension filters don't apply.
+- Data is shown for YTD. A year selector for viewing past budget data is planned as a future addition.
+- First page with no global filter bar; precedent is justified because forcing irrelevant filters is worse than showing none.
+
 
 InfoTooltips — Global Rollout
 - All KPI cards across all sections now have contextual tooltip content (not empty placeholders).

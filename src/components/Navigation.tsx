@@ -276,7 +276,7 @@ export default function Navigation({ activeSection, activeSub, sidebarCollapsed,
           )}
         </div>
         <div className="flex items-center gap-2">
-          {!isOnboarding && (currentPage === 'dashboard' || currentPage === 'home') && (
+          {!isOnboarding && (currentPage === 'dashboard' || currentPage === 'home') && !(activeSection === 'Advertising' && activeSub === 'Budgets') && (
             <>
               <div className="hidden md:flex items-center gap-2 text-sm">
                 <span className="text-gray-400 font-medium">From</span>
@@ -318,7 +318,7 @@ export default function Navigation({ activeSection, activeSub, sidebarCollapsed,
         </div>
       </div>
 
-      {!isOnboarding && (currentPage === 'dashboard' || currentPage === 'home') && (() => {
+      {!isOnboarding && (currentPage === 'dashboard' || currentPage === 'home') && !(activeSection === 'Advertising' && activeSub === 'Budgets') && (() => {
         const isAds = activeSection === 'Advertising';
         return (
           <div className={`flex items-center px-3 md:px-6 py-1.5 bg-gray-50/50 gap-2 flex-wrap ${isEmbed ? 'hidden md:flex' : ''}`}>
