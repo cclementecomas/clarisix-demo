@@ -313,6 +313,28 @@ Settings → Account → Data Mapping
 - Upload button (drag-and-drop + browse) accepts an updated CSV; shows confirmation with filename and row count.
 - Workflow: download → append/edit in spreadsheet → re-upload. Changes apply immediately to all filters and breakdown tables.
 
+IPI Score + Storage Limits (2026-04-17)
+
+Data Layer (inventoryData.ts)
+- New `IPIData` interface and `ipiData` export: IPI score, last updated date, per-storage-type breakdown (Standard-Size, Oversize, Apparel, Footwear) with used/limit/utilization cu ft, and total utilization.
+- Sourced from Amazon SP-API FBA Inventory API (`getInventoryPlanningData`, `getStorageFootprint`). IPI updated weekly by Amazon.
+
+Planner Banner (InventoryOverview.tsx)
+- Amber alert banner shown between settings panel and KPI row when IPI < 400 or total utilization > 85%.
+- Displays IPI score badge (red if < 350, amber if < 400), utilization % badge, actionable guidance text, and per-storage-type utilization bars for any type above 75%.
+
+Performance Card (InventoryPerformance.tsx)
+- "Space Utilization" summary card added next to "Capital Parked" (grid 5 → 6 cols). Shows total utilization %, IPI score, cu ft used/limit. Orange tone when utilization > 85%.
+
+Storage-Aware Replenishment Caps (InventoryOverview.tsx)
+- Two-level system applied after sorting replenishment items by stockout urgency:
+  - **Soft warning** (utilization 75–90% or IPI 350–400): original order qty unchanged, amber warehouse icon + tooltip on every row ("confirm FBA capacity before shipping").
+  - **Hard cap** (utilization > 90% or IPI < 350): qty reduced to fit remaining cu ft (0.5 cu ft/unit estimate), most-urgent SKUs allocated first. Original qty struck through, adjusted qty in red. Zero-capacity SKUs show "—" with tooltip.
+- Replenishment header shows inline storage badge when caps active: "Storage X% · ~N units left", colored amber (soft) or red (hard).
+- Footer totals show struck-through original unit count when hard caps reduce quantities.
+- CSV export extended with two columns: "Adjusted Quantity" and "Storage Note".
+- Demo data: IPI 372, utilization 77.4% → triggers soft level. Set IPI < 350 or utilization > 90% to test hard caps.
+
 
 InfoTooltips — Global Rollout
 - All KPI cards across all sections now have contextual tooltip content (not empty placeholders).

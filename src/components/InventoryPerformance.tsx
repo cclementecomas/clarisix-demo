@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Search, AlertOctagon, TrendingUp, Package, Coins } from 'lucide-react';
-import { inventoryData, type InventorySKU } from '../data/inventoryData';
+import { Search, AlertOctagon, TrendingUp, Package, Coins, Warehouse } from 'lucide-react';
+import { inventoryData, ipiData, type InventorySKU } from '../data/inventoryData';
 import DeepDiveTable, {
   type ColumnDef,
   currencyFormatter,
@@ -307,7 +307,7 @@ export default function InventoryPerformance() {
       </div>
 
       {/* ─── Summary Cards ─── */}
-      <div className="grid grid-cols-2 xl:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 xl:grid-cols-6 gap-3">
         <SummaryCard
           icon={<Coins className="w-4 h-4 text-red-500" />}
           label="Capital Parked"
@@ -316,6 +316,14 @@ export default function InventoryPerformance() {
           tone="red"
           tip="Inventory value tied up in dead stock (days on hand > 180). Capital that could otherwise fund faster-moving SKUs."
           onClick={() => setDeadStockOnly(true)}
+        />
+        <SummaryCard
+          icon={<Warehouse className="w-4 h-4 text-orange-500" />}
+          label="Space Utilization"
+          value={`${ipiData.totalUtilization}%`}
+          subtitle={`IPI ${ipiData.ipiScore} · ${ipiData.totalUsedCuFt.toLocaleString()} / ${ipiData.totalLimitCuFt.toLocaleString()} cu ft`}
+          tone={ipiData.totalUtilization > 85 ? 'orange' : 'neutral'}
+          tip="FBA storage utilization — current cubic feet used vs. your storage limit. IPI (Inventory Performance Index) below 400 triggers Amazon storage restrictions. Improve by clearing aged, stranded, and overstock inventory."
         />
         <SummaryCard
           icon={<Package className="w-4 h-4 text-orange-500" />}

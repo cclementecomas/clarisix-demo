@@ -10,6 +10,7 @@ import {
 import {
   inventoryData,
   controlTowerKPIs,
+  ipiData,
 } from '../data/inventoryData';
 import type { InventorySKU, ControlTowerKPI, FulfillmentType } from '../data/inventoryData';
 import { useCurrency } from '../contexts/CurrencyContext';
@@ -539,6 +540,53 @@ export default function InventoryOverview() {
         </div>
       )}
 
+      {/* ─── IPI / Storage Banner ─── */}
+      {(ipiData.ipiScore < 400 || ipiData.totalUtilization > 85) && (
+        <div className="flex items-start gap-3 px-4 py-3 rounded-xl border border-amber-200 bg-amber-50">
+          <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-3 flex-wrap">
+              <h4 className="text-sm font-semibold text-amber-900">FBA Storage Alert</h4>
+              <div className="flex items-center gap-2">
+                {ipiData.ipiScore < 400 && (
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-bold rounded-md ${
+                    ipiData.ipiScore < 350 ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'
+                  }`}>
+                    IPI {ipiData.ipiScore}
+                  </span>
+                )}
+                {ipiData.totalUtilization > 85 && (
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-bold rounded-md ${
+                    ipiData.totalUtilization > 95 ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'
+                  }`}>
+                    {ipiData.totalUtilization}% utilized
+                  </span>
+                )}
+              </div>
+            </div>
+            <p className="text-xs text-amber-800 mt-1 leading-relaxed">
+              {ipiData.ipiScore < 400 && `Your IPI score (${ipiData.ipiScore}) is below Amazon's 400 threshold — storage limits may be restricted next quarter. `}
+              {ipiData.totalUtilization > 85 && `Storage utilization is at ${ipiData.totalUtilization}% (${ipiData.totalUsedCuFt.toLocaleString()} / ${ipiData.totalLimitCuFt.toLocaleString()} cu ft). `}
+              Improve by clearing aged inventory, creating removal orders for stranded/unfulfillable stock, and accelerating sell-through on overstock SKUs.
+            </p>
+            <div className="flex items-center gap-4 mt-2">
+              {ipiData.storageTypes.filter((s) => s.utilization > 75).map((s) => (
+                <div key={s.type} className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-medium text-amber-700">{s.type}</span>
+                  <div className="w-16 h-1.5 rounded-full bg-amber-200 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${s.utilization > 90 ? 'bg-red-500' : 'bg-amber-500'}`}
+                      style={{ width: `${Math.min(s.utilization, 100)}%` }}
+                    />
+                  </div>
+                  <span className="text-[10px] font-bold text-amber-800">{s.utilization}%</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ─── KPI Row ─── */}
       <KPIRow kpis={controlTowerKPIs} currency={currency} activeFilter={activeKpiFilter} onFilter={handleKpiFilter} />
 
@@ -686,13 +734,19 @@ function KPIRow({
 
 // ─── Replenishment Action Panel ──────────────────────────────────────────────
 
+type StorageCapLevel = 'none' | 'soft' | 'hard';
+
 interface ActionSku {
   sku: InventorySKU;
   metrics: ComputedMetrics;
   orderByDate: Date;
   stockoutDate: Date;
   arrivalDate: Date;
+  cappedQty: number;
+  capLevel: StorageCapLevel;
 }
+
+const EST_CUFT_PER_UNIT = 0.5;
 
 function ReplenishmentActionPanel({
   metricsMap,
@@ -706,14 +760,13 @@ function ReplenishmentActionPanel({
   const fmtDate = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   const addDays = (base: Date, n: number) => new Date(base.getTime() + n * 86400000);
 
-  // Build enriched list sorted by urgency
+  // Build enriched list sorted by urgency, then apply storage cap
   const allItems = useMemo(() => {
     const items: ActionSku[] = [];
 
     for (const sku of inventoryData) {
       const m = metricsMap.get(sku.sku);
       if (!m) continue;
-      // Only include SKUs that need replenishment
       if (m.reorderQty <= 0) continue;
 
       items.push({
@@ -722,11 +775,43 @@ function ReplenishmentActionPanel({
         orderByDate: addDays(today, Math.max(0, m.daysUntilReorder)),
         stockoutDate: addDays(today, m.daysUntilStockout),
         arrivalDate: addDays(today, Math.max(0, m.daysUntilReorder) + m.leadTimeDays),
+        cappedQty: m.reorderQty,
+        capLevel: 'none',
       });
     }
 
     // Sort: most urgent first (OOS → fewest days until stockout → fewest days until reorder)
     items.sort((a, b) => a.metrics.daysUntilStockout - b.metrics.daysUntilStockout);
+
+    // ── Storage-aware cap pass ──
+    const util = ipiData.totalUtilization;
+    const ipi = ipiData.ipiScore;
+    const isHard = util > 90 || ipi < 350;
+    const isSoft = !isHard && (util > 75 || ipi < 400);
+
+    if (isHard) {
+      let remainingCuFt = Math.max(0, ipiData.totalLimitCuFt - ipiData.totalUsedCuFt);
+      for (const item of items) {
+        const neededCuFt = item.metrics.reorderQty * EST_CUFT_PER_UNIT;
+        if (remainingCuFt <= 0) {
+          item.cappedQty = 0;
+          item.capLevel = 'hard';
+        } else if (neededCuFt > remainingCuFt) {
+          item.cappedQty = Math.floor(remainingCuFt / EST_CUFT_PER_UNIT);
+          item.capLevel = 'hard';
+          remainingCuFt = 0;
+        } else {
+          item.cappedQty = item.metrics.reorderQty;
+          item.capLevel = 'hard';
+          remainingCuFt -= neededCuFt;
+        }
+      }
+    } else if (isSoft) {
+      for (const item of items) {
+        item.capLevel = 'soft';
+      }
+    }
+
     return items;
   }, [metricsMap, today]);
 
@@ -734,17 +819,26 @@ function ReplenishmentActionPanel({
   const soon = allItems.filter((i) => !i.metrics.needsReorderNow && i.metrics.daysUntilStockout > 0 && i.metrics.daysUntilReorder <= 14);
   const later = allItems.filter((i) => !i.metrics.needsReorderNow && i.metrics.daysUntilStockout > 0 && i.metrics.daysUntilReorder > 14);
 
-  const totalUnits = allItems.reduce((s, i) => s + i.metrics.reorderQty, 0);
-  const totalCost = allItems.reduce((s, i) => s + i.metrics.reorderQty * i.sku.unitCost, 0);
+  const totalUnits = allItems.reduce((s, i) => s + i.cappedQty, 0);
+  const totalCost = allItems.reduce((s, i) => s + i.cappedQty * i.sku.unitCost, 0);
+  const totalOriginalUnits = allItems.reduce((s, i) => s + i.metrics.reorderQty, 0);
+  const hasCaps = allItems.some((i) => i.capLevel !== 'none');
+  const hasHardCaps = allItems.some((i) => i.capLevel === 'hard' && i.cappedQty < i.metrics.reorderQty);
+  const remainingCapacityCuFt = Math.max(0, ipiData.totalLimitCuFt - ipiData.totalUsedCuFt);
+  const remainingCapacityUnits = Math.floor(remainingCapacityCuFt / EST_CUFT_PER_UNIT);
 
   // CSV export
   const exportCsv = useCallback(() => {
-    const header = 'SKU,ASIN,Title,Supplier,Status,Current Stock,Reorder Quantity,Order By Date,Stockout Date,Arrival Date,Unit Cost,Line Total';
+    const header = 'SKU,ASIN,Title,Supplier,Status,Current Stock,Reorder Quantity,Adjusted Quantity,Storage Note,Order By Date,Stockout Date,Arrival Date,Unit Cost,Line Total';
     const rows = allItems.map((item) => {
       const m = item.metrics;
       const s = item.sku;
       const isOOS = m.daysUntilStockout === 0;
       const status = isOOS ? 'Out of Stock' : m.needsReorderNow ? 'Order Now' : m.daysUntilReorder <= 14 ? 'Order Soon' : 'Monitor';
+      const storageNote =
+        item.capLevel === 'hard' && item.cappedQty < m.reorderQty
+          ? item.cappedQty === 0 ? 'No remaining capacity' : `Reduced — storage at ${ipiData.totalUtilization}%`
+          : item.capLevel === 'soft' ? `Confirm capacity — storage at ${ipiData.totalUtilization}%` : '';
       return [
         s.sku,
         s.asin,
@@ -753,11 +847,13 @@ function ReplenishmentActionPanel({
         status,
         m.availableUnits,
         m.reorderQty,
+        item.cappedQty,
+        `"${storageNote}"`,
         fmtDate(item.orderByDate),
         fmtDate(item.stockoutDate),
         fmtDate(item.arrivalDate),
         s.unitCost.toFixed(2),
-        (m.reorderQty * s.unitCost).toFixed(2),
+        (item.cappedQty * s.unitCost).toFixed(2),
       ].join(',');
     });
     const csv = [header, ...rows].join('\n');
@@ -825,10 +921,41 @@ function ReplenishmentActionPanel({
             </span>
           </td>
           <td className="px-3 py-2 text-right">
-            <span className="text-[11px] font-semibold text-gray-800">{m.reorderQty.toLocaleString()}</span>
+            <div className="flex items-center justify-end gap-1.5">
+              {item.capLevel === 'hard' && item.cappedQty < m.reorderQty ? (
+                <>
+                  <span className="text-[10px] text-gray-400 line-through">{m.reorderQty.toLocaleString()}</span>
+                  {item.cappedQty > 0 ? (
+                    <span className="text-[11px] font-semibold text-red-700">{item.cappedQty.toLocaleString()}</span>
+                  ) : (
+                    <span className="text-[10px] font-semibold text-red-500">—</span>
+                  )}
+                  <div className="group relative">
+                    <Package className="w-3 h-3 text-red-400 cursor-help" />
+                    <div className="absolute bottom-full right-0 mb-1.5 w-52 px-2.5 py-1.5 text-[10px] text-red-800 bg-red-50 border border-red-200 rounded-lg shadow-lg opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity z-50">
+                      {item.cappedQty === 0
+                        ? 'No remaining FBA capacity — clear aged or overstock inventory first.'
+                        : `Reduced from ${m.reorderQty.toLocaleString()} to ${item.cappedQty.toLocaleString()} — storage at ${ipiData.totalUtilization}%. Prioritized by stockout urgency.`}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <span className="text-[11px] font-semibold text-gray-800">{m.reorderQty.toLocaleString()}</span>
+                  {item.capLevel === 'soft' && (
+                    <div className="group relative">
+                      <Package className="w-3 h-3 text-amber-400 cursor-help" />
+                      <div className="absolute bottom-full right-0 mb-1.5 w-48 px-2.5 py-1.5 text-[10px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg shadow-lg opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity z-50">
+                        Storage at {ipiData.totalUtilization}% — confirm FBA capacity before shipping.
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
           </td>
           <td className="px-3 py-2 text-right">
-            <span className="text-[10px] text-gray-500">{fc(m.reorderQty * item.sku.unitCost, currency)}</span>
+            <span className="text-[10px] text-gray-500">{fc(item.cappedQty * item.sku.unitCost, currency)}</span>
           </td>
         </tr>
       );
@@ -851,6 +978,14 @@ function ReplenishmentActionPanel({
             <span className="text-[10px] text-gray-400">
               {allItems.length} SKUs · {totalUnits.toLocaleString()} units · {fc(totalCost, currency)}
             </span>
+            {hasCaps && (
+              <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
+                hasHardCaps ? 'text-red-700 bg-red-50' : 'text-amber-700 bg-amber-50'
+              }`}>
+                <Package className="w-2.5 h-2.5 inline -mt-px mr-0.5" />
+                Storage {ipiData.totalUtilization}% · ~{remainingCapacityUnits.toLocaleString()} units left
+              </span>
+            )}
           </div>
         </div>
         <button
@@ -950,7 +1085,10 @@ function ReplenishmentActionPanel({
         </span>
         <div className="flex items-center gap-4">
           <span className="text-[10px] text-gray-500">
-            Total units: <span className="font-semibold text-gray-700">{totalUnits.toLocaleString()}</span>
+            Total units: {hasHardCaps && (
+              <span className="text-gray-400 line-through mr-1">{totalOriginalUnits.toLocaleString()}</span>
+            )}
+            <span className="font-semibold text-gray-700">{totalUnits.toLocaleString()}</span>
           </span>
           <span className="text-[10px] text-gray-500">
             Est. cost: <span className="font-semibold text-gray-700">{fc(totalCost, currency)}</span>

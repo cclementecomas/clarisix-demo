@@ -594,6 +594,43 @@ export const controlTowerKPIs: ControlTowerKPI[] = (() => {
   ] as ControlTowerKPI[];
 })();
 
+// ─── IPI Score & Storage Limits (from FBA Inventory API) ────────────────────
+
+export interface StorageType {
+  type: string;
+  usedCuFt: number;
+  limitCuFt: number;
+  utilization: number;
+}
+
+export interface IPIData {
+  ipiScore: number;
+  lastUpdated: string;
+  storageTypes: StorageType[];
+  totalUsedCuFt: number;
+  totalLimitCuFt: number;
+  totalUtilization: number;
+}
+
+export const ipiData: IPIData = (() => {
+  const storageTypes: StorageType[] = [
+    { type: 'Standard-Size', usedCuFt: 14_820, limitCuFt: 17_000, utilization: 87.2 },
+    { type: 'Oversize', usedCuFt: 3_410, limitCuFt: 5_000, utilization: 68.2 },
+    { type: 'Apparel', usedCuFt: 890, limitCuFt: 2_000, utilization: 44.5 },
+    { type: 'Footwear', usedCuFt: 220, limitCuFt: 1_000, utilization: 22.0 },
+  ];
+  const totalUsedCuFt = storageTypes.reduce((s, t) => s + t.usedCuFt, 0);
+  const totalLimitCuFt = storageTypes.reduce((s, t) => s + t.limitCuFt, 0);
+  return {
+    ipiScore: 372,
+    lastUpdated: '2026-04-14',
+    storageTypes,
+    totalUsedCuFt,
+    totalLimitCuFt,
+    totalUtilization: Math.round((totalUsedCuFt / totalLimitCuFt) * 1000) / 10,
+  };
+})();
+
 // ─── Action Queue ───────────────────────────────────────────────────────────
 
 export interface ActionQueueItem {
