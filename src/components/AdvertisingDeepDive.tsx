@@ -15,6 +15,7 @@ import InfoTooltip from './InfoTooltip';
 import LastRefreshed from './LastRefreshed';
 import { useCurrency } from '../contexts/CurrencyContext';
 import type { Currency } from '../contexts/CurrencyContext';
+import { useAccountSpecifics } from '../contexts/AccountSpecificsContext';
 import {
   placementRows, placementRowsSP, placementRowsSB,
   audienceRows,
@@ -368,6 +369,7 @@ function useSectionControls(initCols: ColumnDef[], hiddenByDefault: string[] = [
 
 export default function AdvertisingDeepDive() {
   const { currency } = useCurrency();
+  const { audienceLabelingEnabled } = useAccountSpecifics();
 
   // ── Global ad type filter ──
   const [adType, setAdType] = useState<AdType>('All');
@@ -620,38 +622,46 @@ export default function AdvertisingDeepDive() {
           : <DeepDiveTable title="" embedded showPoP={st.showPoP} onPoPChange={st.setShowPoP} showLY={st.showLY} onLYChange={st.setShowLY} selectMode={st.selMode} onSelectModeChange={st.setSelMode} onSelectedValuesChange={st.setSelVals} visibleColumnsOverride={st.visCols} rowData={stData} columnDefs={stCols} />}
       </>)}
 
-      {/* 6 — Performance by Audience (locked / requires account-level setup) */}
-      {sectionCard(<>
-        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
-          <div className="flex items-center gap-1.5">
-            <h3 className="text-sm font-semibold text-gray-900">Performance by Audience</h3>
-            <InfoTooltip content="Ad metrics split by audience segment (e.g., remarketing, in-market, lifestyle). Requires audience labeling to be configured at the account level." />
-          </div>
-          <div className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-amber-50 text-amber-700 border border-amber-200">
-            <Lock className="w-3 h-3" />
-            Not configured
-          </div>
-        </div>
-        <div className="relative">
-          <div className="pointer-events-none select-none opacity-30 blur-[1.5px]">
+      {/* 6 — Performance by Audience (gated on audience labeling toggle) */}
+      {audienceLabelingEnabled
+        ? sectionCard(<>
+            {sectionHeader('Performance by Audience', audView, setAudView, STANDARD_METRICS, audMet, setAudMet, audData, undefined, false, { cols: audCols, showPoP: aud.showPoP, setShowPoP: aud.setShowPoP, showLY: aud.showLY, setShowLY: aud.setShowLY, selMode: aud.selMode, setSelMode: aud.setSelMode, visCols: aud.visCols, toggleCol: aud.toggleCol }, 'Ad metrics split by audience segment (e.g., remarketing, in-market, lifestyle).')}
             {audView === 'chart'
               ? <div className="p-5"><SmallMultiplesChart data={audData} dimKey="segment" metrics={STANDARD_METRICS} selectedMetrics={audMet} currency={currency} /></div>
               : <DeepDiveTable title="" embedded showPoP={aud.showPoP} onPoPChange={aud.setShowPoP} showLY={aud.showLY} onLYChange={aud.setShowLY} selectMode={aud.selMode} onSelectModeChange={aud.setSelMode} onSelectedValuesChange={aud.setSelVals} visibleColumnsOverride={aud.visCols} rowData={audData} columnDefs={audCols} />}
-          </div>
-          <div className="absolute inset-0 flex items-center justify-center p-6">
-            <div className="max-w-md text-center bg-white border border-gray-200 rounded-xl shadow-lg px-6 py-5">
-              <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-amber-50 mb-3">
-                <Lock className="w-5 h-5 text-amber-600" />
+          </>)
+        : sectionCard(<>
+            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+              <div className="flex items-center gap-1.5">
+                <h3 className="text-sm font-semibold text-gray-900">Performance by Audience</h3>
+                <InfoTooltip content="Ad metrics split by audience segment (e.g., remarketing, in-market, lifestyle). Requires audience labeling to be configured at the account level." />
               </div>
-              <h4 className="text-sm font-semibold text-gray-900 mb-1.5">Audience labeling not enabled</h4>
-              <p className="text-xs text-gray-600 leading-relaxed">
-                Audience-level reporting requires audience segments to be configured for this account.
-                Contact your <span className="font-semibold text-gray-800">Clarisix account manager</span> to unlock this view.
-              </p>
+              <div className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-amber-50 text-amber-700 border border-amber-200">
+                <Lock className="w-3 h-3" />
+                Not configured
+              </div>
             </div>
-          </div>
-        </div>
-      </>)}
+            <div className="relative">
+              <div className="pointer-events-none select-none opacity-30 blur-[1.5px]">
+                {audView === 'chart'
+                  ? <div className="p-5"><SmallMultiplesChart data={audData} dimKey="segment" metrics={STANDARD_METRICS} selectedMetrics={audMet} currency={currency} /></div>
+                  : <DeepDiveTable title="" embedded showPoP={aud.showPoP} onPoPChange={aud.setShowPoP} showLY={aud.showLY} onLYChange={aud.setShowLY} selectMode={aud.selMode} onSelectModeChange={aud.setSelMode} onSelectedValuesChange={aud.setSelVals} visibleColumnsOverride={aud.visCols} rowData={audData} columnDefs={audCols} />}
+              </div>
+              <div className="absolute inset-0 flex items-center justify-center p-6">
+                <div className="max-w-md text-center bg-white border border-gray-200 rounded-xl shadow-lg px-6 py-5">
+                  <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-amber-50 mb-3">
+                    <Lock className="w-5 h-5 text-amber-600" />
+                  </div>
+                  <h4 className="text-sm font-semibold text-gray-900 mb-1.5">Audience labeling not enabled</h4>
+                  <p className="text-xs text-gray-600 leading-relaxed">
+                    Audience-level reporting requires audience segments to be configured for this account.
+                    Go to <span className="font-semibold text-gray-800">Settings → Account</span> to enable it.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </>)
+      }
 
       <LastRefreshed offsetMinutes={12} />
     </div>

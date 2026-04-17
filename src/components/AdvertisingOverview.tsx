@@ -1,3 +1,5 @@
+import { Lock } from 'lucide-react';
+import InfoTooltip from './InfoTooltip';
 import DeepDiveTable, {
   ColumnDef,
   currencyFormatter,
@@ -10,14 +12,13 @@ import LastRefreshed from './LastRefreshed';
 import {
   adByMarketplace,
   adByCategory,
-  adBySubcategory,
+  adByBrand,
   adByASIN,
   adPerfTotals,
 } from '../data/advertisingData';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { useAccountSpecifics } from '../contexts/AccountSpecificsContext';
 
-// Suppress unused import warnings for formatters exported from DeepDiveTable
-// that are available for column definitions but not all used inline
 void percentCellStyle;
 void pctShareFormatter;
 
@@ -104,9 +105,50 @@ function useAdPerfCols(): ColumnDef[] {
   ];
 }
 
+function LockedTablePlaceholder({ title, tooltip }: { title: string; tooltip: string }) {
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+        <div className="flex items-center gap-1.5">
+          <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
+          <InfoTooltip content={tooltip} />
+        </div>
+        <div className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-amber-50 text-amber-700 border border-amber-200">
+          <Lock className="w-3 h-3" />
+          Not configured
+        </div>
+      </div>
+      <div className="relative">
+        <div className="pointer-events-none select-none opacity-30 blur-[1.5px]">
+          <div className="px-5 py-6">
+            <div className="space-y-2">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="h-8 bg-gray-100 rounded" />
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="absolute inset-0 flex items-center justify-center p-6">
+          <div className="max-w-md text-center bg-white border border-gray-200 rounded-xl shadow-lg px-6 py-5">
+            <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-amber-50 mb-3">
+              <Lock className="w-5 h-5 text-amber-600" />
+            </div>
+            <h4 className="text-sm font-semibold text-gray-900 mb-1.5">Campaign naming convention not enabled</h4>
+            <p className="text-xs text-gray-600 leading-relaxed">
+              This view requires the campaign naming convention to be configured in your account settings.
+              Go to <span className="font-semibold text-gray-800">Settings → Account</span> to enable it.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdvertisingOverview() {
   const cols = useAdPerfCols();
   const totalsRow = [adPerfTotals];
+  const { campaignNamingEnabled } = useAccountSpecifics();
 
   return (
     <div className="space-y-4">
@@ -120,21 +162,35 @@ export default function AdvertisingOverview() {
         pinnedBottomRowData={totalsRow}
       />
 
-      <DeepDiveTable
-        title="Performance by Category"
-        tooltip="Ad metrics aggregated by product category. PoP = period-over-period."
-        rowData={adByCategory}
-        columnDefs={cols}
-        pinnedBottomRowData={totalsRow}
-      />
+      {campaignNamingEnabled ? (
+        <DeepDiveTable
+          title="Performance by Brand"
+          tooltip="Ad metrics aggregated by brand, extracted from your campaign naming convention. PoP = period-over-period."
+          rowData={adByBrand}
+          columnDefs={cols}
+          pinnedBottomRowData={totalsRow}
+        />
+      ) : (
+        <LockedTablePlaceholder
+          title="Performance by Brand"
+          tooltip="Ad metrics aggregated by brand. Requires campaign naming convention to be configured."
+        />
+      )}
 
-      <DeepDiveTable
-        title="Performance by Subcategory"
-        tooltip="Ad metrics aggregated by product subcategory. PoP = period-over-period."
-        rowData={adBySubcategory}
-        columnDefs={cols}
-        pinnedBottomRowData={totalsRow}
-      />
+      {campaignNamingEnabled ? (
+        <DeepDiveTable
+          title="Performance by Category"
+          tooltip="Ad metrics aggregated by product category, extracted from your campaign naming convention. PoP = period-over-period."
+          rowData={adByCategory}
+          columnDefs={cols}
+          pinnedBottomRowData={totalsRow}
+        />
+      ) : (
+        <LockedTablePlaceholder
+          title="Performance by Category"
+          tooltip="Ad metrics aggregated by product category. Requires campaign naming convention to be configured."
+        />
+      )}
 
       <DeepDiveTable
         title="Performance by ASIN"

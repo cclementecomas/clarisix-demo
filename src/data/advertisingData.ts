@@ -357,4 +357,14 @@ function sumAdPerf(rows: AdPerfRow[]): AdPerfRow {
   };
 }
 
+export const adByBrand: AdPerfRow[] = [
+  makeAdRow('ZeroWater', 195000),
+  makeAdRow('Alpha Home', 162000),
+  makeAdRow('BrightLife', 138000),
+  makeAdRow('ClearPath', 112000),
+  makeAdRow('DailyGlow', 96000),
+  makeAdRow('EverFresh', 74000),
+  makeAdRow('FlexiCore', 49000),
+];
+
 export const adPerfTotals = sumAdPerf(adByMarketplace);

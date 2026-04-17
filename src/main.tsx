@@ -5,14 +5,17 @@ import './index.css';
 import { CurrencyProvider } from './contexts/CurrencyContext';
 import { OnboardingProvider } from './contexts/OnboardingContext';
 import { DateFilterProvider } from './contexts/DateFilterContext';
+import { AccountSpecificsProvider } from './contexts/AccountSpecificsContext';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <CurrencyProvider>
       <DateFilterProvider>
-        <OnboardingProvider>
-          <App />
-        </OnboardingProvider>
+        <AccountSpecificsProvider>
+          <OnboardingProvider>
+            <App />
+          </OnboardingProvider>
+        </AccountSpecificsProvider>
       </DateFilterProvider>
     </CurrencyProvider>
   </StrictMode>
