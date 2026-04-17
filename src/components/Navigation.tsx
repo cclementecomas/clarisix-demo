@@ -11,6 +11,7 @@ import {
 import { useCurrency, type Currency, CURRENCY_SYMBOLS } from '../contexts/CurrencyContext';
 import { useOnboarding } from '../contexts/OnboardingContext';
 import { useDateFilter } from '../contexts/DateFilterContext';
+import { useAccountSpecifics } from '../contexts/AccountSpecificsContext';
 
 function MultiSelectFilter({ label, options }: { label: string; options: string[] }) {
   const allOption = options[0];
@@ -234,6 +235,7 @@ interface NavigationProps {
 export default function Navigation({ activeSection, activeSub, sidebarCollapsed, onToggleSidebar, currentPage, onNavigate, isOnboarding, isWizard, isEmbed }: NavigationProps) {
   const [dateFilterOpen, setDateFilterOpen] = useState(false);
   const { dateResult, setDateResult } = useDateFilter();
+  const { campaignNamingEnabled } = useAccountSpecifics();
   const closeDateFilter = useCallback(() => setDateFilterOpen(false), []);
 
   function handleDateApply(result: DateFilterResult) {
@@ -316,17 +318,20 @@ export default function Navigation({ activeSection, activeSub, sidebarCollapsed,
         </div>
       </div>
 
-      {!isOnboarding && (currentPage === 'dashboard' || currentPage === 'home') && (
-        <div className={`flex items-center px-3 md:px-6 py-1.5 bg-gray-50/50 gap-2 flex-wrap ${isEmbed ? 'hidden md:flex' : ''}`}>
-          <MultiSelectFilter label="Marketplace" options={filterOptions.marketplace} />
-          <MultiSelectFilter label="Brand" options={filterOptions.brand} />
-          <MultiSelectFilter label="Category" options={filterOptions.category} />
-          <MultiSelectFilter label="Subcategory" options={filterOptions.subcategory} />
-          <MultiSelectFilter label="Tag" options={filterOptions.tag} />
-          <MultiSelectFilter label="ASIN" options={filterOptions.asin} />
-          <MultiSelectFilter label="SKU" options={filterOptions.sku} />
-        </div>
-      )}
+      {!isOnboarding && (currentPage === 'dashboard' || currentPage === 'home') && (() => {
+        const isAds = activeSection === 'Advertising';
+        return (
+          <div className={`flex items-center px-3 md:px-6 py-1.5 bg-gray-50/50 gap-2 flex-wrap ${isEmbed ? 'hidden md:flex' : ''}`}>
+            <MultiSelectFilter label="Marketplace" options={filterOptions.marketplace} />
+            {(!isAds || campaignNamingEnabled) && <MultiSelectFilter label="Brand" options={filterOptions.brand} />}
+            {(!isAds || campaignNamingEnabled) && <MultiSelectFilter label="Category" options={filterOptions.category} />}
+            {!isAds && <MultiSelectFilter label="Subcategory" options={filterOptions.subcategory} />}
+            {!isAds && <MultiSelectFilter label="Tag" options={filterOptions.tag} />}
+            <MultiSelectFilter label="ASIN" options={filterOptions.asin} />
+            {!isAds && <MultiSelectFilter label="SKU" options={filterOptions.sku} />}
+          </div>
+        );
+      })()}
     </header>
   );
 }
