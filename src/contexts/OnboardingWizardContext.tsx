@@ -114,6 +114,8 @@ export function OnboardingWizardProvider({ children }: { children: ReactNode }) 
         return true;
       case 6:
         return true;
+      case 7:
+        return true;
       default:
         return false;
     }

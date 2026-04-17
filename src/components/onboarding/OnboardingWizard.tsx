@@ -7,6 +7,7 @@ import CompanyInfoStep from './steps/CompanyInfoStep';
 import PlanSelectionStep from './steps/PlanSelectionStep';
 import AmazonAccessStep from './steps/AmazonAccessStep';
 import PreferencesStep from './steps/PreferencesStep';
+import CategoryMappingStep from './steps/CategoryMappingStep';
 import ConfirmationStep from './steps/ConfirmationStep';
 
 function WizardSupportFooter() {
@@ -29,7 +30,7 @@ export default function OnboardingWizard() {
   const { currentStep } = state;
 
   const handleNext = () => {
-    if (currentStep < 6) {
+    if (currentStep < 7) {
       setDirection('forward');
       setStep(currentStep + 1);
     }
@@ -49,12 +50,13 @@ export default function OnboardingWizard() {
       case 3: return <PlanSelectionStep />;
       case 4: return <AmazonAccessStep />;
       case 5: return <PreferencesStep />;
-      case 6: return <ConfirmationStep />;
+      case 6: return <CategoryMappingStep />;
+      case 7: return <ConfirmationStep />;
       default: return null;
     }
   };
 
-  const showNavButtons = currentStep >= 2 && currentStep <= 5;
+  const showNavButtons = currentStep >= 2 && currentStep <= 6;
 
   return (
     <div className="flex-1 flex flex-col items-center min-h-[60vh] py-8">

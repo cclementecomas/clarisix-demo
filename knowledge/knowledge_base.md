@@ -297,6 +297,22 @@ Advertising Budgets — Global Filters Removed (2026-04-17)
 - Data is shown for YTD. A year selector for viewing past budget data is planned as a future addition.
 - First page with no global filter bar; precedent is justified because forcing irrelevant filters is worse than showing none.
 
+Category Mapping — Onboarding + Settings (2026-04-17)
+
+Onboarding Wizard (Step 6 "Mapping")
+- New step inserted between Preferences (5) and Done (7, previously 6). Wizard is now 7 steps.
+- 3-part guided flow: (1) download template CSV pre-filled with SKU/ASIN columns, (2) fill Brand/Category/Subcategory/Tag per SKU in Excel or Sheets, (3) drag-and-drop upload the completed CSV.
+- Step is optional — clients can skip and upload later from Settings → Account. canProceed always returns true.
+- Case-sensitivity warning shown inline ("Zamst ≠ ZAMST").
+- Rationale: while Amazon data is fetching post-onboarding, clients have a productive task instead of waiting on a progress screen.
+
+Settings → Account → Data Mapping
+- New section below Account Specifics in the Account tab.
+- Preview table showing the current SKU mapping (Brand, Category, Subcategory, Tag).
+- Download button exports the current mapping as `clarisix-category-mapping-YYYY-MM-DD.csv`.
+- Upload button (drag-and-drop + browse) accepts an updated CSV; shows confirmation with filename and row count.
+- Workflow: download → append/edit in spreadsheet → re-upload. Changes apply immediately to all filters and breakdown tables.
+
 
 InfoTooltips — Global Rollout
 - All KPI cards across all sections now have contextual tooltip content (not empty placeholders).

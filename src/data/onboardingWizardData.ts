@@ -240,5 +240,6 @@ export const wizardStepsMeta = [
   { id: 3, label: 'Plan' },
   { id: 4, label: 'Connect' },
   { id: 5, label: 'Preferences' },
-  { id: 6, label: 'Done' },
+  { id: 6, label: 'Mapping' },
+  { id: 7, label: 'Done' },
 ];
