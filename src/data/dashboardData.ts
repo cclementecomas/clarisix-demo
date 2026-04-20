@@ -415,7 +415,7 @@ export const menuItems = [
   {
     label: 'Profitability',
     icon: 'TrendingUp',
-    subItems: ['Overview', 'Deepdive'],
+    subItems: ['Overview', 'Deepdive', 'COGS'],
     defaultSub: 'Overview',
     comingSoonSubs: [],
   },

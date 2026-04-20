@@ -105,6 +105,9 @@ function seededRandom(seed: number): () => number {
   };
 }
 
+import { demoCostLayers, getCurrentUnitCost, getInventoryValue, consumeCOGS } from './cogsData';
+import type { CostingMethod } from './cogsData';
+
 // ─── Reference data ──────────────────────────────────────────────────────────
 
 const titles = [
@@ -250,9 +253,16 @@ function generateInventory(): InventorySKU[] {
       : 0;
     const inventoryTurnover = Math.round((2 + rand() * 10) * 100) / 100;
     const daysOnHand = inventoryTurnover > 0 ? Math.round(365 / inventoryTurnover) : 999;
-    const avgUnitCost = 3 + rand() * 20;
-    const cogs = Math.round(unitsSold * avgUnitCost * 100) / 100;
-    const inventoryValue = Math.round(currentStock * avgUnitCost * 100) / 100;
+    // Use COGS engine cost layers when available, fallback to random
+    const skuKey = `SKU-${String(i + 1).padStart(3, '0')}`;
+    const layers = demoCostLayers.get(skuKey);
+    const avgUnitCost = layers ? getCurrentUnitCost('fifo', layers) || (3 + rand() * 20) : (3 + rand() * 20);
+    const cogs = layers
+      ? consumeCOGS('fifo', layers, unitsSold).totalCOGS
+      : Math.round(unitsSold * avgUnitCost * 100) / 100;
+    const inventoryValue = layers
+      ? getInventoryValue(layers)
+      : Math.round(currentStock * avgUnitCost * 100) / 100;
     const storageCostMonthly = Math.round(currentStock * (0.02 + rand() * 0.08) * 100) / 100;
     const grossProfit = unitsSold * (8 + rand() * 25) - cogs;
     const roi = inventoryValue > 0 ? Math.round(grossProfit / inventoryValue * 10000) / 100 : 0;
@@ -787,3 +797,29 @@ export const inventoryHistory: SKUHistory[] = (() => {
     return { sku: d.sku, title: d.title, snapshots };
   });
 })();
+
+// ─── COGS-aware recalculation helper ─────────────────────────────────────────
+
+/** Recalculate COGS-sensitive fields for a SKU using the specified costing method. */
+export function recalcCOGS(sku: InventorySKU, method: CostingMethod): {
+  unitCost: number;
+  cogs: number;
+  inventoryValue: number;
+  roi: number;
+} {
+  const layers = demoCostLayers.get(sku.sku);
+  if (!layers) return { unitCost: sku.unitCost, cogs: sku.cogs, inventoryValue: sku.inventoryValue, roi: sku.roi };
+
+  const unitCost = getCurrentUnitCost(method, layers) || sku.unitCost;
+  const cogsResult = consumeCOGS(method, layers, sku.unitsSold);
+  const invValue = getInventoryValue(layers);
+  const grossProfit = sku.unitsSold * (sku.cogs / Math.max(1, sku.unitsSold) + 5) - cogsResult.totalCOGS;
+  const roi = invValue > 0 ? Math.round(grossProfit / invValue * 10000) / 100 : 0;
+
+  return {
+    unitCost: Math.round(unitCost * 100) / 100,
+    cogs: cogsResult.totalCOGS,
+    inventoryValue: Math.round(invValue * 100) / 100,
+    roi,
+  };
+}

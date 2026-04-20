@@ -14,6 +14,7 @@ import InventoryPerformance from './components/InventoryPerformance';
 import ContentTracker from './components/ContentTracker';
 import Profitability from './components/Profitability';
 import ProfitabilityDeepdive from './components/ProfitabilityDeepdive';
+import COGSManager from './components/COGSManager';
 import Connectors from './components/Connectors';
 import Retention from './components/Retention';
 import Subscriptions from './components/Subscriptions';
@@ -151,6 +152,9 @@ export default function App() {
     }
     if (activeSection === 'Profitability' && activeSub === 'Deepdive') {
       return <ProfitabilityDeepdive />;
+    }
+    if (activeSection === 'Profitability' && activeSub === 'COGS') {
+      return <COGSManager />;
     }
     if (activeSection === 'Customer Experience' && activeSub === 'Retention') {
       return <Retention />;

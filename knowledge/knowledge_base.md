@@ -407,4 +407,37 @@ Data Layer (profitabilityData.ts)
 2026 Data
 - Jan–Mar actuals with ~8% YoY unit growth, ~3% ASP growth.
 - Apr–Dec empty (no data yet). Q2–Q4 2026 empty. FY2026 = YTD (Jan–Mar only).
+
+
+---
+
+COGS System (Apr 20 2026)
+
+Architecture:
+- cogsData.ts: Data model (PurchaseOrder, CostLayer), COGS calculation engine (FIFO/LIFO/WAC), demo PO data generator, pre-built cost layers.
+- AccountSpecificsContext: cogsMethod state persisted to localStorage (cx_cogsMethod), default FIFO.
+- Settings > Account: COGS Method card with 3 selectable cards (FIFO, LIFO, WAC) showing active state and descriptions.
+- COGSManager.tsx: Full COGS Manager page under Profitability > COGS in sidebar.
+
+COGS Manager (4 tabs):
+- Purchase Orders: Searchable/exportable table of all POs with cost components (unit cost, freight, duties, other, landed cost). Read-only — manual edits not needed for wireframe.
+- CSV Upload: 3-step flow (download template → fill → upload). Drag-and-drop with header validation and preview table. Template columns: PO Number, Date, Supplier, SKU, ASIN, Product Title, Quantity, Unit Cost, Freight Per Unit, Duties Per Unit, Other Per Unit.
+- Manual Entry: Form with all PO fields, live landed cost preview, success feedback.
+- Cost Layers: Per-SKU expandable drill-down showing all layers with qtyPurchased, qtyRemaining, unitCost, landedCost, layer value. Depleted layers shown at 40% opacity.
+
+Costing Methods:
+- FIFO (default): Oldest inventory costs consumed first. Amazon default, most common.
+- LIFO: Newest inventory costs consumed first. Reduces taxable income when costs rise.
+- WAC: Blends all purchase costs into weighted average. Smooths cost fluctuations.
+
+Integration:
+- inventoryData.ts: unitCost, cogs, inventoryValue now derived from COGS cost layers (FIFO at data-gen time) instead of random values. recalcCOGS() helper exported for dynamic method switching.
+- Landed cost = unitCost + freightPerUnit + dutiesPerUnit + otherPerUnit (auto-calculated).
+- Demo data: 3-5 POs per SKU spanning Oct 2025 – Apr 2026, seeded random with ±5% cost variation per PO.
+- Changing COGS method in Settings recalculates all profitability metrics and inventory valuations.
+
+Design decisions:
+- PO table is read-only. Editing POs cascades into cost layer rebuild → inventory/profitability recalc. Not needed for wireframe.
+- Summary cards: Total POs, Unique SKUs, Total Inventory Value, Avg Unit Cost (method-aware).
+- CSV export follows app convention: clarisix-purchase-orders-YYYY-MM-DD.csv, clarisix-cogs-template.csv for template.
 - All base PVs updated: unitsSold, unitsRefunded, grossASP, subscriptionFees, removalDisposal, safetClaims, otherAdjustments.

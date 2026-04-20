@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAccountSpecifics } from '../../contexts/AccountSpecificsContext';
-import { Info, Download, Upload, Check, FileSpreadsheet } from 'lucide-react';
+import { Info, Download, Upload, Check, FileSpreadsheet, Calculator } from 'lucide-react';
+import type { CostingMethod } from '../../data/cogsData';
 
 const MAPPING_HEADERS = ['SKU', 'ASIN', 'Product Title', 'Brand', 'Category', 'Subcategory', 'Tag'];
 
@@ -30,6 +31,7 @@ export default function AccountSection() {
     campaignNamingEnabled, setCampaignNamingEnabled,
     campaignNamingPattern, setCampaignNamingPattern,
     audienceLabelingEnabled, setAudienceLabelingEnabled,
+    cogsMethod, setCogsMethod,
   } = useAccountSpecifics();
 
   const [mappingUploaded, setMappingUploaded] = useState(false);
@@ -256,6 +258,57 @@ export default function AccountSection() {
             <p className="text-[11px] text-gray-500">
               <span className="font-semibold text-gray-600">Workflow:</span> Download your current mapping → add or edit rows in Excel/Sheets → upload the updated file.
               Changes apply immediately to all filters and breakdown tables.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* COGS Method */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-100">
+          <div className="flex items-center gap-2">
+            <Calculator className="w-4 h-4 text-gray-500" />
+            <h2 className="text-base font-semibold text-gray-900">COGS Method</h2>
+          </div>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Choose how cost of goods sold is calculated when units are sold. This affects profitability and inventory valuation across the app.
+          </p>
+        </div>
+
+        <div className="px-6 py-5 space-y-4">
+          <div className="grid grid-cols-3 gap-3">
+            {([
+              { key: 'fifo' as CostingMethod, label: 'FIFO', title: 'First In, First Out', desc: 'Oldest inventory costs are used first. Most common method and Amazon default.' },
+              { key: 'lifo' as CostingMethod, label: 'LIFO', title: 'Last In, First Out', desc: 'Newest inventory costs are used first. Can reduce taxable income when costs are rising.' },
+              { key: 'wac' as CostingMethod, label: 'WAC', title: 'Weighted Average Cost', desc: 'Blends all purchase costs into one average. Smooths out cost fluctuations.' },
+            ]).map((m) => (
+              <button
+                key={m.key}
+                onClick={() => setCogsMethod(m.key)}
+                className={`text-left p-4 rounded-lg border-2 transition-all ${
+                  cogsMethod === m.key
+                    ? 'border-cx-500 bg-cx-50/50 ring-1 ring-cx-500/20'
+                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <span className={`text-sm font-bold ${cogsMethod === m.key ? 'text-cx-600' : 'text-gray-700'}`}>
+                    {m.label}
+                  </span>
+                  {cogsMethod === m.key && (
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-cx-500 text-white">Active</span>
+                  )}
+                </div>
+                <p className="text-xs font-medium text-gray-700">{m.title}</p>
+                <p className="text-[11px] text-gray-500 mt-1 leading-relaxed">{m.desc}</p>
+              </button>
+            ))}
+          </div>
+
+          <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+            <p className="text-[11px] text-blue-800">
+              <span className="font-semibold">Note:</span> Changing the COGS method recalculates all profitability metrics and inventory valuations retroactively.
+              Manage purchase orders in <span className="font-semibold">Profitability → COGS</span>.
             </p>
           </div>
         </div>
