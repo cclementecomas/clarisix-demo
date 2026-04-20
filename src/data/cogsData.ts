@@ -154,8 +154,62 @@ function seededRng(seed: number): () => number {
   return () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; };
 }
 
-// Import SKU list for generating POs
-import { inventoryData } from './inventoryData';
+// Self-contained SKU seed data (avoids circular dependency with inventoryData)
+const SKU_TITLES = [
+  'Everyday Essentials Pack', 'Premium Container Set', 'Smart Device Pro',
+  'Classic Carry Bag', 'Smart Device Lite', 'Daily Wellness Capsules',
+  'Kids Container', 'Protective Cover Slim', 'Compact Travel Pouch',
+  'Fast Charger 30W', 'Clear Shield 2-Pack', 'Wellness Drops 60ml',
+  'Organic Blend Powder', 'Ultra Slim Case', 'Bamboo Kitchen Set',
+  'LED Desk Lamp', 'Wireless Earbuds Pro', 'Yoga Mat Premium',
+  'Stainless Water Bottle', 'Pet Grooming Kit', 'Silicone Baking Set',
+  'Adjustable Phone Stand', 'Essential Oil Diffuser', 'Memory Foam Pillow',
+  'Portable Blender', 'Laptop Sleeve 15"', 'Resistance Bands Set',
+  'Ceramic Coffee Mug', 'Solar Power Bank', 'Aroma Candle Set',
+  'Digital Kitchen Scale', 'Bluetooth Speaker Mini', 'Eye Cream 30ml',
+  'Hiking Daypack 20L', 'Insulated Lunch Box', 'Wireless Mouse Ergonomic',
+  'Vitamin C Serum', 'Shower Caddy Organizer', 'Plant-Based Protein',
+  'Smart Watch Band', 'Cotton Towel Set', 'Air Purifier Filter',
+  'Neck Massage Pillow', 'Journal Notebook A5', 'Stainless Cutlery Set',
+  'Bike Phone Mount', 'Hand Cream Trio', 'Gaming Mouse Pad XL',
+  'Reusable Produce Bags', 'UV Sanitizer Box',
+];
+const SKU_SUPPLIERS = [
+  'ShenZhen Mfg Co.', 'GreenLeaf Supplies', 'Pacific Trade Ltd.',
+  'EuroSource GmbH', 'Nordic Direct', 'Atlas Imports',
+  'Silk Road Trading', 'PrimeMaker Inc.',
+];
+
+interface SkuSeed { sku: string; asin: string; title: string; supplier: string; unitCost: number; avgDailySales: number }
+
+const skuSeeds: SkuSeed[] = (() => {
+  // Mirror the same seeded random as inventoryData so SKU fields align
+  function seededRandom(seed: number): () => number {
+    let s = seed;
+    return () => { s = (s * 16807 + 0) % 2147483647; return (s - 1) / 2147483646; };
+  }
+  const rand = seededRandom(99);
+  const seeds: SkuSeed[] = [];
+  for (let i = 0; i < 50; i++) {
+    const avgDailySales = Math.round((2 + rand() * 80) * 10) / 10;
+    // Burn the same random calls that inventoryData uses so the sequence stays in sync
+    rand(); // leadTimeDays
+    rand(); // scenarioRoll
+    // Burn stock/status randoms (variable count depending on scenario — use fixed burns for seed alignment)
+    rand(); rand(); rand(); rand(); rand(); rand(); rand(); rand();
+    // unitCost: approximate from the same range inventoryData uses
+    const unitCost = Math.round((3 + rand() * 20) * 100) / 100;
+    seeds.push({
+      sku: `SKU-${String(i + 1).padStart(3, '0')}`,
+      asin: `B0DEMO${String(i + 1).padStart(4, '0')}`,
+      title: SKU_TITLES[i % SKU_TITLES.length],
+      supplier: SKU_SUPPLIERS[i % SKU_SUPPLIERS.length],
+      unitCost,
+      avgDailySales,
+    });
+  }
+  return seeds;
+})();
 
 function makePO(
   id: string, date: string, supplier: string, sku: string, asin: string, title: string,
@@ -173,23 +227,21 @@ export const purchaseOrders: PurchaseOrder[] = (() => {
   const pos: PurchaseOrder[] = [];
   let poNum = 1;
 
-  // Generate 3-5 POs per SKU spanning Oct 2025 – Apr 2026
   const months = ['2025-10', '2025-11', '2025-12', '2026-01', '2026-02', '2026-03', '2026-04'];
 
-  for (const d of inventoryData) {
-    const numPOs = 3 + Math.floor(rng() * 3); // 3-5 POs
+  for (const d of skuSeeds) {
+    const numPOs = 3 + Math.floor(rng() * 3);
     const selectedMonths = months
       .filter(() => rng() < numPOs / months.length)
       .slice(0, numPOs);
 
-    // Ensure at least 3
     while (selectedMonths.length < 3) {
       const m = months[Math.floor(rng() * months.length)];
       if (!selectedMonths.includes(m)) selectedMonths.push(m);
     }
     selectedMonths.sort();
 
-    const baseCost = d.unitCost * (0.35 + rng() * 0.15); // supplier cost ~40-50% of retail
+    const baseCost = d.unitCost * (0.35 + rng() * 0.15);
     const freight = Math.round(baseCost * (0.03 + rng() * 0.04) * 100) / 100;
     const duties = Math.round(baseCost * (0.02 + rng() * 0.05) * 100) / 100;
     const other = Math.round(baseCost * rng() * 0.02 * 100) / 100;
@@ -197,7 +249,6 @@ export const purchaseOrders: PurchaseOrder[] = (() => {
     for (const month of selectedMonths) {
       const day = String(1 + Math.floor(rng() * 28)).padStart(2, '0');
       const date = `${month}-${day}`;
-      // Slight cost variation per PO (±5%)
       const costVariation = 1 + (rng() - 0.5) * 0.10;
       const cost = Math.round(baseCost * costVariation * 100) / 100;
       const qty = Math.round((d.avgDailySales * (14 + rng() * 42)) * (0.8 + rng() * 0.4));
