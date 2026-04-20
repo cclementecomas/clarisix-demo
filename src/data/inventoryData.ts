@@ -735,3 +735,55 @@ export const velocityTrend: VelocityWeek[] = (() => {
 
   return weeks;
 })();
+
+// ─── Historical Inventory Snapshots (90 days, per SKU) ─────────────────────
+
+export interface DailySnapshot {
+  date: string;            // YYYY-MM-DD
+  unitsOnHand: number;
+  inventoryValue: number;
+  daysOfSupply: number;
+  sellThroughRate: number; // % for that day's window
+}
+
+export interface SKUHistory {
+  sku: string;
+  title: string;
+  snapshots: DailySnapshot[];
+}
+
+export const inventoryHistory: SKUHistory[] = (() => {
+  const rng = seededRandom(314);
+  const today = new Date(2026, 3, 20); // 2026-04-20
+  const DAYS = 90;
+
+  return inventoryData.map((d) => {
+    const snapshots: DailySnapshot[] = [];
+    let units = d.currentStock;
+    const dailySales = Math.max(1, d.avgDailySales);
+
+    // Walk backwards from today to generate history, then reverse
+    for (let i = DAYS - 1; i >= 0; i--) {
+      const date = new Date(today.getTime() - i * 86400000);
+      const dateStr = date.toISOString().slice(0, 10);
+
+      // Simulate daily variation: sales deplete, occasional restocks
+      const sold = Math.max(0, Math.round(dailySales * (0.6 + rng() * 0.8)));
+      const restock = rng() < 0.08 ? Math.round(dailySales * (14 + rng() * 21)) : 0;
+      units = Math.max(0, units - sold + restock);
+
+      const dos = dailySales > 0 ? Math.round(units / dailySales) : 999;
+      const str = units + sold > 0 ? Math.round((sold / (units + sold)) * 1000) / 10 : 0;
+
+      snapshots.push({
+        date: dateStr,
+        unitsOnHand: units,
+        inventoryValue: Math.round(units * d.unitCost * 100) / 100,
+        daysOfSupply: dos,
+        sellThroughRate: str,
+      });
+    }
+
+    return { sku: d.sku, title: d.title, snapshots };
+  });
+})();

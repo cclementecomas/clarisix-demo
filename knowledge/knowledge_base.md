@@ -335,6 +335,22 @@ Storage-Aware Replenishment Caps (InventoryOverview.tsx)
 - CSV export extended with two columns: "Adjusted Quantity" and "Storage Note".
 - Demo data: IPI 372, utilization 77.4% → triggers soft level. Set IPI < 350 or utilization > 90% to test hard caps.
 
+Historical Inventory Table (2026-04-20)
+
+Data Layer (inventoryData.ts)
+- New `SKUHistory` and `DailySnapshot` interfaces. 90 days of daily snapshots per SKU generated via seeded random walk from current stock values.
+- Each snapshot: unitsOnHand, inventoryValue, daysOfSupply, sellThroughRate.
+
+Component (InventoryHistoryTable.tsx)
+- Placement: Inventory Performance page, below the SKU performance DeepDiveTable.
+- Structure: frozen SKU column (name + title) + horizontally scrollable date columns with arrow navigation.
+- Default view: Units on Hand by Day.
+- Metric switcher: Units on Hand, Inventory Value, Days of Supply, Sell-Through Rate.
+- Granularity toggle: Day (default), Week, Month. Week uses ISO weeks (Monday start); Month uses end-of-period snapshot for stock metrics, average for sell-through.
+- Blue heatmap: 5-step intensity scale (higher values = darker blue), neutral and non-judgmental.
+- SKU search filter in header.
+- CSV export: `clarisix-historical-inventory-YYYY-MM-DD.csv` — exports whichever metric + granularity is currently selected. Headers: SKU, Product Title, then date columns.
+
 
 InfoTooltips — Global Rollout
 - All KPI cards across all sections now have contextual tooltip content (not empty placeholders).

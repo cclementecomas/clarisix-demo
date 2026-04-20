@@ -11,6 +11,7 @@ import { useCurrency } from '../contexts/CurrencyContext';
 import { fc } from '../utils/currency';
 import InfoTooltip from './InfoTooltip';
 import LastRefreshed from './LastRefreshed';
+import InventoryHistoryTable from './inventory/InventoryHistoryTable';
 
 type Row = Record<string, unknown>;
 
@@ -388,6 +389,8 @@ export default function InventoryPerformance() {
         columnDefs={columns}
         pinnedBottomRowData={totals}
       />
+
+      <InventoryHistoryTable />
       <div className="flex justify-end">
         <LastRefreshed offsetMinutes={6} />
       </div>
