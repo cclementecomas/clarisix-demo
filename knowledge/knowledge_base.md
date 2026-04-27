@@ -422,11 +422,11 @@ Architecture:
 - Settings > Account: COGS Method card with 3 selectable cards (FIFO, LIFO, WAC) showing active state and descriptions.
 - COGSManager.tsx: Full COGS Manager page under Profitability > COGS in sidebar.
 
-COGS Manager (4 tabs):
-- Purchase Orders: Searchable/exportable table of all POs with cost components (unit cost, freight, duties, other, landed cost). Read-only — manual edits not needed for wireframe.
-- CSV Upload: 3-step flow (download template → fill → upload). Drag-and-drop with header validation and preview table. Template columns: PO Number, Date, Supplier, SKU, ASIN, Product Title, Quantity, Unit Cost, Freight Per Unit, Duties Per Unit, Other Per Unit.
-- Manual Entry: Form with all PO fields, live landed cost preview, success feedback.
-- Cost Layers: Per-SKU expandable drill-down showing all layers with qtyPurchased, qtyRemaining, unitCost, landedCost, layer value. Depleted layers shown at 40% opacity.
+COGS Manager (4 tabs — simplified UX, Apr 27 2026):
+- SKU Costs (primary tab): Simple two-column table of SKU + Landed Cost Per Unit. Set-and-forget default cost per SKU. Costs derived from PO history using active method. Searchable, exportable (clarisix-sku-costs-YYYY-MM-DD.csv).
+- Purchase Orders: Simplified to 4 core columns: Date, SKU, Qty, Landed Cost / Unit. PO # and Supplier shown as secondary/muted. Inline "Add PO" form with 4 required fields + expandable optional section (supplier, unit cost, freight, duties, other).
+- CSV Upload: Template reduced to 4 required columns (Date, SKU, Quantity, Landed Cost Per Unit) + 6 optional (PO Number, Supplier, Unit Cost, Freight Per Unit, Duties Per Unit, Other Per Unit). Validation checks first 4 headers only.
+- Cost Layers: Per-SKU expandable drill-down showing Date, Purchased, Remaining, Landed Cost / Unit, Layer Value, PO #. Depleted layers at 40% opacity.
 
 Costing Methods:
 - FIFO (default): Oldest inventory costs consumed first. Amazon default, most common.
@@ -440,7 +440,8 @@ Integration:
 - Changing COGS method in Settings recalculates all profitability metrics and inventory valuations.
 
 Design decisions:
+- UX simplification: minimum input is 1 number per SKU (landed cost). PO entry requires only 4 fields (date, SKU, qty, landed cost). Cost breakdown (unit cost, freight, duties, other) is optional and hidden behind expandable section.
 - PO table is read-only. Editing POs cascades into cost layer rebuild → inventory/profitability recalc. Not needed for wireframe.
 - Summary cards: Total POs, Unique SKUs, Total Inventory Value, Avg Unit Cost (method-aware).
-- CSV export follows app convention: clarisix-purchase-orders-YYYY-MM-DD.csv, clarisix-cogs-template.csv for template.
+- CSV exports: clarisix-sku-costs-YYYY-MM-DD.csv, clarisix-purchase-orders-YYYY-MM-DD.csv, clarisix-cogs-template.csv.
 - All base PVs updated: unitsSold, unitsRefunded, grossASP, subscriptionFees, removalDisposal, safetClaims, otherAdjustments.
