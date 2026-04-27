@@ -146,6 +146,9 @@ Loading States (ClarisixSpinner.tsx)
 
 - SPINNER_VERBS: ~110 creative verbs (mix of tech, silly, action words) that cycle randomly every 1 second.
 - `useSpinnerVerb()` hook picks a random verb, changes via setInterval every 1s.
+- Personalized name-verb: 1/3 chance each tick shows the user's name as a verb (e.g. "Clauding...", "Alexandring...").
+  - `nameToVerb()`: strips trailing vowels down to consonant root, adds "ing". If root would be <3 chars, keeps full name + "ing" (Leo → Leoing, Joe → Joeing).
+  - Reads `cx_user_name` from localStorage (same key as greeting system), defaults to "Alex".
 - Applied to TableLoader, TableOverlay, SectionLoader as default message. Custom `message` prop overrides cycling if provided.
 
 

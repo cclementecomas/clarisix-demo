@@ -28,12 +28,34 @@ const SPINNER_VERBS = [
   'Wibble-wobbling', 'Wrangling', 'Zigzagging',
 ];
 
+function nameToVerb(name: string): string | null {
+  const trimmed = name.trim();
+  if (trimmed.length < 2) return null;
+  const vowels = 'aeiouAEIOU';
+  // Find where trailing vowels start
+  let consonantEnd = trimmed.length;
+  for (let i = trimmed.length - 1; i >= 0; i--) {
+    if (!vowels.includes(trimmed[i])) { consonantEnd = i + 1; break; }
+  }
+  const base = trimmed.slice(0, consonantEnd);
+  // If stripping leaves a strong root (3+ chars), use it; otherwise keep full name
+  if (base.length >= 3 && consonantEnd < trimmed.length) return base + 'ing';
+  return trimmed + 'ing';
+}
+
 function useSpinnerVerb(): string {
   const [verb, setVerb] = useState(() => SPINNER_VERBS[Math.floor(Math.random() * SPINNER_VERBS.length)]);
 
   useEffect(() => {
+    const userName = localStorage.getItem('cx_user_name') || 'Alex';
+    const personVerb = nameToVerb(userName);
+
     const interval = setInterval(() => {
-      setVerb(SPINNER_VERBS[Math.floor(Math.random() * SPINNER_VERBS.length)]);
+      if (personVerb && Math.random() < 1 / 3) {
+        setVerb(personVerb);
+      } else {
+        setVerb(SPINNER_VERBS[Math.floor(Math.random() * SPINNER_VERBS.length)]);
+      }
     }, 1000);
     return () => clearInterval(interval);
   }, []);
