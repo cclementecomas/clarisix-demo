@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
 import {
-  Package, Upload, Download, Plus, ChevronDown, ChevronRight,
+  Upload, Download, Plus, ChevronDown, ChevronRight,
   Search, X, Check, Layers, AlertTriangle, DollarSign,
 } from 'lucide-react';
 import {
@@ -8,35 +8,58 @@ import {
   getCurrentUnitCost, getInventoryValue,
 } from '../data/cogsData';
 import type { PurchaseOrder, CostLayer, CostingMethod } from '../data/cogsData';
+import { inventoryData } from '../data/inventoryData';
 import { useAccountSpecifics } from '../contexts/AccountSpecificsContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { fc } from '../utils/currency';
 import InfoTooltip from './InfoTooltip';
 import LastRefreshed from './LastRefreshed';
 
-// ─── CSV Template (simplified) ─────────────────────────────────────────────
+// ─── COGS Currencies (superset of display currencies — includes supplier currencies) ─
 
-const REQUIRED_HEADERS = ['Date', 'SKU', 'Quantity', 'Landed Cost Per Unit'];
-const OPTIONAL_HEADERS = ['PO Number', 'Supplier', 'Unit Cost', 'Freight Per Unit', 'Duties Per Unit', 'Other Per Unit'];
+const COGS_CURRENCIES = ['USD', 'EUR', 'GBP', 'CNY', 'JPY', 'CAD', 'AUD'] as const;
+type COGSCurrency = (typeof COGS_CURRENCIES)[number];
 
-function downloadTemplate() {
-  const allHeaders = [...REQUIRED_HEADERS, ...OPTIONAL_HEADERS];
-  const csv = allHeaders.map((h) => `"${h}"`).join(',') + '\n'
-    + '"2026-01-15","SKU-01A",100,4.77,"PO-0001","Supplier A",4.50,0.15,0.10,0.02\n'
-    + '"2026-02-10","SKU-01A",200,4.85,,,,,,\n';
+const MARKETPLACE_OPTIONS = ['All', 'US', 'UK', 'DE', 'FR', 'IT', 'ES'] as const;
+type MarketplaceOption = (typeof MARKETPLACE_OPTIONS)[number];
+
+// ─── CSV Templates ─────────────────────────────────────────────────────────
+
+const SKU_COST_HEADERS = ['SKU', 'Marketplace', 'Landed Cost Per Unit', 'Currency'];
+const PO_REQUIRED_HEADERS = ['Date', 'SKU', 'Quantity', 'Landed Cost Per Unit'];
+const PO_OPTIONAL_HEADERS = ['Currency', 'Marketplace', 'PO Number', 'Supplier', 'Unit Cost', 'Freight Per Unit', 'Duties Per Unit', 'Other Per Unit'];
+
+function downloadSkuCostTemplate() {
+  const csv = SKU_COST_HEADERS.map((h) => `"${h}"`).join(',') + '\n'
+    + '"SKU-01A","All",4.77,"USD"\n'
+    + '"SKU-01A","DE",5.20,"EUR"\n';
   const blob = new Blob([csv], { type: 'text/csv' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'clarisix-cogs-template.csv';
+  a.download = 'clarisix-sku-costs-template.csv';
   a.click();
   URL.revokeObjectURL(url);
 }
 
-function downloadPOHistory(pos: PurchaseOrder[]) {
-  const header = ['Date', 'SKU', 'Quantity', 'Landed Cost Per Unit', 'PO Number', 'Supplier'].map((h) => `"${h}"`).join(',');
+function downloadPOTemplate() {
+  const allHeaders = [...PO_REQUIRED_HEADERS, ...PO_OPTIONAL_HEADERS];
+  const csv = allHeaders.map((h) => `"${h}"`).join(',') + '\n'
+    + '"2026-01-15","SKU-01A",100,4.77,"USD","All","PO-0001","Supplier A",4.50,0.15,0.10,0.02\n'
+    + '"2026-02-10","SKU-01A",200,4.85,"USD",,,,,,\n';
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'clarisix-cogs-po-template.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function downloadPOHistory(pos: PurchaseOrder[], baseCurrency: string) {
+  const header = ['Date', 'SKU', 'Quantity', 'Landed Cost Per Unit', 'Currency', 'PO Number', 'Supplier'].map((h) => `"${h}"`).join(',');
   const rows = pos.map((po) =>
-    [po.date, po.sku, po.qty, po.landedCost, po.id, `"${po.supplier}"`].join(',')
+    [po.date, po.sku, po.qty, po.landedCost, baseCurrency, po.id, `"${po.supplier}"`].join(',')
   );
   const csv = [header, ...rows].join('\n');
   const blob = new Blob([csv], { type: 'text/csv' });
@@ -49,7 +72,7 @@ function downloadPOHistory(pos: PurchaseOrder[]) {
   URL.revokeObjectURL(url);
 }
 
-// ─── Method Badge ──────────────────────────────────────────────────────────
+// ─── Method Labels ─────────────────────────────────────────────────────────
 
 const METHOD_LABELS: Record<CostingMethod, { short: string; full: string }> = {
   fifo: { short: 'FIFO', full: 'First In, First Out' },
@@ -57,85 +80,125 @@ const METHOD_LABELS: Record<CostingMethod, { short: string; full: string }> = {
   wac: { short: 'WAC', full: 'Weighted Average Cost' },
 };
 
+// ─── Currency Select (small inline) ────────────────────────────────────────
+
+function CurrencySelect({ value, onChange, small }: { value: COGSCurrency; onChange: (v: COGSCurrency) => void; small?: boolean }) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value as COGSCurrency)}
+      className={`border border-gray-200 rounded-md bg-white text-gray-700 font-medium focus:ring-1 focus:ring-cx-500/30 focus:border-cx-400 outline-none ${
+        small ? 'px-1 py-0.5 text-[10px] w-[52px]' : 'px-2 py-1.5 text-xs'
+      }`}
+    >
+      {COGS_CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
+    </select>
+  );
+}
+
+function MarketplaceSelect({ value, onChange, small }: { value: MarketplaceOption; onChange: (v: MarketplaceOption) => void; small?: boolean }) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value as MarketplaceOption)}
+      className={`border border-gray-200 rounded-md bg-white text-gray-700 font-medium focus:ring-1 focus:ring-cx-500/30 focus:border-cx-400 outline-none ${
+        small ? 'px-1 py-0.5 text-[10px] w-[44px]' : 'px-2 py-1.5 text-xs'
+      }`}
+    >
+      {MARKETPLACE_OPTIONS.map((m) => <option key={m} value={m}>{m}</option>)}
+    </select>
+  );
+}
+
 // ─── Component ─────────────────────────────────────────────────────────────
 
-type Tab = 'skucosts' | 'orders' | 'upload' | 'layers';
+type Tab = 'skucosts' | 'upload' | 'layers';
+type UploadMode = 'sku_costs' | 'purchase_orders';
 
 export default function COGSManager() {
   const { cogsMethod } = useAccountSpecifics();
   const { currency } = useCurrency();
   const cur = currency as 'EUR' | 'USD' | 'GBP';
+  const defaultCogsCurrency = (currency as COGSCurrency) || 'EUR';
 
   const [activeTab, setActiveTab] = useState<Tab>('skucosts');
   const [search, setSearch] = useState('');
   const [expandedSku, setExpandedSku] = useState<string | null>(null);
+  const [zeroCostsOnly, setZeroCostsOnly] = useState(false);
 
   // Upload state
+  const [uploadMode, setUploadMode] = useState<UploadMode>('sku_costs');
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [uploadPreview, setUploadPreview] = useState<string[][]>([]);
   const [uploadValid, setUploadValid] = useState(false);
   const [dragOver, setDragOver] = useState(false);
 
-  // Add PO inline form state
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [addForm, setAddForm] = useState({ date: '', sku: '', qty: '', landedCost: '' });
-  const [addFormExpanded, setAddFormExpanded] = useState(false);
-  const [addFormAdvanced, setAddFormAdvanced] = useState({ supplier: '', unitCost: '', freight: '', duties: '', other: '' });
-  const [addSubmitted, setAddSubmitted] = useState(false);
+  // Add batch inline form
+  const [addBatchSku, setAddBatchSku] = useState<string | null>(null);
+  const [batchForm, setBatchForm] = useState({ date: '', qty: '', landedCost: '', currency: defaultCogsCurrency as COGSCurrency, marketplace: 'All' as MarketplaceOption });
+  const [batchAdvanced, setBatchAdvanced] = useState(false);
+  const [batchAdvancedFields, setBatchAdvancedFields] = useState({ supplier: '', unitCost: '', freight: '', duties: '', other: '' });
+  const [batchSubmitted, setBatchSubmitted] = useState(false);
 
-  // ─── SKU Cost Table ────────────────────────────────────────────────────
+  // ─── SKU Cost Table with marketplace + currency ────────────────────────
 
-  const skuCostTable = useMemo(() => {
-    const skus = new Map<string, { sku: string; title: string; landedCost: number }>();
+  interface SkuCostRow {
+    sku: string;
+    title: string;
+    marketplace: MarketplaceOption;
+    landedCost: number;
+    currency: COGSCurrency;
+    poCount: number;
+    pos: PurchaseOrder[];
+  }
+
+  const skuCostData = useMemo(() => {
+    // Build PO lookup
+    const poMap = new Map<string, PurchaseOrder[]>();
     for (const po of purchaseOrders) {
-      if (!skus.has(po.sku)) {
-        skus.set(po.sku, { sku: po.sku, title: po.title, landedCost: po.landedCost });
-      }
+      if (!poMap.has(po.sku)) poMap.set(po.sku, []);
+      poMap.get(po.sku)!.push(po);
     }
-    // Override with method-aware current cost from layers
-    for (const [sku, entry] of skus) {
-      const layers = demoCostLayers.get(sku);
-      if (layers) {
-        const cost = getCurrentUnitCost(cogsMethod, layers);
-        if (cost > 0) entry.landedCost = cost;
-      }
-    }
-    return Array.from(skus.values());
-  }, [cogsMethod]);
+
+    // Start from ALL SKUs in inventory (pulled from Amazon)
+    const rows: SkuCostRow[] = inventoryData.map((item) => {
+      const pos = poMap.get(item.sku) || [];
+      const layers = demoCostLayers.get(item.sku);
+      const cost = layers ? getCurrentUnitCost(cogsMethod, layers) : pos.length > 0 ? pos[pos.length - 1].landedCost : 0;
+      return {
+        sku: item.sku,
+        title: item.title,
+        marketplace: 'All',
+        landedCost: cost > 0 ? cost : 0,
+        currency: defaultCogsCurrency,
+        poCount: pos.length,
+        pos,
+      };
+    });
+
+    return rows;
+  }, [cogsMethod, defaultCogsCurrency]);
+
+  const uncostCount = useMemo(() => skuCostData.filter((s) => s.landedCost === 0).length, [skuCostData]);
 
   const filteredSkuCosts = useMemo(() => {
-    if (!search.trim()) return skuCostTable;
-    const q = search.toLowerCase();
-    return skuCostTable.filter(
-      (s) => s.sku.toLowerCase().includes(q) || s.title.toLowerCase().includes(q)
-    );
-  }, [search, skuCostTable]);
-
-  // ─── Filtered POs ──────────────────────────────────────────────────────
-
-  const filteredPOs = useMemo(() => {
-    if (!search.trim()) return purchaseOrders;
-    const q = search.toLowerCase();
-    return purchaseOrders.filter(
-      (po) => po.sku.toLowerCase().includes(q) || po.supplier.toLowerCase().includes(q)
-        || po.id.toLowerCase().includes(q)
-    );
-  }, [search]);
+    let data = skuCostData;
+    if (zeroCostsOnly) data = data.filter((s) => s.landedCost === 0);
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      data = data.filter((s) => s.sku.toLowerCase().includes(q) || s.title.toLowerCase().includes(q));
+    }
+    return data;
+  }, [search, skuCostData, zeroCostsOnly]);
 
   // ─── SKU Summary for Cost Layers ───────────────────────────────────────
 
   const skuSummary = useMemo(() => {
-    const skus = new Map<string, { sku: string; title: string; totalPOs: number; totalQty: number; layers: CostLayer[] }>();
+    const skus = new Map<string, { sku: string; title: string; layers: CostLayer[] }>();
     for (const po of purchaseOrders) {
       if (!skus.has(po.sku)) {
-        skus.set(po.sku, {
-          sku: po.sku, title: po.title, totalPOs: 0, totalQty: 0,
-          layers: demoCostLayers.get(po.sku) || [],
-        });
+        skus.set(po.sku, { sku: po.sku, title: po.title, layers: demoCostLayers.get(po.sku) || [] });
       }
-      const entry = skus.get(po.sku)!;
-      entry.totalPOs++;
-      entry.totalQty += po.qty;
     }
     return Array.from(skus.values());
   }, []);
@@ -150,12 +213,14 @@ export default function COGSManager() {
       const lines = text.trim().split('\n').filter((l) => l.trim().length > 0);
       const parsed = lines.map((l) => l.split(',').map((c) => c.replace(/^"|"$/g, '').trim()));
       setUploadPreview(parsed.slice(0, 6));
-      // Validate: first 4 headers must match required columns
       const header = parsed[0]?.map((h) => h.toLowerCase());
-      const expected = REQUIRED_HEADERS.map((h) => h.toLowerCase());
-      setUploadValid(
-        parsed.length >= 2 && expected.every((h, i) => header?.[i] === h)
-      );
+      if (uploadMode === 'sku_costs') {
+        const expected = SKU_COST_HEADERS.slice(0, 3).map((h) => h.toLowerCase()); // First 3 required
+        setUploadValid(parsed.length >= 2 && expected.every((h, i) => header?.[i] === h));
+      } else {
+        const expected = PO_REQUIRED_HEADERS.map((h) => h.toLowerCase());
+        setUploadValid(parsed.length >= 2 && expected.every((h, i) => header?.[i] === h));
+      }
     };
     reader.readAsText(file);
   }
@@ -173,25 +238,23 @@ export default function COGSManager() {
     setUploadValid(false);
   }
 
-  // ─── Add PO Handler ───────────────────────────────────────────────────
+  // ─── Add Batch Handler ────────────────────────────────────────────────
 
-  function handleAddSubmit(e: React.FormEvent) {
+  function handleBatchSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setAddSubmitted(true);
-    setTimeout(() => { setAddSubmitted(false); setShowAddForm(false); }, 2000);
-    setAddForm({ date: '', sku: '', qty: '', landedCost: '' });
-    setAddFormAdvanced({ supplier: '', unitCost: '', freight: '', duties: '', other: '' });
-    setAddFormExpanded(false);
+    setBatchSubmitted(true);
+    setTimeout(() => { setBatchSubmitted(false); setAddBatchSku(null); }, 2000);
+    setBatchForm({ date: '', qty: '', landedCost: '', currency: defaultCogsCurrency, marketplace: 'All' });
+    setBatchAdvancedFields({ supplier: '', unitCost: '', freight: '', duties: '', other: '' });
+    setBatchAdvanced(false);
   }
 
   // ─── Export ────────────────────────────────────────────────────────────
 
-  const exportPOs = useCallback(() => downloadPOHistory(filteredPOs), [filteredPOs]);
-
   const exportSkuCosts = useCallback(() => {
-    const header = ['SKU', 'Product Title', 'Landed Cost Per Unit'].map((h) => `"${h}"`).join(',');
+    const header = ['SKU', 'Product Title', 'Marketplace', 'Landed Cost Per Unit', 'Currency'].map((h) => `"${h}"`).join(',');
     const rows = filteredSkuCosts.map((s) =>
-      [s.sku, `"${s.title.replace(/"/g, '""')}"`, s.landedCost].join(',')
+      [s.sku, `"${s.title.replace(/"/g, '""')}"`, s.marketplace, s.landedCost, s.currency].join(',')
     );
     const csv = [header, ...rows].join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -208,7 +271,6 @@ export default function COGSManager() {
 
   const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
     { key: 'skucosts', label: 'SKU Costs', icon: <DollarSign className="w-3.5 h-3.5" /> },
-    { key: 'orders', label: 'Purchase Orders', icon: <Package className="w-3.5 h-3.5" /> },
     { key: 'upload', label: 'CSV Upload', icon: <Upload className="w-3.5 h-3.5" /> },
     { key: 'layers', label: 'Cost Layers', icon: <Layers className="w-3.5 h-3.5" /> },
   ];
@@ -226,7 +288,7 @@ export default function COGSManager() {
             <InfoTooltip content={`Currently using ${METHOD_LABELS[cogsMethod].full}. Change in Settings → Account → COGS Method.`} />
           </div>
           <p className="text-xs text-gray-500 mt-0.5">
-            Set landed costs per SKU or log purchase orders for batch-level tracking.
+            Set landed costs per SKU or expand a row to view and add purchase order batches.
           </p>
         </div>
         <LastRefreshed />
@@ -278,9 +340,34 @@ export default function COGSManager() {
           ))}
         </div>
 
-        {/* ─── SKU Costs Tab (primary, simple) ───────────────────────── */}
+        {/* ─── SKU Costs Tab (merged with PO history) ────────────────── */}
         {activeTab === 'skucosts' && (
           <div>
+            {/* Uncosted banner */}
+            {uncostCount > 0 && (
+              <div className="flex items-center justify-between px-5 py-2.5 bg-amber-50 border-b border-amber-200">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                  <span className="text-[11px] font-semibold text-amber-800">
+                    {uncostCount} product{uncostCount !== 1 ? 's' : ''} with no COGS assigned
+                  </span>
+                  <span className="text-[11px] text-amber-600">
+                    — profitability data will be incomplete until costs are set.
+                  </span>
+                </div>
+                <button
+                  onClick={() => setZeroCostsOnly(!zeroCostsOnly)}
+                  className={`text-[10px] font-semibold px-2.5 py-1 rounded-md transition-colors ${
+                    zeroCostsOnly
+                      ? 'bg-amber-600 text-white'
+                      : 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+                  }`}
+                >
+                  {zeroCostsOnly ? 'Show all' : 'Show uncosted only'}
+                </button>
+              </div>
+            )}
+
             <div className="flex items-center justify-between px-5 py-3 border-b border-gray-50">
               <div className="flex items-center gap-3">
                 <div className="relative">
@@ -293,7 +380,16 @@ export default function COGSManager() {
                     className="pl-8 pr-3 py-1.5 text-xs w-56 border border-gray-200 rounded-lg focus:ring-1 focus:ring-cx-500/30 focus:border-cx-400 outline-none"
                   />
                 </div>
-                <InfoTooltip content="Set a default landed cost per SKU. For batch-level tracking with different costs per shipment, use the Purchase Orders tab instead." />
+                <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={zeroCostsOnly}
+                    onChange={(e) => setZeroCostsOnly(e.target.checked)}
+                    className="w-3.5 h-3.5 rounded border-gray-300 text-cx-500 focus:ring-cx-500/30"
+                  />
+                  <span className="text-[10px] font-medium text-gray-500">Only show products with 0 COGS</span>
+                </label>
+                <InfoTooltip content="All SKUs from your Amazon catalog are listed here. Set a landed cost per SKU and marketplace, or expand to add purchase order batches." />
               </div>
               <button
                 onClick={exportSkuCosts}
@@ -304,277 +400,261 @@ export default function COGSManager() {
               </button>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="border-b border-gray-100 bg-gray-50/50">
-                    <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-wider text-gray-400 w-[140px]">SKU</th>
-                    <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-wider text-gray-400">Product Title</th>
-                    <th className="px-4 py-2 text-[9px] font-bold uppercase tracking-wider text-gray-400 text-right w-[160px]">Landed Cost / Unit</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {filteredSkuCosts.map((s) => (
-                    <tr key={s.sku} className="hover:bg-gray-50/50 transition-colors">
-                      <td className="px-4 py-2.5">
-                        <span className="text-[11px] font-mono font-semibold text-gray-800">{s.sku}</span>
-                      </td>
-                      <td className="px-4 py-2.5">
-                        <span className="text-[11px] text-gray-600 truncate block max-w-[400px]">{s.title}</span>
-                      </td>
-                      <td className="px-4 py-2.5 text-right">
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gray-50 border border-gray-200 rounded-md text-[11px] font-semibold text-gray-900 min-w-[80px] justify-end">
-                          {fc(s.landedCost, cur)}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="divide-y divide-gray-50">
+              {filteredSkuCosts.map((row) => {
+                const isExpanded = expandedSku === row.sku;
+                const isAddingBatch = addBatchSku === row.sku;
+                const isUncosted = row.landedCost === 0;
+
+                return (
+                  <div key={row.sku}>
+                    {/* SKU Row */}
+                    <div className={`flex items-center transition-colors ${isUncosted ? 'bg-amber-50/40 hover:bg-amber-50/70' : 'hover:bg-gray-50/50'}`}>
+                      <button
+                        onClick={() => setExpandedSku(isExpanded ? null : row.sku)}
+                        className="flex items-center gap-2 px-4 py-2.5 text-left min-w-0"
+                      >
+                        {isExpanded ? (
+                          <ChevronDown className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                        ) : (
+                          <ChevronRight className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                        )}
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[11px] font-mono font-semibold text-gray-800">{row.sku}</span>
+                            {isUncosted && (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[8px] font-bold bg-amber-100 text-amber-700 border border-amber-200">
+                                NEEDS COST
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[10px] text-gray-400 block truncate max-w-[220px]">{row.title}</span>
+                        </div>
+                      </button>
+
+                      <div className="flex items-center gap-3 ml-auto pr-4">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[9px] font-semibold text-gray-400 uppercase">Mkt</span>
+                          <MarketplaceSelect value={row.marketplace} onChange={() => {}} small />
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-semibold min-w-[70px] justify-end ${
+                            isUncosted
+                              ? 'bg-amber-50 border border-amber-300 text-amber-600'
+                              : 'bg-gray-50 border border-gray-200 text-gray-900'
+                          }`}>
+                            {isUncosted ? '—' : fc(row.landedCost, cur)}
+                          </span>
+                          <CurrencySelect value={row.currency} onChange={() => {}} small />
+                        </div>
+                        <span className="text-[10px] text-gray-400 w-[50px] text-right">{row.poCount} POs</span>
+                      </div>
+                    </div>
+
+                    {/* Expanded: PO History + Add Batch */}
+                    {isExpanded && (
+                      <div className="px-5 pb-4 bg-gray-50/30">
+                        <div className="ml-6">
+                          {/* PO History Table */}
+                          <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+                            <table className="w-full text-left">
+                              <thead>
+                                <tr className="bg-gray-50 border-b border-gray-100">
+                                  {['Date', 'Qty', 'Landed Cost / Unit', 'Currency', 'Marketplace', 'Supplier', 'PO #'].map((h) => (
+                                    <th key={h} className="px-3 py-1.5 text-[9px] font-bold uppercase tracking-wider text-gray-400 whitespace-nowrap">{h}</th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-50">
+                                {row.pos.map((po) => (
+                                  <tr key={po.id} className="hover:bg-gray-50/50">
+                                    <td className="px-3 py-1.5 text-[11px] text-gray-600">{po.date}</td>
+                                    <td className="px-3 py-1.5 text-[11px] text-gray-700 text-right font-medium">{po.qty.toLocaleString()}</td>
+                                    <td className="px-3 py-1.5 text-[11px] font-semibold text-gray-900 text-right">{fc(po.landedCost, cur)}</td>
+                                    <td className="px-3 py-1.5 text-[10px] text-gray-500">{cur}</td>
+                                    <td className="px-3 py-1.5 text-[10px] text-gray-500">All</td>
+                                    <td className="px-3 py-1.5 text-[11px] text-gray-400">{po.supplier || '—'}</td>
+                                    <td className="px-3 py-1.5 text-[11px] font-mono text-gray-400">{po.id}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+
+                          {/* Add Batch Form */}
+                          {!isAddingBatch ? (
+                            <button
+                              onClick={() => setAddBatchSku(row.sku)}
+                              className="mt-2 flex items-center gap-1.5 text-[10px] font-semibold text-cx-600 hover:text-cx-700 transition-colors"
+                            >
+                              <Plus className="w-3 h-3" />
+                              Add batch
+                            </button>
+                          ) : (
+                            <form onSubmit={handleBatchSubmit} className="mt-3 space-y-2.5 p-3 bg-white rounded-lg border border-cx-200">
+                              <div className="flex items-end gap-2.5">
+                                <div className="w-[120px]">
+                                  <label className="block text-[10px] font-semibold text-gray-500 mb-1">Date *</label>
+                                  <input
+                                    type="date"
+                                    value={batchForm.date}
+                                    onChange={(e) => setBatchForm({ ...batchForm, date: e.target.value })}
+                                    required
+                                    className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-md focus:ring-1 focus:ring-cx-500/30 focus:border-cx-400 outline-none"
+                                  />
+                                </div>
+                                <div className="w-[80px]">
+                                  <label className="block text-[10px] font-semibold text-gray-500 mb-1">Qty *</label>
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    value={batchForm.qty}
+                                    onChange={(e) => setBatchForm({ ...batchForm, qty: e.target.value })}
+                                    placeholder="100"
+                                    required
+                                    className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-md focus:ring-1 focus:ring-cx-500/30 focus:border-cx-400 outline-none"
+                                  />
+                                </div>
+                                <div className="w-[100px]">
+                                  <label className="block text-[10px] font-semibold text-gray-500 mb-1">Landed Cost *</label>
+                                  <input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={batchForm.landedCost}
+                                    onChange={(e) => setBatchForm({ ...batchForm, landedCost: e.target.value })}
+                                    placeholder="4.77"
+                                    required
+                                    className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-md focus:ring-1 focus:ring-cx-500/30 focus:border-cx-400 outline-none"
+                                  />
+                                </div>
+                                <div className="w-[60px]">
+                                  <label className="block text-[10px] font-semibold text-gray-500 mb-1">Currency</label>
+                                  <CurrencySelect value={batchForm.currency} onChange={(v) => setBatchForm({ ...batchForm, currency: v })} small />
+                                </div>
+                                <div className="w-[52px]">
+                                  <label className="block text-[10px] font-semibold text-gray-500 mb-1">Mkt</label>
+                                  <MarketplaceSelect value={batchForm.marketplace} onChange={(v) => setBatchForm({ ...batchForm, marketplace: v })} small />
+                                </div>
+                                <button
+                                  type="submit"
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[10px] font-semibold text-white bg-cx-500 hover:bg-cx-600 rounded-md transition-colors"
+                                >
+                                  <Plus className="w-3 h-3" />
+                                  Add
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => { setAddBatchSku(null); setBatchAdvanced(false); }}
+                                  className="p-1 text-gray-400 hover:text-gray-600"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                                {batchSubmitted && (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-medium text-green-600">
+                                    <Check className="w-3 h-3" /> Added
+                                  </span>
+                                )}
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() => setBatchAdvanced(!batchAdvanced)}
+                                className="flex items-center gap-1 text-[9px] font-medium text-gray-400 hover:text-gray-600"
+                              >
+                                {batchAdvanced ? <ChevronDown className="w-2.5 h-2.5" /> : <ChevronRight className="w-2.5 h-2.5" />}
+                                Optional: cost breakdown & supplier
+                              </button>
+
+                              {batchAdvanced && (
+                                <div className="flex items-end gap-2.5 pl-3 border-l-2 border-gray-200">
+                                  <div className="w-[110px]">
+                                    <label className="block text-[9px] font-semibold text-gray-400 mb-1">Supplier</label>
+                                    <input type="text" value={batchAdvancedFields.supplier} onChange={(e) => setBatchAdvancedFields({ ...batchAdvancedFields, supplier: e.target.value })} placeholder="Name" className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-md outline-none" />
+                                  </div>
+                                  <div className="w-[80px]">
+                                    <label className="block text-[9px] font-semibold text-gray-400 mb-1">Unit Cost</label>
+                                    <input type="number" step="0.01" value={batchAdvancedFields.unitCost} onChange={(e) => setBatchAdvancedFields({ ...batchAdvancedFields, unitCost: e.target.value })} placeholder="4.50" className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-md outline-none" />
+                                  </div>
+                                  <div className="w-[70px]">
+                                    <label className="block text-[9px] font-semibold text-gray-400 mb-1">Freight</label>
+                                    <input type="number" step="0.01" value={batchAdvancedFields.freight} onChange={(e) => setBatchAdvancedFields({ ...batchAdvancedFields, freight: e.target.value })} placeholder="0.15" className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-md outline-none" />
+                                  </div>
+                                  <div className="w-[70px]">
+                                    <label className="block text-[9px] font-semibold text-gray-400 mb-1">Duties</label>
+                                    <input type="number" step="0.01" value={batchAdvancedFields.duties} onChange={(e) => setBatchAdvancedFields({ ...batchAdvancedFields, duties: e.target.value })} placeholder="0.10" className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-md outline-none" />
+                                  </div>
+                                  <div className="w-[70px]">
+                                    <label className="block text-[9px] font-semibold text-gray-400 mb-1">Other</label>
+                                    <input type="number" step="0.01" value={batchAdvancedFields.other} onChange={(e) => setBatchAdvancedFields({ ...batchAdvancedFields, other: e.target.value })} placeholder="0.02" className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-md outline-none" />
+                                  </div>
+                                </div>
+                              )}
+                            </form>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
 
             <div className="px-5 py-2.5 border-t border-gray-100 flex items-center justify-between">
               <span className="text-[10px] text-gray-400">
-                {filteredSkuCosts.length} SKUs
+                {filteredSkuCosts.length} SKUs · Expand a row to see purchase history or add a batch
               </span>
               <span className="text-[10px] text-gray-400">
-                Costs derived from purchase order history using {METHOD_LABELS[cogsMethod].short}
+                Costs calculated using {METHOD_LABELS[cogsMethod].short}
               </span>
             </div>
           </div>
         )}
 
-        {/* ─── Purchase Orders Tab (simplified) ──────────────────────── */}
-        {activeTab === 'orders' && (
-          <div>
-            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-50">
-              <div className="flex items-center gap-3">
-                <div className="relative">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-                  <input
-                    type="text"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Search POs, SKUs..."
-                    className="pl-8 pr-3 py-1.5 text-xs w-56 border border-gray-200 rounded-lg focus:ring-1 focus:ring-cx-500/30 focus:border-cx-400 outline-none"
-                  />
-                </div>
-                {!showAddForm && (
-                  <button
-                    onClick={() => setShowAddForm(true)}
-                    className="flex items-center gap-1.5 text-[10px] font-semibold text-cx-600 hover:text-cx-700 bg-cx-50 hover:bg-cx-100 px-2.5 py-1.5 rounded-md transition-colors border border-cx-200"
-                  >
-                    <Plus className="w-3 h-3" />
-                    Add PO
-                  </button>
-                )}
-              </div>
-              <button
-                onClick={exportPOs}
-                className="flex items-center gap-1.5 text-[10px] font-semibold text-gray-600 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 px-2.5 py-1.5 rounded-md transition-colors"
-              >
-                <Download className="w-3 h-3" />
-                Export CSV
-              </button>
-            </div>
-
-            {/* Inline Add PO Form */}
-            {showAddForm && (
-              <div className="px-5 py-4 border-b border-gray-100 bg-cx-50/20">
-                <form onSubmit={handleAddSubmit} className="space-y-3">
-                  <div className="flex items-end gap-3">
-                    <div className="flex-1 max-w-[140px]">
-                      <label className="block text-[10px] font-semibold text-gray-500 mb-1">Date *</label>
-                      <input
-                        type="date"
-                        value={addForm.date}
-                        onChange={(e) => setAddForm({ ...addForm, date: e.target.value })}
-                        required
-                        className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-1 focus:ring-cx-500/30 focus:border-cx-400 outline-none bg-white"
-                      />
-                    </div>
-                    <div className="flex-1 max-w-[120px]">
-                      <label className="block text-[10px] font-semibold text-gray-500 mb-1">SKU *</label>
-                      <input
-                        type="text"
-                        value={addForm.sku}
-                        onChange={(e) => setAddForm({ ...addForm, sku: e.target.value })}
-                        placeholder="SKU-01A"
-                        required
-                        className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-1 focus:ring-cx-500/30 focus:border-cx-400 outline-none bg-white"
-                      />
-                    </div>
-                    <div className="flex-1 max-w-[90px]">
-                      <label className="block text-[10px] font-semibold text-gray-500 mb-1">Qty *</label>
-                      <input
-                        type="number"
-                        min="1"
-                        value={addForm.qty}
-                        onChange={(e) => setAddForm({ ...addForm, qty: e.target.value })}
-                        placeholder="100"
-                        required
-                        className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-1 focus:ring-cx-500/30 focus:border-cx-400 outline-none bg-white"
-                      />
-                    </div>
-                    <div className="flex-1 max-w-[120px]">
-                      <label className="block text-[10px] font-semibold text-gray-500 mb-1">Landed Cost / Unit *</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={addForm.landedCost}
-                        onChange={(e) => setAddForm({ ...addForm, landedCost: e.target.value })}
-                        placeholder="4.77"
-                        required
-                        className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-1 focus:ring-cx-500/30 focus:border-cx-400 outline-none bg-white"
-                      />
-                    </div>
-                    <button
-                      type="submit"
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-cx-500 hover:bg-cx-600 rounded-lg transition-colors"
-                    >
-                      <Plus className="w-3 h-3" />
-                      Add
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setShowAddForm(false); setAddFormExpanded(false); }}
-                      className="p-1.5 text-gray-400 hover:text-gray-600 transition-colors"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                    {addSubmitted && (
-                      <span className="inline-flex items-center gap-1 text-xs font-medium text-green-600">
-                        <Check className="w-3.5 h-3.5" />
-                        Added
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Optional advanced fields */}
-                  <button
-                    type="button"
-                    onClick={() => setAddFormExpanded(!addFormExpanded)}
-                    className="flex items-center gap-1 text-[10px] font-medium text-gray-400 hover:text-gray-600 transition-colors"
-                  >
-                    {addFormExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-                    Optional: cost breakdown & supplier
-                  </button>
-
-                  {addFormExpanded && (
-                    <div className="flex items-end gap-3 pl-4 border-l-2 border-gray-200">
-                      <div className="flex-1 max-w-[130px]">
-                        <label className="block text-[10px] font-semibold text-gray-400 mb-1">Supplier</label>
-                        <input
-                          type="text"
-                          value={addFormAdvanced.supplier}
-                          onChange={(e) => setAddFormAdvanced({ ...addFormAdvanced, supplier: e.target.value })}
-                          placeholder="Supplier name"
-                          className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-1 focus:ring-cx-500/30 focus:border-cx-400 outline-none bg-white"
-                        />
-                      </div>
-                      <div className="flex-1 max-w-[100px]">
-                        <label className="block text-[10px] font-semibold text-gray-400 mb-1">Unit Cost</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={addFormAdvanced.unitCost}
-                          onChange={(e) => setAddFormAdvanced({ ...addFormAdvanced, unitCost: e.target.value })}
-                          placeholder="4.50"
-                          className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-1 focus:ring-cx-500/30 focus:border-cx-400 outline-none bg-white"
-                        />
-                      </div>
-                      <div className="flex-1 max-w-[90px]">
-                        <label className="block text-[10px] font-semibold text-gray-400 mb-1">Freight</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={addFormAdvanced.freight}
-                          onChange={(e) => setAddFormAdvanced({ ...addFormAdvanced, freight: e.target.value })}
-                          placeholder="0.15"
-                          className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-1 focus:ring-cx-500/30 focus:border-cx-400 outline-none bg-white"
-                        />
-                      </div>
-                      <div className="flex-1 max-w-[90px]">
-                        <label className="block text-[10px] font-semibold text-gray-400 mb-1">Duties</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={addFormAdvanced.duties}
-                          onChange={(e) => setAddFormAdvanced({ ...addFormAdvanced, duties: e.target.value })}
-                          placeholder="0.10"
-                          className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-1 focus:ring-cx-500/30 focus:border-cx-400 outline-none bg-white"
-                        />
-                      </div>
-                      <div className="flex-1 max-w-[90px]">
-                        <label className="block text-[10px] font-semibold text-gray-400 mb-1">Other</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={addFormAdvanced.other}
-                          onChange={(e) => setAddFormAdvanced({ ...addFormAdvanced, other: e.target.value })}
-                          placeholder="0.02"
-                          className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-1 focus:ring-cx-500/30 focus:border-cx-400 outline-none bg-white"
-                        />
-                      </div>
-                    </div>
-                  )}
-                </form>
-              </div>
-            )}
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="border-b border-gray-100 bg-gray-50/50">
-                    {['Date', 'SKU', 'Qty', 'Landed Cost / Unit', 'PO #', 'Supplier'].map((h) => (
-                      <th key={h} className="px-3 py-2 text-[9px] font-bold uppercase tracking-wider text-gray-400 whitespace-nowrap">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {filteredPOs.slice(0, 50).map((po) => (
-                    <tr key={po.id} className="hover:bg-gray-50/50 transition-colors">
-                      <td className="px-3 py-2 text-[11px] text-gray-600">{po.date}</td>
-                      <td className="px-3 py-2">
-                        <span className="text-[11px] font-mono font-semibold text-gray-800">{po.sku}</span>
-                      </td>
-                      <td className="px-3 py-2 text-[11px] text-gray-700 text-right font-medium">{po.qty.toLocaleString()}</td>
-                      <td className="px-3 py-2 text-[11px] font-semibold text-gray-900 text-right">{fc(po.landedCost, cur)}</td>
-                      <td className="px-3 py-2 text-[11px] font-mono text-gray-400">{po.id}</td>
-                      <td className="px-3 py-2 text-[11px] text-gray-400">{po.supplier}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="px-5 py-2 border-t border-gray-100 flex items-center justify-between">
-              <span className="text-[10px] text-gray-400">
-                Showing {Math.min(50, filteredPOs.length)} of {filteredPOs.length} purchase orders
-              </span>
-              <span className="text-[10px] text-gray-400">
-                Sorted by date
-              </span>
-            </div>
-          </div>
-        )}
-
-        {/* ─── CSV Upload Tab (simplified) ────────────────────────────── */}
+        {/* ─── CSV Upload Tab (mode toggle) ──────────────────────────── */}
         {activeTab === 'upload' && (
           <div className="px-6 py-5 space-y-5">
+            {/* Mode toggle */}
+            <div>
+              <p className="text-xs font-semibold text-gray-700 mb-2">What are you uploading?</p>
+              <div className="flex items-center gap-2">
+                {([
+                  { key: 'sku_costs' as UploadMode, label: 'Default SKU Costs', desc: 'Set a flat landed cost per SKU' },
+                  { key: 'purchase_orders' as UploadMode, label: 'Purchase Orders', desc: 'Batch-level cost history with dates' },
+                ]).map((mode) => (
+                  <button
+                    key={mode.key}
+                    onClick={() => { setUploadMode(mode.key); clearUpload(); }}
+                    className={`flex-1 text-left p-3 rounded-lg border-2 transition-all ${
+                      uploadMode === mode.key
+                        ? 'border-cx-500 bg-cx-50/50 ring-1 ring-cx-500/20'
+                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    <span className={`text-xs font-semibold block ${uploadMode === mode.key ? 'text-cx-600' : 'text-gray-700'}`}>
+                      {mode.label}
+                    </span>
+                    <span className="text-[10px] text-gray-500 block mt-0.5">{mode.desc}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Step 1: Download template */}
             <div>
               <h3 className="text-sm font-semibold text-gray-900 mb-2">Step 1: Download Template</h3>
               <button
-                onClick={downloadTemplate}
+                onClick={uploadMode === 'sku_costs' ? downloadSkuCostTemplate : downloadPOTemplate}
                 className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-colors"
               >
                 <Download className="w-4 h-4" />
-                Download CSV Template
+                Download {uploadMode === 'sku_costs' ? 'SKU Costs' : 'Purchase Orders'} Template
               </button>
               <p className="text-[11px] text-gray-500 mt-1.5">
-                Only 4 columns required: Date, SKU, Quantity, and Landed Cost Per Unit.
+                {uploadMode === 'sku_costs'
+                  ? 'Only 3 columns required: SKU, Marketplace, and Landed Cost Per Unit. Currency column is optional (defaults to account currency).'
+                  : 'Only 4 columns required: Date, SKU, Quantity, and Landed Cost Per Unit. Currency and other columns are optional.'
+                }
               </p>
             </div>
 
@@ -586,16 +666,14 @@ export default function COGSManager() {
                   onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
                   onDragLeave={() => setDragOver(false)}
                   onDrop={handleDrop}
-                  className={`flex flex-col items-center justify-center w-full h-40 border-2 border-dashed rounded-xl cursor-pointer transition-colors ${
+                  className={`flex flex-col items-center justify-center w-full h-36 border-2 border-dashed rounded-xl cursor-pointer transition-colors ${
                     dragOver
                       ? 'border-cx-400 bg-cx-50'
                       : 'border-gray-300 bg-gray-50 hover:bg-gray-100 hover:border-gray-400'
                   }`}
                 >
-                  <Upload className={`w-8 h-8 mb-2 ${dragOver ? 'text-cx-500' : 'text-gray-400'}`} />
-                  <p className="text-sm font-medium text-gray-600">
-                    Drag and drop your CSV file here
-                  </p>
+                  <Upload className={`w-7 h-7 mb-2 ${dragOver ? 'text-cx-500' : 'text-gray-400'}`} />
+                  <p className="text-sm font-medium text-gray-600">Drag and drop your CSV file here</p>
                   <p className="text-xs text-gray-400 mt-1">or click to browse</p>
                   <input type="file" accept=".csv" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }} className="hidden" />
                 </label>
@@ -605,26 +683,17 @@ export default function COGSManager() {
                     uploadValid ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'
                   }`}>
                     <div className="flex items-center gap-2">
-                      {uploadValid ? (
-                        <Check className="w-4 h-4 text-green-600" />
-                      ) : (
-                        <AlertTriangle className="w-4 h-4 text-amber-600" />
-                      )}
+                      {uploadValid ? <Check className="w-4 h-4 text-green-600" /> : <AlertTriangle className="w-4 h-4 text-amber-600" />}
                       <span className="text-sm font-medium text-gray-700 truncate max-w-[300px]">{uploadedFile.name}</span>
-                      <span className="text-xs text-gray-500">
-                        ({uploadPreview.length > 1 ? uploadPreview.length - 1 : 0} rows)
-                      </span>
+                      <span className="text-xs text-gray-500">({uploadPreview.length > 1 ? uploadPreview.length - 1 : 0} rows)</span>
                     </div>
                     <div className="flex items-center gap-2">
                       {uploadValid && (
                         <button className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-cx-500 hover:bg-cx-600 rounded-lg transition-colors">
-                          <Check className="w-3 h-3" />
-                          Import
+                          <Check className="w-3 h-3" /> Import
                         </button>
                       )}
-                      <button onClick={clearUpload} className="p-1 text-gray-400 hover:text-gray-600 transition-colors">
-                        <X className="w-4 h-4" />
-                      </button>
+                      <button onClick={clearUpload} className="p-1 text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
                     </div>
                   </div>
 
@@ -654,7 +723,11 @@ export default function COGSManager() {
                   {!uploadValid && (
                     <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                       <p className="text-[11px] text-amber-800">
-                        <span className="font-semibold">Validation Error:</span> The first 4 columns must be: Date, SKU, Quantity, Landed Cost Per Unit.
+                        <span className="font-semibold">Validation Error:</span>{' '}
+                        {uploadMode === 'sku_costs'
+                          ? 'The first 3 columns must be: SKU, Marketplace, Landed Cost Per Unit.'
+                          : 'The first 4 columns must be: Date, SKU, Quantity, Landed Cost Per Unit.'
+                        }
                       </p>
                     </div>
                   )}
@@ -665,13 +738,17 @@ export default function COGSManager() {
             <div className="space-y-2">
               <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2.5">
                 <p className="text-[11px] text-blue-800">
-                  <span className="font-semibold">Required:</span> {REQUIRED_HEADERS.join(', ')}
+                  <span className="font-semibold">Required:</span>{' '}
+                  {uploadMode === 'sku_costs' ? SKU_COST_HEADERS.slice(0, 3).join(', ') : PO_REQUIRED_HEADERS.join(', ')}
                 </p>
               </div>
               <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5">
                 <p className="text-[11px] text-gray-500">
-                  <span className="font-semibold text-gray-600">Optional:</span> {OPTIONAL_HEADERS.join(', ')}.
-                  These columns are for detailed cost breakdown tracking — leave empty if you only have the total landed cost.
+                  <span className="font-semibold text-gray-600">Optional:</span>{' '}
+                  {uploadMode === 'sku_costs'
+                    ? 'Currency (defaults to account currency if empty).'
+                    : `${PO_OPTIONAL_HEADERS.join(', ')}. Currency defaults to account currency if empty.`
+                  }
                 </p>
               </div>
             </div>
@@ -708,11 +785,7 @@ export default function COGSManager() {
                       className="w-full flex items-center justify-between px-5 py-3 hover:bg-gray-50/50 transition-colors text-left"
                     >
                       <div className="flex items-center gap-4 min-w-0">
-                        {isExpanded ? (
-                          <ChevronDown className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-                        ) : (
-                          <ChevronRight className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-                        )}
+                        {isExpanded ? <ChevronDown className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />}
                         <div className="min-w-0">
                           <span className="text-[11px] font-mono font-semibold text-gray-800 block">{sku.sku}</span>
                           <span className="text-[10px] text-gray-400 block truncate max-w-[250px]">{sku.title}</span>
@@ -757,15 +830,11 @@ export default function COGSManager() {
                                     <td className="px-3 py-1.5 text-[11px] text-gray-600">{layer.date}</td>
                                     <td className="px-3 py-1.5 text-[11px] text-gray-700 text-right">{layer.qtyPurchased.toLocaleString()}</td>
                                     <td className="px-3 py-1.5 text-[11px] text-right">
-                                      <span className={`font-medium ${depleted ? 'text-gray-400' : 'text-gray-900'}`}>
-                                        {layer.qtyRemaining.toLocaleString()}
-                                      </span>
+                                      <span className={`font-medium ${depleted ? 'text-gray-400' : 'text-gray-900'}`}>{layer.qtyRemaining.toLocaleString()}</span>
                                     </td>
                                     <td className="px-3 py-1.5 text-[11px] font-semibold text-gray-900 text-right">{fc(layer.landedCost, cur)}</td>
                                     <td className="px-3 py-1.5 text-[11px] text-right">
-                                      <span className={`font-medium ${depleted ? 'text-gray-400' : 'text-gray-900'}`}>
-                                        {fc(layer.qtyRemaining * layer.landedCost, cur)}
-                                      </span>
+                                      <span className={`font-medium ${depleted ? 'text-gray-400' : 'text-gray-900'}`}>{fc(layer.qtyRemaining * layer.landedCost, cur)}</span>
                                     </td>
                                     <td className="px-3 py-1.5 text-[11px] font-mono text-gray-400">{layer.poId}</td>
                                   </tr>

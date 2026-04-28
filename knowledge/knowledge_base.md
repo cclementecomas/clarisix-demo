@@ -422,10 +422,9 @@ Architecture:
 - Settings > Account: COGS Method card with 3 selectable cards (FIFO, LIFO, WAC) showing active state and descriptions.
 - COGSManager.tsx: Full COGS Manager page under Profitability > COGS in sidebar.
 
-COGS Manager (4 tabs — simplified UX, Apr 27 2026):
-- SKU Costs (primary tab): Simple two-column table of SKU + Landed Cost Per Unit. Set-and-forget default cost per SKU. Costs derived from PO history using active method. Searchable, exportable (clarisix-sku-costs-YYYY-MM-DD.csv).
-- Purchase Orders: Simplified to 4 core columns: Date, SKU, Qty, Landed Cost / Unit. PO # and Supplier shown as secondary/muted. Inline "Add PO" form with 4 required fields + expandable optional section (supplier, unit cost, freight, duties, other).
-- CSV Upload: Template reduced to 4 required columns (Date, SKU, Quantity, Landed Cost Per Unit) + 6 optional (PO Number, Supplier, Unit Cost, Freight Per Unit, Duties Per Unit, Other Per Unit). Validation checks first 4 headers only.
+COGS Manager (3 tabs — simplified UX, Apr 20 2026):
+- SKU Costs (primary tab): All Amazon SKUs shown (from inventoryData), not just PO-matched. Expandable per-row PO history with inline "Add batch" form. Per-row marketplace dropdown (All, US, UK, DE, FR, IT, ES) for marketplace-specific COGS override. Per-row currency selector (USD, EUR, GBP, CNY, JPY, CAD, AUD). Amber "NEEDS COST" badge + amber background for uncosted rows ($0 landed cost). Banner showing count of uncosted products with "Show uncosted only" toggle. Checkbox filter: "Only show products with 0 COGS". Searchable, exportable.
+- CSV Upload: Mode toggle between "Default SKU Costs" and "Purchase Orders" — different templates and validation per mode. SKU Costs mode: SKU + Landed Cost. PO mode: Date, SKU, Qty, Landed Cost + optional fields.
 - Cost Layers: Per-SKU expandable drill-down showing Date, Purchased, Remaining, Landed Cost / Unit, Layer Value, PO #. Depleted layers at 40% opacity.
 
 Costing Methods:
@@ -441,7 +440,10 @@ Integration:
 
 Design decisions:
 - UX simplification: minimum input is 1 number per SKU (landed cost). PO entry requires only 4 fields (date, SKU, qty, landed cost). Cost breakdown (unit cost, freight, duties, other) is optional and hidden behind expandable section.
-- PO table is read-only. Editing POs cascades into cost layer rebuild → inventory/profitability recalc. Not needed for wireframe.
+- All-SKU visibility: every SKU from Amazon appears in COGS list regardless of whether POs exist. Uncosted products are visually flagged to help sellers identify gaps in profitability data.
+- Per-marketplace override: sellers can set different COGS per marketplace (e.g., higher landed cost for UK vs US due to shipping/duties). "All" is the global fallback.
+- Per-row currency: supports multi-currency sourcing (USD, EUR, GBP, CNY, JPY, CAD, AUD).
+- PO history merged into SKU Costs: expandable rows show batch history per SKU, eliminating the need for a separate PO tab.
 - Summary cards: Total POs, Unique SKUs, Total Inventory Value, Avg Unit Cost (method-aware).
 - CSV exports: clarisix-sku-costs-YYYY-MM-DD.csv, clarisix-purchase-orders-YYYY-MM-DD.csv, clarisix-cogs-template.csv.
 - All base PVs updated: unitsSold, unitsRefunded, grossASP, subscriptionFees, removalDisposal, safetClaims, otherAdjustments.
