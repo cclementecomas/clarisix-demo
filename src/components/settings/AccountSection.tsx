@@ -268,10 +268,10 @@ export default function AccountSection() {
         <div className="px-6 py-4 border-b border-gray-100">
           <div className="flex items-center gap-2">
             <Calculator className="w-4 h-4 text-gray-500" />
-            <h2 className="text-base font-semibold text-gray-900">COGS Method</h2>
+            <h2 className="text-base font-semibold text-gray-900">Default costing method for batch tracking</h2>
           </div>
           <p className="text-xs text-gray-500 mt-0.5">
-            Choose how cost of goods sold is calculated when units are sold. This affects profitability and inventory valuation across the app.
+            Most SKUs use a simple cost timeline (set a landed cost, change it when costs change). This setting only applies to SKUs where you've explicitly enabled batch tracking — useful when you need inventory-layer accuracy.
           </p>
         </div>
 
@@ -307,8 +307,8 @@ export default function AccountSection() {
 
           <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
             <p className="text-[11px] text-blue-800">
-              <span className="font-semibold">Note:</span> Changing the COGS method recalculates all profitability metrics and inventory valuations retroactively.
-              Manage purchase orders in <span className="font-semibold">Profitability → COGS</span>.
+              <span className="font-semibold">Note:</span> SKUs without batch tracking use their cost timeline directly — this method does not apply to them.
+              Set landed costs and review missing COGS in <span className="font-semibold">Profitability → COGS</span>.
             </p>
           </div>
         </div>

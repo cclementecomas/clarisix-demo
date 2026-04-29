@@ -274,3 +274,412 @@ export const purchaseOrders: PurchaseOrder[] = (() => {
 
 // Pre-built cost layers from demo data
 export const demoCostLayers = buildCostLayers(purchaseOrders);
+
+// ─── COGS Coverage Agent Model ──────────────────────────────────────────────
+
+export type CostSource = 'manual' | 'paste' | 'csv' | 'inbound' | 'builder' | 'api';
+export type CostConfidence = 'high' | 'medium' | 'low';
+export type CostMarketplace = 'all' | 'US' | 'UK' | 'DE' | 'FR' | 'IT' | 'ES' | 'CA';
+export type CostCurrency = 'USD' | 'EUR' | 'GBP' | 'CNY' | 'JPY' | 'CAD' | 'AUD';
+
+export interface CostRecord {
+  id: string;
+  sku: string;
+  marketplace: CostMarketplace;     // 'all' = global default
+  landedCost: number;
+  currency: CostCurrency;
+  effectiveFrom: string | null;     // null = "all time"
+  effectiveTo: string | null;       // null = open-ended
+  source: CostSource;
+  confidence: CostConfidence;
+  createdAt: string;
+  reason?: string;
+  breakdown?: { unitCost?: number; freight?: number; duties?: number; other?: number };
+}
+
+export type SkuCoverageStatus =
+  | 'costed'              // has a current cost record
+  | 'needs-cost-active'   // sold recently, no cost
+  | 'needs-cost-inventory'// has FBA inventory, no cost
+  | 'needs-cost-inbound'  // inbound shipment received, no cost
+  | 'dormant'             // no activity, no cost
+  | 'ignored';            // user dismissed
+
+export interface InboundEvent {
+  id: string;
+  sku: string;
+  date: string;
+  quantity: number;
+  shipmentId: string;
+}
+
+export interface InboundCluster {
+  sku: string;
+  events: InboundEvent[];
+  totalQty: number;
+  firstDate: string;
+  lastDate: string;
+  previousCost: number | null;
+  previousCurrency: CostCurrency | null;
+  reviewed: boolean;
+}
+
+export interface SkuCostProfile {
+  sku: string;
+  asin: string;
+  title: string;
+  marketplaces: CostMarketplace[];   // marketplaces this SKU is sold in
+  costRecords: CostRecord[];
+  inboundEvents: InboundEvent[];
+  // 90-day signals
+  revenue90d: number;
+  units90d: number;
+  // Inventory signals
+  fbaInventory: number;
+  inboundUnits: number;
+  // Status
+  status: SkuCoverageStatus;
+  // Resolved current cost (uses 'all' fallback when marketplace-specific not found)
+  currentCost: number | null;
+  currentCurrency: CostCurrency | null;
+  hasMarketplaceOverrides: boolean;
+}
+
+// ─── Coverage Calculations ──────────────────────────────────────────────────
+
+export interface CoverageMetrics {
+  revenueCoverage: number;       // % of 90d revenue with cost set
+  unitsCoverage: number;          // % of 90d units with cost set
+  activeSkuCoverage: number;      // % of active SKUs with cost set
+  totalRevenue90d: number;
+  coveredRevenue90d: number;
+  uncoveredRevenue90d: number;
+  totalUnits90d: number;
+  coveredUnits90d: number;
+  activeSkus: number;
+  costedActiveSkus: number;
+  needsCostCount: number;
+  topRevenueGap: number;          // # of SKUs to fix to reach 90% coverage
+  inboundReviewCount: number;
+  dormantCount: number;
+}
+
+export function computeCoverage(profiles: SkuCostProfile[]): CoverageMetrics {
+  const active = profiles.filter((p) => p.revenue90d > 0 || p.fbaInventory > 0 || p.inboundUnits > 0);
+  const totalRevenue = active.reduce((s, p) => s + p.revenue90d, 0);
+  const coveredRevenue = active.filter((p) => p.currentCost !== null).reduce((s, p) => s + p.revenue90d, 0);
+  const totalUnits = active.reduce((s, p) => s + p.units90d, 0);
+  const coveredUnits = active.filter((p) => p.currentCost !== null).reduce((s, p) => s + p.units90d, 0);
+  const costedActive = active.filter((p) => p.currentCost !== null).length;
+
+  const needsCostCount = profiles.filter(
+    (p) => p.status === 'needs-cost-active' || p.status === 'needs-cost-inventory' || p.status === 'needs-cost-inbound'
+  ).length;
+  const dormantCount = profiles.filter((p) => p.status === 'dormant').length;
+
+  // Top revenue gap: number of SKUs needed to reach 90% revenue coverage
+  const sortedUncovered = active
+    .filter((p) => p.currentCost === null)
+    .sort((a, b) => b.revenue90d - a.revenue90d);
+  const target = totalRevenue * 0.9;
+  let running = coveredRevenue;
+  let gap = 0;
+  for (const p of sortedUncovered) {
+    if (running >= target) break;
+    running += p.revenue90d;
+    gap += 1;
+  }
+
+  return {
+    revenueCoverage: totalRevenue > 0 ? Math.round((coveredRevenue / totalRevenue) * 100) : 100,
+    unitsCoverage: totalUnits > 0 ? Math.round((coveredUnits / totalUnits) * 100) : 100,
+    activeSkuCoverage: active.length > 0 ? Math.round((costedActive / active.length) * 100) : 100,
+    totalRevenue90d: Math.round(totalRevenue),
+    coveredRevenue90d: Math.round(coveredRevenue),
+    uncoveredRevenue90d: Math.round(totalRevenue - coveredRevenue),
+    totalUnits90d: totalUnits,
+    coveredUnits90d: coveredUnits,
+    activeSkus: active.length,
+    costedActiveSkus: costedActive,
+    needsCostCount,
+    topRevenueGap: gap,
+    inboundReviewCount: profiles.filter((p) => p.inboundEvents.length > 0 && p.currentCost === null).length,
+    dormantCount,
+  };
+}
+
+export function resolveCurrentCost(
+  records: CostRecord[],
+  marketplace: CostMarketplace = 'all',
+  asOfDate?: string
+): CostRecord | null {
+  if (records.length === 0) return null;
+  const today = asOfDate || new Date().toISOString().slice(0, 10);
+
+  const applies = (r: CostRecord) =>
+    (!r.effectiveFrom || r.effectiveFrom <= today) &&
+    (!r.effectiveTo || r.effectiveTo >= today);
+
+  // Prefer marketplace-specific
+  if (marketplace !== 'all') {
+    const mkSpecific = records
+      .filter((r) => r.marketplace === marketplace && applies(r))
+      .sort((a, b) => (b.effectiveFrom || '').localeCompare(a.effectiveFrom || ''));
+    if (mkSpecific.length > 0) return mkSpecific[0];
+  }
+
+  // Fall back to global ('all')
+  const global = records
+    .filter((r) => r.marketplace === 'all' && applies(r))
+    .sort((a, b) => (b.effectiveFrom || '').localeCompare(a.effectiveFrom || ''));
+  return global[0] || null;
+}
+
+export function buildSkuCostProfiles(
+  inventoryItems: Array<{
+    sku: string;
+    asin: string;
+    title: string;
+    marketplace: CostMarketplace;
+    avgDailySales: number;
+    unitsSold: number;
+    currentStock: number;
+    inbound: number;
+  }>,
+  costRecords: CostRecord[],
+  inboundEvents: InboundEvent[],
+  ignoredSkus: Set<string> = new Set(),
+): SkuCostProfile[] {
+  const recordsBySku = new Map<string, CostRecord[]>();
+  for (const r of costRecords) {
+    if (!recordsBySku.has(r.sku)) recordsBySku.set(r.sku, []);
+    recordsBySku.get(r.sku)!.push(r);
+  }
+  const inboundBySku = new Map<string, InboundEvent[]>();
+  for (const e of inboundEvents) {
+    if (!inboundBySku.has(e.sku)) inboundBySku.set(e.sku, []);
+    inboundBySku.get(e.sku)!.push(e);
+  }
+
+  return inventoryItems.map((item) => {
+    const records = recordsBySku.get(item.sku) || [];
+    const inbound = inboundBySku.get(item.sku) || [];
+    const current = resolveCurrentCost(records, item.marketplace);
+
+    // 90-day estimates from avgDailySales
+    const units90d = Math.round(item.avgDailySales * 90);
+    const aspEstimate = current ? current.landedCost * 2.6 : 14 + (item.avgDailySales % 17);
+    const revenue90d = Math.round(units90d * aspEstimate);
+
+    const hasOverrides = records.some((r) => r.marketplace !== 'all');
+
+    let status: SkuCoverageStatus;
+    if (ignoredSkus.has(item.sku)) {
+      status = 'ignored';
+    } else if (current !== null) {
+      status = 'costed';
+    } else if (item.unitsSold > 0 || item.avgDailySales > 0) {
+      status = 'needs-cost-active';
+    } else if (inbound.length > 0) {
+      status = 'needs-cost-inbound';
+    } else if (item.currentStock > 0) {
+      status = 'needs-cost-inventory';
+    } else {
+      status = 'dormant';
+    }
+
+    return {
+      sku: item.sku,
+      asin: item.asin,
+      title: item.title,
+      marketplaces: ['all'],
+      costRecords: records,
+      inboundEvents: inbound,
+      revenue90d,
+      units90d,
+      fbaInventory: item.currentStock,
+      inboundUnits: item.inbound,
+      status,
+      currentCost: current?.landedCost ?? null,
+      currentCurrency: current?.currency ?? null,
+      hasMarketplaceOverrides: hasOverrides,
+    };
+  });
+}
+
+// ─── Demo Cost Records & Inbound Events ────────────────────────────────────
+
+// Generate initial cost records: most active SKUs costed from PO data,
+// but intentionally leave ~12-15 SKUs uncosted to demonstrate the workflow.
+export function buildDemoCostRecords(): CostRecord[] {
+  const records: CostRecord[] = [];
+  // Skus that should NOT have a cost — chosen to be a mix of active & inventory
+  const uncostedSkus = new Set([
+    'SKU-005', 'SKU-009', 'SKU-014', 'SKU-019', 'SKU-023',
+    'SKU-027', 'SKU-031', 'SKU-035', 'SKU-040', 'SKU-044',
+    'SKU-048',
+  ]);
+
+  let recordIdSeq = 1;
+
+  for (const [sku, layers] of demoCostLayers.entries()) {
+    if (uncostedSkus.has(sku)) continue;
+    if (layers.length === 0) continue;
+
+    // Most recent layer = current global cost
+    const latest = layers[layers.length - 1];
+    records.push({
+      id: `CR-${String(recordIdSeq++).padStart(4, '0')}`,
+      sku,
+      marketplace: 'all',
+      landedCost: latest.landedCost,
+      currency: 'USD',
+      effectiveFrom: null,
+      effectiveTo: null,
+      source: 'manual',
+      confidence: 'high',
+      createdAt: latest.date,
+    });
+
+    // For ~20% of SKUs, add a marketplace override and a cost change
+    const skuIndex = parseInt(sku.replace('SKU-', ''), 10);
+    if (skuIndex % 7 === 0) {
+      records.push({
+        id: `CR-${String(recordIdSeq++).padStart(4, '0')}`,
+        sku,
+        marketplace: 'UK',
+        landedCost: Math.round(latest.landedCost * 1.18 * 100) / 100,
+        currency: 'GBP',
+        effectiveFrom: '2026-01-01',
+        effectiveTo: null,
+        source: 'manual',
+        confidence: 'high',
+        createdAt: '2026-01-01',
+        reason: 'Higher UK duties and freight',
+      });
+    }
+    if (skuIndex % 11 === 0 && layers.length > 1) {
+      const earlier = layers[0];
+      records.push({
+        id: `CR-${String(recordIdSeq++).padStart(4, '0')}`,
+        sku,
+        marketplace: 'all',
+        landedCost: earlier.landedCost,
+        currency: 'USD',
+        effectiveFrom: null,
+        effectiveTo: '2025-12-31',
+        source: 'csv',
+        confidence: 'high',
+        createdAt: earlier.date,
+      });
+    }
+  }
+
+  // Backdate createdAt slightly so "Last edited" looks varied
+  return records;
+}
+
+// Generate inbound events spanning the last ~60 days. Some SKUs get
+// multi-shipment "replenishment waves," others a single shipment.
+export function buildDemoInboundEvents(): InboundEvent[] {
+  const events: InboundEvent[] = [];
+  const rand = seededRng(7777);
+
+  // Pick ~18 SKUs with recent inbound activity
+  const allSkus = Array.from(demoCostLayers.keys());
+  const inboundSkus = allSkus.filter((_, i) => i % 3 === 0).slice(0, 18);
+
+  let eventSeq = 1;
+  const today = new Date('2026-04-29');
+
+  for (const sku of inboundSkus) {
+    const numShipments = 1 + Math.floor(rand() * 3); // 1-3 shipments
+    const baseDaysAgo = 5 + Math.floor(rand() * 30);
+
+    for (let i = 0; i < numShipments; i++) {
+      const daysAgo = baseDaysAgo + i * (1 + Math.floor(rand() * 4));
+      const d = new Date(today);
+      d.setDate(d.getDate() - daysAgo);
+      const date = d.toISOString().slice(0, 10);
+      const qty = 200 + Math.floor(rand() * 1500);
+      events.push({
+        id: `INB-${String(eventSeq++).padStart(4, '0')}`,
+        sku,
+        date,
+        quantity: qty,
+        shipmentId: `FBA${Math.floor(rand() * 9_000_000 + 1_000_000)}`,
+      });
+    }
+  }
+
+  return events.sort((a, b) => a.date.localeCompare(b.date));
+}
+
+export function clusterInboundEvents(events: InboundEvent[]): InboundCluster[] {
+  const bySku = new Map<string, InboundEvent[]>();
+  for (const e of events) {
+    if (!bySku.has(e.sku)) bySku.set(e.sku, []);
+    bySku.get(e.sku)!.push(e);
+  }
+  const clusters: InboundCluster[] = [];
+  for (const [sku, list] of bySku) {
+    list.sort((a, b) => a.date.localeCompare(b.date));
+    const totalQty = list.reduce((s, e) => s + e.quantity, 0);
+    const layers = demoCostLayers.get(sku);
+    const previousCost = layers && layers.length > 0
+      ? layers[layers.length - 1].landedCost
+      : null;
+    clusters.push({
+      sku,
+      events: list,
+      totalQty,
+      firstDate: list[0].date,
+      lastDate: list[list.length - 1].date,
+      previousCost,
+      previousCurrency: previousCost !== null ? 'USD' : null,
+      reviewed: false,
+    });
+  }
+  return clusters.sort((a, b) => b.lastDate.localeCompare(a.lastDate));
+}
+
+export const demoCostRecords = buildDemoCostRecords();
+export const demoInboundEvents = buildDemoInboundEvents();
+export const demoInboundClusters = clusterInboundEvents(demoInboundEvents);
+
+// ─── Column Mapping Aliases (forgiving import) ─────────────────────────────
+
+export const COLUMN_ALIASES: Record<string, string[]> = {
+  sku: ['sku', 'seller sku', 'amazon sku', 'msku', 'merchant sku', 'product sku', 'item sku'],
+  asin: ['asin', 'amazon asin', 'product id'],
+  landedCost: ['landed cost', 'landed_cost', 'cost', 'cogs', 'unit landed', 'product cost', 'unit cost', 'price', 'total cost'],
+  currency: ['currency', 'cur', 'ccy'],
+  marketplace: ['marketplace', 'country', 'market', 'region', 'mkt'],
+  effectiveFrom: ['effective from', 'effective_from', 'start date', 'start_date', 'from date', 'date', 'effective'],
+  effectiveTo: ['effective to', 'effective_to', 'end date', 'end_date', 'to date'],
+  quantity: ['quantity', 'qty', 'units', 'amount'],
+  receivedDate: ['received date', 'received_date', 'received', 'arrival date'],
+  batchId: ['batch id', 'batch_id', 'po', 'po number', 'po_number', 'lot'],
+  freight: ['freight', 'freight per unit', 'shipping', 'shipping per unit'],
+  duties: ['duties', 'duties per unit', 'tariff', 'tariffs'],
+  other: ['other', 'other per unit', 'fees', 'misc'],
+};
+
+export function detectColumn(header: string): keyof typeof COLUMN_ALIASES | null {
+  const norm = header.trim().toLowerCase();
+  for (const [key, aliases] of Object.entries(COLUMN_ALIASES)) {
+    if (aliases.includes(norm)) return key as keyof typeof COLUMN_ALIASES;
+  }
+  return null;
+}
+
+export const MARKETPLACE_LABELS: Record<CostMarketplace, string> = {
+  all: 'All marketplaces',
+  US: 'United States',
+  UK: 'United Kingdom',
+  DE: 'Germany',
+  FR: 'France',
+  IT: 'Italy',
+  ES: 'Spain',
+  CA: 'Canada',
+};

@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import { ChevronRight, TrendingUp, Download, Sheet, Calendar, X, CheckCircle2, AlertTriangle, ChevronDown } from 'lucide-react';
+import { ChevronRight, TrendingUp, Download, Sheet, Calendar, X, CheckCircle2, AlertTriangle, ChevronDown, ArrowRight } from 'lucide-react';
 import {
   profitabilityData, ProfitabilityMetric, PL_TOOLTIPS,
   grossOrderedRevenue as gorPV, netRevenue as nrPV, netCogs as cogsPV,
@@ -14,6 +14,9 @@ import { useCurrency, CURRENCY_SYMBOLS } from '../contexts/CurrencyContext';
 import { convert, fc } from '../utils/currency';
 import * as XLSX from 'xlsx';
 import { exportToGoogleSheets } from '../utils/exportSheets';
+import { buildSkuCostProfiles, computeCoverage, demoCostRecords, demoInboundEvents } from '../data/cogsData';
+import type { CostMarketplace } from '../data/cogsData';
+import { inventoryData } from '../data/inventoryData';
 
 type AccountingPolicy = 'accrual' | 'management' | 'cash';
 type Granularity = 'monthly' | 'quarterly' | 'yearly' | 'settlement';
@@ -92,7 +95,7 @@ function getPeriodColumns(granularity: Granularity, year: SelectedYear): PeriodC
   ];
 }
 
-export default function Profitability() {
+export default function Profitability({ onNavigate }: { onNavigate?: (section: string, sub: string) => void } = {}) {
   const { currency } = useCurrency();
   const [policy, setPolicy] = useState<AccountingPolicy>('accrual');
   const [granularity, setGranularity] = useState<Granularity>('quarterly');
@@ -123,6 +126,22 @@ export default function Profitability() {
     setHighlightedColumns(new Set());
     return getPeriodColumns(granularity, selectedYear);
   }, [granularity, selectedYear]);
+
+  // Compute COGS coverage for the partial-profit banner
+  const cogsCoverage = useMemo(() => {
+    const inventoryShape = inventoryData.map((item) => ({
+      sku: item.sku,
+      asin: item.asin,
+      title: item.title,
+      marketplace: item.marketplace as CostMarketplace,
+      avgDailySales: item.avgDailySales,
+      unitsSold: item.unitsSold,
+      currentStock: item.currentStock,
+      inbound: item.inbound,
+    }));
+    const profiles = buildSkuCostProfiles(inventoryShape, demoCostRecords, demoInboundEvents);
+    return computeCoverage(profiles);
+  }, []);
   const [hoveredSegment, setHoveredSegment] = useState<number | null>(null);
 
   // Available granularities depend on policy
@@ -315,6 +334,24 @@ export default function Profitability() {
 
   return (
     <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+      {cogsCoverage.revenueCoverage < 100 && (
+        <div className="px-6 py-2.5 bg-amber-50 border-b border-amber-200 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <AlertTriangle className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
+            <span className="text-[11px] text-amber-900">
+              <span className="font-semibold">{100 - cogsCoverage.revenueCoverage}% of revenue has unknown COGS.</span>
+              {' '}Profit and margin shown below are partial — {cogsCoverage.needsCostCount} active SKU{cogsCoverage.needsCostCount !== 1 ? 's' : ''} need a cost.
+            </span>
+          </div>
+          <button
+            onClick={() => onNavigate?.('Profitability', 'COGS')}
+            className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-800 hover:text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300 px-2.5 py-1 rounded-md transition-colors flex-shrink-0"
+          >
+            Open COGS Coverage
+            <ArrowRight className="w-3 h-3" />
+          </button>
+        </div>
+      )}
       <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-slate-50 to-white">
         <div className="flex items-center justify-between mb-4">
           <div>

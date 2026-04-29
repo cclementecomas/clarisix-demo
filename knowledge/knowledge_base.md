@@ -414,36 +414,102 @@ Data Layer (profitabilityData.ts)
 
 ---
 
-COGS System (Apr 20 2026)
+COGS Coverage Agent (Apr 29 2026 — full rebuild from "PO Manager" model)
+
+Mission shift:
+The page is no longer "manage purchase orders." It's an embedded coverage agent whose job is to make profit trustworthy as fast as possible. The agent optimizes for revenue-weighted coverage, not catalog completeness. Missing cost is shown as "Unknown" — never as $0.
 
 Architecture:
-- cogsData.ts: Data model (PurchaseOrder, CostLayer), COGS calculation engine (FIFO/LIFO/WAC), demo PO data generator, pre-built cost layers.
-- AccountSpecificsContext: cogsMethod state persisted to localStorage (cx_cogsMethod), default FIFO.
-- Settings > Account: COGS Method card with 3 selectable cards (FIFO, LIFO, WAC) showing active state and descriptions.
-- COGSManager.tsx: Full COGS Manager page under Profitability > COGS in sidebar.
+- cogsData.ts: New types — CostRecord (the atomic cost unit, with marketplace scope, currency, effective dates, source, confidence), SkuCostProfile (aggregate view per SKU with status), InboundEvent + InboundCluster (FBA receipt signals), CoverageMetrics. Original PurchaseOrder/CostLayer types kept for back-compat but no longer central.
+- Coverage engine: computeCoverage() returns revenue/units/active-SKU coverage %, top-revenue gap (# SKUs to fix to reach 90%), inbound-review count, dormant count.
+- buildSkuCostProfiles(): joins inventory + cost records + inbound events + ignored set into SkuCostProfile[] with resolved currentCost (marketplace-specific with "all" fallback).
+- Demo data: 11 SKUs intentionally uncosted (SKU-005, 009, 014, 019, 023, 027, 031, 035, 040, 044, 048) to demonstrate the workflow. ~18 SKUs receive 1-3 inbound shipments each spanning the last 60 days. Some SKUs have UK marketplace overrides (every 7th) and historical cost-change records (every 11th).
 
-COGS Manager (3 tabs — simplified UX, Apr 20 2026):
-- SKU Costs (primary tab): All Amazon SKUs shown (from inventoryData), not just PO-matched. Expandable per-row PO history with inline "Add batch" form. Per-row marketplace dropdown (All, US, UK, DE, FR, IT, ES) for marketplace-specific COGS override. Per-row currency selector (USD, EUR, GBP, CNY, JPY, CAD, AUD). Amber "NEEDS COST" badge + amber background for uncosted rows ($0 landed cost). Banner showing count of uncosted products with "Show uncosted only" toggle. Checkbox filter: "Only show products with 0 COGS". Searchable, exportable.
-- CSV Upload: Mode toggle between "Default SKU Costs" and "Purchase Orders" — different templates and validation per mode. SKU Costs mode: SKU + Landed Cost. PO mode: Date, SKU, Qty, Landed Cost + optional fields.
-- Cost Layers: Per-SKU expandable drill-down showing Date, Purchased, Remaining, Landed Cost / Unit, Layer Value, PO #. Depleted layers at 40% opacity.
+UI architecture (one workspace, one grid, one cost profile, many fillers):
+- src/components/cogs/CoverageWorkspace.tsx: main shell with coverage header, worklist sidebar, editable grid, inline drawer.
+- src/components/cogs/PasteUploadModal.tsx: 3-step modal (Add data → Map columns → Review). Forgiving column aliases (SKU = Seller SKU = MSKU = Merchant SKU; Landed cost = COGS = Cost = Unit landed). Min input: sku, landed_cost. Stages all rows; user can apply valid rows even if some fail.
+- src/components/cogs/InboundReceiptsView.tsx: per-SKU clustered receipts with [Reuse] [Enter new] [Group as batch] [Ignore] actions.
+- src/components/COGSManager.tsx: thin shell that mounts CoverageWorkspace.
 
-Costing Methods:
-- FIFO (default): Oldest inventory costs consumed first. Amazon default, most common.
-- LIFO: Newest inventory costs consumed first. Reduces taxable income when costs rise.
-- WAC: Blends all purchase costs into weighted average. Smooths cost fluctuations.
+Coverage header:
+- Headline number = Revenue coverage % (color-tiered: green ≥90, amber 60-89, red <60).
+- "Show details" expand reveals Units coverage and Active SKU coverage as secondary stats — keeps the eye on revenue.
+- "Fix next N SKUs to reach 90%" CTA jumps user to filtered Needs COGS view.
+- Inline "Paste / Upload Costs" button + amber "Review N inbound" pill when applicable.
 
-Integration:
-- inventoryData.ts: unitCost, cogs, inventoryValue now derived from COGS cost layers (FIFO at data-gen time) instead of random values. recalcCOGS() helper exported for dynamic method switching.
-- Landed cost = unitCost + freightPerUnit + dutiesPerUnit + otherPerUnit (auto-calculated).
-- Demo data: 3-5 POs per SKU spanning Oct 2025 – Apr 2026, seeded random with ±5% cost variation per PO.
-- Changing COGS method in Settings recalculates all profitability metrics and inventory valuations.
+Worklist sidebar (task-oriented, not accounting-oriented):
+- Needs COGS — sold or stocked, no cost set.
+- Top revenue — sorted by 90d revenue.
+- Inbound review — recent FBA receipts pending decision.
+- Dormant — no recent activity, not blocking profit.
+- All SKUs — full catalog.
+(Cost changes & Conflicts deferred to v2 — need defined triggers.)
 
-Design decisions:
-- UX simplification: minimum input is 1 number per SKU (landed cost). PO entry requires only 4 fields (date, SKU, qty, landed cost). Cost breakdown (unit cost, freight, duties, other) is optional and hidden behind expandable section.
-- All-SKU visibility: every SKU from Amazon appears in COGS list regardless of whether POs exist. Uncosted products are visually flagged to help sellers identify gaps in profitability data.
-- Per-marketplace override: sellers can set different COGS per marketplace (e.g., higher landed cost for UK vs US due to shipping/duties). "All" is the global fallback.
-- Per-row currency: supports multi-currency sourcing (USD, EUR, GBP, CNY, JPY, CAD, AUD).
-- PO history merged into SKU Costs: expandable rows show batch history per SKU, eliminating the need for a separate PO tab.
-- Summary cards: Total POs, Unique SKUs, Total Inventory Value, Avg Unit Cost (method-aware).
-- CSV exports: clarisix-sku-costs-YYYY-MM-DD.csv, clarisix-purchase-orders-YYYY-MM-DD.csv, clarisix-cogs-template.csv.
-- All base PVs updated: unitsSold, unitsRefunded, grossASP, subscriptionFees, removalDisposal, safetClaims, otherAdjustments.
+Editable grid:
+- Columns: Product/SKU/ASIN, Marketplaces, 90d Revenue, 90d Units, Inv/Inbound, Landed Cost (inline editable), Currency, Status.
+- Inline cost edits save immediately (one cell at a time, low risk).
+- Bulk paste/upload stages for review (high risk).
+- Provenance icons next to each cost: Hand=manual, FileSpreadsheet=paste, Upload=csv, Inbox=inbound, Cpu=builder/api.
+- Uncosted rows: rose tint, "NEEDS COST" badge, rose-bordered cost input showing "Unknown" placeholder.
+- Marketplace override marker: small Globe icon next to SKU when overrides exist.
+
+Row drawer (inline expansion):
+4 tabs per SKU:
+- Current cost: edit landed cost, currency, marketplace scope. Shows source + last-edited.
+- Cost timeline: list of cost changes over time with effective_from/effective_to. Add cost change inline form.
+- Marketplace overrides: per-marketplace records (e.g. UK override at £4.80 with reason "Higher UK duties"). Add override inline form.
+- Advanced batches: collapsed by default. Enable batch tracking only if you need inventory-layer accuracy. Reveals costing method (WAC/FIFO/LIFO) picker.
+
+Paste / Upload modal:
+- Step 1 (Add data): Big paste textarea + drag-drop file. Defaults panel for currency/marketplace/effective-from when rows omit them. Optional template download (de-emphasized).
+- Step 2 (Map columns): Auto-detect with fuzzy aliases. Required-column readiness badges (SKU mapped ✓, Cost mapped ✓). Sample values shown per column.
+- Step 3 (Review): 4 stat cards (rows found / ready / warnings / needs review). Estimated coverage after applying. Filter tabs (All / Warnings / Needs review). Per-row issue notes. "Apply N valid rows" CTA enabled even when bad rows exist. "Download failed rows" CSV.
+
+Validation rules:
+- Unknown SKU, missing/invalid cost, invalid currency/marketplace → needs-review.
+- Missing currency → warning, defaults applied.
+- Duplicate SKU at same marketplace+date with different costs → needs-review (must choose).
+- Duplicate SKU same cost → warning only.
+
+Inbound receipts review:
+- Receipts clustered per SKU. If 2+ shipments within 14 days, labeled "looks like one replenishment wave."
+- Actions: Reuse previous cost (if known) / Enter new cost / Ignore.
+- "Enter new" defaults to Cost change from date forward, not Batch — batch is explicit opt-in.
+- Reviewed receipts move to a "Reviewed" footer list.
+- Important rule: inbound receipt ≠ purchase batch unless seller confirms (handles 3PL → FBA wave-shipping case).
+
+Profitability integration:
+- Banner at top of Profitability statement: "X% of revenue has unknown COGS. Profit and margin shown below are partial — N active SKUs need a cost. → Open COGS Coverage"
+- Banner only shows when revenueCoverage < 100%.
+- "Open COGS Coverage" navigates directly to Profitability > COGS.
+- Note: P&L formulas not yet changed (deferred to v2). Numbers still compute on existing data; banner is the trust signal.
+
+Settings update:
+- "COGS Method" card relabeled "Default costing method for batch tracking."
+- Note clarifies: most SKUs use a simple cost timeline; this method only applies to SKUs with batch tracking explicitly enabled.
+
+Forgiving column aliases (cogsData.COLUMN_ALIASES):
+- sku: sku, seller sku, amazon sku, msku, merchant sku, product sku, item sku
+- landedCost: landed cost, cost, cogs, unit landed, product cost, unit cost, price, total cost
+- marketplace: marketplace, country, market, region, mkt
+- currency, effectiveFrom, effectiveTo, quantity, receivedDate, batchId, freight, duties, other (all with their common synonyms)
+
+Decision rules implemented:
+1. Never display unknown COGS as $0 — use "Unknown" placeholder + rose styling.
+2. Sort grid + sidebar prioritization by revenue, not SKU count.
+3. Min input is sku + landed_cost; everything else optional.
+4. Inline edits commit immediately; bulk imports stage for review.
+5. Apply valid rows independently of bad rows.
+6. Inbound = signal, not auto-batch.
+7. Marketplace overrides explicit on top of a global default; never a forced matrix.
+8. Provenance preserved per record (manual/paste/csv/inbound/builder/api).
+9. Batch/FIFO opt-in per SKU, not global.
+10. Dormant SKUs don't nag unless they affect a selected report period (deferred to v2).
+
+Deferred to v2:
+- Landed Cost Builder wizard (invoice + freight + duties → per-SKU allocation).
+- "Cost changes" & "Conflicts" persistent sidebar buckets (need triggers).
+- Wiring "Unknown" through P&L formulas (currently the banner; full strikethrough cells later).
+- Historical-report COGS-incomplete warning.
+- True right-side overlay drawer (currently inline row expansion).
+- Auto-promotion of dormant SKUs on new sales.

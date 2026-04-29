@@ -148,7 +148,7 @@ export default function App() {
       return <ContentTracker />;
     }
     if (activeSection === 'Profitability' && activeSub === 'Overview') {
-      return <Profitability />;
+      return <Profitability onNavigate={(section, sub) => { setActiveSection(section); setActiveSub(sub); }} />;
     }
     if (activeSection === 'Profitability' && activeSub === 'Deepdive') {
       return <ProfitabilityDeepdive />;
