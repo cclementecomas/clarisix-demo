@@ -242,7 +242,6 @@ export default function InventoryOverview() {
   const [showSettings, setShowSettings] = useState(false);
 
   // Table state
-  const [searchQuery, setSearchQuery] = useState('');
   const [fulfillmentFilter, setFulfillmentFilter] = useState<'All' | FulfillmentType>('All');
   const [sortKey, setSortKey] = useState<SortKey>('reorderQty');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
@@ -280,15 +279,6 @@ export default function InventoryOverview() {
 
   const filteredData = useMemo(() => {
     let data = inventoryData;
-
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      data = data.filter((d) =>
-        d.sku.toLowerCase().includes(q) ||
-        d.title.toLowerCase().includes(q) ||
-        d.asin.toLowerCase().includes(q)
-      );
-    }
 
     if (fulfillmentFilter !== 'All') {
       data = data.filter((d) => d.fulfillmentType === fulfillmentFilter);
@@ -330,7 +320,7 @@ export default function InventoryOverview() {
     });
 
     return data;
-  }, [searchQuery, fulfillmentFilter, activeKpiFilter, sortKey, sortDir, metricsMap]);
+  }, [fulfillmentFilter, activeKpiFilter, sortKey, sortDir, metricsMap]);
 
   const addEvent = useCallback(() => {
     const d = new Date();
@@ -358,17 +348,6 @@ export default function InventoryOverview() {
       {/* ─── Controls Bar ─── */}
       <div className="sticky top-0 z-10 bg-gray-50/95 backdrop-blur -mx-6 px-6 py-3 border-b border-gray-200/60">
         <div className="flex items-center gap-4">
-          <div className="relative flex-1 max-w-xs">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search SKU, ASIN, or title..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-cx-500/20 focus:border-cx-400"
-            />
-          </div>
-
           <div className="flex items-center rounded-lg border border-gray-200 bg-white overflow-hidden">
             {(['All', 'FBA', 'FBM'] as const).map((f) => (
               <button
@@ -756,6 +735,7 @@ function ReplenishmentActionPanel({
   currency: string;
 }) {
   const [showMonitor, setShowMonitor] = useState(false);
+  const [titleSearch, setTitleSearch] = useState('');
   const today = useMemo(() => new Date(), []);
   const fmtDate = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   const addDays = (base: Date, n: number) => new Date(base.getTime() + n * 86400000);
@@ -815,9 +795,11 @@ function ReplenishmentActionPanel({
     return items;
   }, [metricsMap, today]);
 
-  const urgent = allItems.filter((i) => i.metrics.needsReorderNow || i.metrics.daysUntilStockout === 0);
-  const soon = allItems.filter((i) => !i.metrics.needsReorderNow && i.metrics.daysUntilStockout > 0 && i.metrics.daysUntilReorder <= 14);
-  const later = allItems.filter((i) => !i.metrics.needsReorderNow && i.metrics.daysUntilStockout > 0 && i.metrics.daysUntilReorder > 14);
+  const matchesTitle = (i: ActionSku) =>
+    !titleSearch.trim() || i.sku.title.toLowerCase().includes(titleSearch.trim().toLowerCase());
+  const urgent = allItems.filter((i) => (i.metrics.needsReorderNow || i.metrics.daysUntilStockout === 0) && matchesTitle(i));
+  const soon = allItems.filter((i) => !i.metrics.needsReorderNow && i.metrics.daysUntilStockout > 0 && i.metrics.daysUntilReorder <= 14 && matchesTitle(i));
+  const later = allItems.filter((i) => !i.metrics.needsReorderNow && i.metrics.daysUntilStockout > 0 && i.metrics.daysUntilReorder > 14 && matchesTitle(i));
 
   const totalUnits = allItems.reduce((s, i) => s + i.cappedQty, 0);
   const totalCost = allItems.reduce((s, i) => s + i.cappedQty * i.sku.unitCost, 0);
@@ -988,13 +970,33 @@ function ReplenishmentActionPanel({
             )}
           </div>
         </div>
-        <button
-          onClick={exportCsv}
-          className="flex items-center gap-1.5 text-[10px] font-semibold text-gray-600 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-md transition-colors"
-        >
-          <Download className="w-3 h-3" />
-          Export CSV
-        </button>
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400" />
+            <input
+              type="text"
+              value={titleSearch}
+              onChange={(e) => setTitleSearch(e.target.value)}
+              placeholder="Search product…"
+              className="pl-7 pr-7 py-1.5 text-[11px] w-56 rounded-md border border-gray-200 bg-white focus:outline-none focus:ring-1 focus:ring-cx-500/20 focus:border-cx-400"
+            />
+            {titleSearch && (
+              <button
+                onClick={() => setTitleSearch('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+          <button
+            onClick={exportCsv}
+            className="flex items-center gap-1.5 text-[10px] font-semibold text-gray-600 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-md transition-colors"
+          >
+            <Download className="w-3 h-3" />
+            Export CSV
+          </button>
+        </div>
       </div>
 
       {/* Table */}
@@ -1022,6 +1024,14 @@ function ReplenishmentActionPanel({
             </tr>
           </thead>
           <tbody>
+            {urgent.length === 0 && soon.length === 0 && later.length === 0 && titleSearch.trim() && (
+              <tr>
+                <td colSpan={9} className="px-5 py-8 text-center text-[11px] text-gray-400">
+                  No products match "{titleSearch}".
+                </td>
+              </tr>
+            )}
+
             {/* Urgent section */}
             {urgent.length > 0 && (
               <>
