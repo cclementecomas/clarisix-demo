@@ -18,14 +18,30 @@ import { buildSkuCostProfiles, computeCoverage, demoCostRecords, demoInboundEven
 import type { CostMarketplace } from '../data/cogsData';
 import { inventoryData } from '../data/inventoryData';
 
+// Internal keys kept stable; user-facing labels are date-of-event names.
+//   'accrual'    → "Order date"     (NON-GAAP — sales/booking view)
+//   'management' → "Shipment date"  (GAAP — true accrual basis under ASC 606)
+//   'cash'       → "Payout date"    (NON-GAAP — cash basis, settlement-anchored)
 type AccountingPolicy = 'accrual' | 'management' | 'cash';
 type Granularity = 'monthly' | 'quarterly' | 'yearly' | 'settlement';
 type SelectedYear = 2024 | 2025 | 2026;
 
 const POLICY_LABELS: Record<AccountingPolicy, string> = {
-  accrual: 'Accrual',
-  management: 'Management',
-  cash: 'Cash',
+  accrual: 'Order',
+  management: 'Shipment',
+  cash: 'Payout',
+};
+
+const POLICY_SUBTITLES: Record<AccountingPolicy, string> = {
+  accrual: 'When the order was placed',
+  management: 'When the order was shipped',
+  cash: 'When Amazon paid you',
+};
+
+const POLICY_GAAP: Record<AccountingPolicy, { label: string; isGaap: boolean }> = {
+  accrual:    { label: 'Non-GAAP · Sales view', isGaap: false },
+  management: { label: 'GAAP · Accrual', isGaap: true },
+  cash:       { label: 'Non-GAAP · Cash basis', isGaap: false },
 };
 
 // Mock settlement periods for Cash basis view
@@ -265,7 +281,7 @@ export default function Profitability({ onNavigate }: { onNavigate?: (section: s
 
     let rowClasses = '';
     let labelClasses = '';
-    let cellClasses = 'px-4 py-2.5 text-sm tabular-nums text-right whitespace-nowrap';
+    let cellClasses = 'px-3 py-1 text-[13px] tabular-nums text-right whitespace-nowrap';
 
     switch (styleType) {
       case 'header':
@@ -352,40 +368,49 @@ export default function Profitability({ onNavigate }: { onNavigate?: (section: s
           </button>
         </div>
       )}
-      <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-slate-50 to-white">
-        <div className="flex items-center justify-between mb-4">
+      <div className="px-5 py-3 border-b border-gray-200 bg-gradient-to-r from-slate-50 to-white">
+        <div className="flex items-center justify-between mb-2.5">
           <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-2xl font-bold text-gray-900">Profitability Statement</h2>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-base font-bold text-gray-900">Profitability Statement</h2>
               <InfoTooltip />
-              {/* Policy badge */}
-              {policy === 'management' && (
-                <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full bg-amber-100 text-amber-800 border border-amber-300">
-                  Management View (Non-GAAP)
-                </span>
-              )}
-              {policy === 'cash' && (
-                <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full bg-blue-100 text-blue-800 border border-blue-300">
-                  Cash Basis (Settlement-Anchored)
-                </span>
-              )}
+              {/* Active policy badge — date-of-event + GAAP marker */}
+              <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full bg-slate-900 text-white">
+                {POLICY_LABELS[policy]} date
+              </span>
+              <span
+                className={`px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full border ${
+                  POLICY_GAAP[policy].isGaap
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                    : 'bg-amber-50 text-amber-800 border-amber-300'
+                }`}
+                title={POLICY_GAAP[policy].isGaap
+                  ? 'GAAP-aligned. Revenue recognized when control transfers to the customer (shipment) per ASC 606.'
+                  : policy === 'accrual'
+                    ? 'Non-GAAP. Sales view — revenue recognized when the order was placed. Useful for marketers and operators; not GAAP-compliant.'
+                    : 'Non-GAAP. Cash basis — revenue recognized when Amazon settles your payout. Useful for cash-flow reconciliation.'}
+              >
+                {POLICY_GAAP[policy].label}
+              </span>
+              <span className="text-[11px] text-gray-500">
+                · {POLICY_SUBTITLES[policy]}
+              </span>
             </div>
-            <p className="text-sm text-gray-600 mt-1">CFO-level P&L waterfall from Gross Revenue to Net Operating Profit</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <button
               onClick={exportToExcel}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+              className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
             >
-              <Download className="w-4 h-4" />
-              <span>Export to Excel</span>
+              <Download className="w-3 h-3" />
+              <span>Excel</span>
             </button>
             <button
               onClick={handleExportSheets}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+              className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
             >
-              <Sheet className="w-4 h-4" />
-              <span>Google Sheets</span>
+              <Sheet className="w-3 h-3" />
+              <span>Sheets</span>
             </button>
             {sheetsUrl && (
               <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30" onClick={() => setSheetsUrl(null)}>
@@ -415,19 +440,37 @@ export default function Profitability({ onNavigate }: { onNavigate?: (section: s
         <div className="flex flex-wrap items-center gap-3">
           {/* Policy switcher — most prominent control */}
           <div className="flex items-center bg-slate-800 rounded-lg p-0.5 gap-0.5">
-            {(['accrual', 'management', 'cash'] as AccountingPolicy[]).map((p) => (
-              <button
-                key={p}
-                onClick={() => handlePolicyChange(p)}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
-                  policy === p
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-slate-300 hover:text-white'
-                }`}
-              >
-                {POLICY_LABELS[p]}
-              </button>
-            ))}
+            {(['accrual', 'management', 'cash'] as AccountingPolicy[]).map((p) => {
+              const isActive = policy === p;
+              const isGaap = POLICY_GAAP[p].isGaap;
+              return (
+                <button
+                  key={p}
+                  onClick={() => handlePolicyChange(p)}
+                  title={POLICY_GAAP[p].label + ' — ' + POLICY_SUBTITLES[p]}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
+                    isActive
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-slate-300 hover:text-white'
+                  }`}
+                >
+                  <span>{POLICY_LABELS[p]}</span>
+                  <span
+                    className={`text-[8px] font-bold tracking-wider px-1 py-0.5 rounded ${
+                      isActive
+                        ? isGaap
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : 'bg-amber-100 text-amber-800'
+                        : isGaap
+                          ? 'bg-emerald-500/20 text-emerald-300'
+                          : 'bg-amber-500/20 text-amber-300'
+                    }`}
+                  >
+                    {isGaap ? 'GAAP' : 'NON-GAAP'}
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
           <div className="w-px h-5 bg-gray-300" />
@@ -537,15 +580,15 @@ export default function Profitability({ onNavigate }: { onNavigate?: (section: s
 
       {/* ── Cost Breakdown Bar ──────────────────────────────────────────── */}
       {breakdownSegments.length > 0 && (
-        <div className="px-6 py-4 border-b border-gray-100 bg-white">
-          <div className="flex items-center gap-2 mb-2.5">
-            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Where each {CURRENCY_SYMBOLS[currency]}1 goes</span>
+        <div className="px-5 py-2.5 border-b border-gray-100 bg-white">
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Where each {CURRENCY_SYMBOLS[currency]}1 goes</span>
             <span className="text-[10px] text-gray-400">({granularity === 'yearly' ? 'FY2025' : `FY${selectedYear}`})</span>
           </div>
 
           {/* Stacked bar */}
           <div className="relative">
-            <div className="flex h-7 rounded-lg overflow-hidden shadow-inner">
+            <div className="flex h-5 rounded-md overflow-hidden shadow-inner">
               {breakdownSegments.map((seg, i) => (
                 <div
                   key={i}
@@ -593,7 +636,7 @@ export default function Profitability({ onNavigate }: { onNavigate?: (section: s
           </div>
 
           {/* Segment legend (below bar) */}
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1.5">
             {breakdownSegments.map((seg, i) => (
               <div
                 key={i}
@@ -610,7 +653,7 @@ export default function Profitability({ onNavigate }: { onNavigate?: (section: s
           </div>
 
           {/* Cascade margin chips */}
-          <div className="flex items-center mt-3 pt-3 border-t border-gray-100">
+          <div className="flex items-center mt-2 pt-2 border-t border-gray-100">
             {cascadeChips.map((chip, i) => (
               <div key={i} className="flex items-center">
                 {i > 0 && <span className="mx-2 text-gray-300 text-xs">→</span>}
@@ -634,21 +677,21 @@ export default function Profitability({ onNavigate }: { onNavigate?: (section: s
             {/* Comparison mode: policy label row */}
             {showComparison && (
               <tr className="bg-slate-800">
-                <th className="sticky left-0 z-10 bg-slate-800 px-4 py-1.5 text-left" />
+                <th className="sticky left-0 z-10 bg-slate-800 px-3 py-1 text-left" />
                 {columns.map((col) => (
-                  <th key={`${col.key}_pri`} colSpan={1} className="px-4 py-1.5 text-right text-[10px] font-bold uppercase tracking-wider text-slate-300 border-r border-slate-600">
+                  <th key={`${col.key}_pri`} colSpan={1} className="px-3 py-1 text-right text-[10px] font-bold uppercase tracking-wider text-slate-300 border-r border-slate-600">
                     {POLICY_LABELS[policy]}
                   </th>
                 ))}
                 {columns.map((col) => (
-                  <th key={`${col.key}_cmp`} colSpan={1} className="px-4 py-1.5 text-right text-[10px] font-bold uppercase tracking-wider text-purple-300">
+                  <th key={`${col.key}_cmp`} colSpan={1} className="px-3 py-1 text-right text-[10px] font-bold uppercase tracking-wider text-purple-300">
                     {POLICY_LABELS[comparisonPolicy]}
                   </th>
                 ))}
               </tr>
             )}
             <tr>
-              <th className="sticky left-0 z-10 bg-slate-700 px-4 py-3.5 text-left text-xs font-bold uppercase tracking-wider min-w-[280px]">
+              <th className="sticky left-0 z-10 bg-slate-700 px-3 py-1.5 text-left text-[11px] font-bold uppercase tracking-wider min-w-[260px]">
                 Line Item
               </th>
               {columns.map((col) => {
@@ -663,7 +706,7 @@ export default function Profitability({ onNavigate }: { onNavigate?: (section: s
                       else next.add(col.key);
                       return next;
                     })}
-                    className={`px-4 py-3.5 text-right text-xs font-bold uppercase tracking-wider whitespace-nowrap cursor-pointer select-none transition-colors duration-200 ${
+                    className={`px-3 py-1.5 text-right text-[11px] font-bold uppercase tracking-wider whitespace-nowrap cursor-pointer select-none transition-colors duration-200 ${
                       isHL
                         ? 'bg-cx-500 text-white'
                         : isDimmed
@@ -680,7 +723,7 @@ export default function Profitability({ onNavigate }: { onNavigate?: (section: s
               {showComparison && columns.map((col) => (
                 <th
                   key={`${col.key}_cmp`}
-                  className="px-4 py-3.5 text-right text-xs font-bold uppercase tracking-wider whitespace-nowrap bg-slate-600 text-purple-200"
+                  className="px-3 py-1.5 text-right text-[11px] font-bold uppercase tracking-wider whitespace-nowrap bg-slate-600 text-purple-200"
                 >
                   <div>{col.label}</div>
                   {col.sublabel && <div className="text-[10px] font-normal mt-0.5 text-slate-400">{col.sublabel}</div>}
@@ -688,7 +731,7 @@ export default function Profitability({ onNavigate }: { onNavigate?: (section: s
               ))}
               {/* Delta column header */}
               {showComparison && (
-                <th className="px-4 py-3.5 text-right text-xs font-bold uppercase tracking-wider whitespace-nowrap bg-purple-900 text-purple-200">
+                <th className="px-3 py-1.5 text-right text-[11px] font-bold uppercase tracking-wider whitespace-nowrap bg-purple-900 text-purple-200">
                   <div>Timing</div>
                   <div className="text-[10px] font-normal mt-0.5 text-purple-400">Difference</div>
                 </th>
@@ -704,17 +747,17 @@ export default function Profitability({ onNavigate }: { onNavigate?: (section: s
 
               return (
                 <tr key={metric.label} className={rowClasses}>
-                  <td className={`sticky left-0 z-10 px-4 py-2.5 text-sm ${labelClasses} ${rowClasses}`}>
-                    <div className="flex items-center gap-2" style={{ paddingLeft: `${indent * 24}px` }}>
+                  <td className={`sticky left-0 z-10 px-3 py-1 text-[13px] ${labelClasses} ${rowClasses}`}>
+                    <div className="flex items-center gap-1.5" style={{ paddingLeft: `${indent * 18}px` }}>
                       {metric.isExpandable && (
                         <button
                           onClick={() => toggleRow(metric.label)}
                           className="text-gray-500 hover:text-gray-700 transition-colors"
                         >
-                          <ChevronRight className={`w-4 h-4 transition-transform ${expandedRows.has(metric.label) ? 'rotate-90' : ''}`} />
+                          <ChevronRight className={`w-3.5 h-3.5 transition-transform ${expandedRows.has(metric.label) ? 'rotate-90' : ''}`} />
                         </button>
                       )}
-                      {!metric.isExpandable && metric.indent === 0 && <span className="w-4"></span>}
+                      {!metric.isExpandable && metric.indent === 0 && <span className="w-3.5"></span>}
                       <span>{metric.label}</span>
                       {PL_TOOLTIPS[metric.label] && (
                         <InfoTooltip content={PL_TOOLTIPS[metric.label]} wide />
@@ -790,70 +833,70 @@ export default function Profitability({ onNavigate }: { onNavigate?: (section: s
 
       {/* ── Cash Reconciliation Section (Cash policy only) ──────────── */}
       {policy === 'cash' && (
-        <div className="px-6 py-4 border-t border-gray-200 bg-gradient-to-r from-blue-50/50 to-white">
-          <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-3">Settlement Reconciliation</h3>
-          <div className="grid grid-cols-3 gap-4">
+        <div className="px-5 py-2.5 border-t border-gray-200 bg-gradient-to-r from-blue-50/50 to-white">
+          <h3 className="text-[10px] font-bold text-gray-700 uppercase tracking-wider mb-1.5">Settlement Reconciliation</h3>
+          <div className="grid grid-cols-3 gap-2">
             {/* Settlement Net */}
-            <div className="bg-white rounded-lg border border-gray-200 px-4 py-3">
-              <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Settlement Net Amount</div>
-              <div className="text-lg font-bold text-gray-900 tabular-nums">
+            <div className="bg-white rounded-md border border-gray-200 px-3 py-1.5">
+              <div className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider">Settlement Net Amount</div>
+              <div className="text-sm font-bold text-gray-900 tabular-nums">
                 {fc(convert(MOCK_RECONCILIATION.settlementNet, currency), currency, { compact: false })}
               </div>
-              <div className="text-[10px] text-gray-400 mt-0.5">Source: Settlement Report V2</div>
+              <div className="text-[9px] text-gray-400">Source: Settlement Report V2</div>
             </div>
             {/* P&L Net Operating */}
-            <div className="bg-white rounded-lg border border-gray-200 px-4 py-3">
-              <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">P&L Net Operating Profit</div>
-              <div className="text-lg font-bold text-gray-900 tabular-nums">
+            <div className="bg-white rounded-md border border-gray-200 px-3 py-1.5">
+              <div className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider">P&L Net Operating Profit</div>
+              <div className="text-sm font-bold text-gray-900 tabular-nums">
                 {fc(convert(MOCK_RECONCILIATION.plNetOperating, currency), currency, { compact: false })}
               </div>
-              <div className="text-[10px] text-gray-400 mt-0.5">Source: Journal entries</div>
+              <div className="text-[9px] text-gray-400">Source: Journal entries</div>
             </div>
             {/* Variance */}
-            <div className={`rounded-lg border px-4 py-3 ${
+            <div className={`rounded-md border px-3 py-1.5 ${
               Math.abs(MOCK_RECONCILIATION.variance) < 10
                 ? 'bg-green-50 border-green-200'
                 : 'bg-red-50 border-red-200'
             }`}>
-              <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Variance</div>
-              <div className="flex items-center gap-2">
-                <div className={`text-lg font-bold tabular-nums ${
+              <div className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider">Variance</div>
+              <div className="flex items-center gap-1.5">
+                <div className={`text-sm font-bold tabular-nums ${
                   Math.abs(MOCK_RECONCILIATION.variance) < 10 ? 'text-green-700' : 'text-red-700'
                 }`}>
                   {fc(convert(MOCK_RECONCILIATION.variance, currency), currency, { compact: false })}
                 </div>
                 {Math.abs(MOCK_RECONCILIATION.variance) < 10 ? (
-                  <CheckCircle2 className="w-5 h-5 text-green-600" />
+                  <CheckCircle2 className="w-3.5 h-3.5 text-green-600" />
                 ) : (
-                  <AlertTriangle className="w-5 h-5 text-red-600" />
+                  <AlertTriangle className="w-3.5 h-3.5 text-red-600" />
                 )}
               </div>
-              <div className="text-[10px] text-gray-400 mt-0.5">
+              <div className="text-[9px] text-gray-400">
                 {Math.abs(MOCK_RECONCILIATION.variance) < 10 ? 'Reconciled within tolerance' : 'Requires investigation'}
               </div>
             </div>
           </div>
 
           {/* Amazon Reserves — expandable */}
-          <div className="mt-4">
+          <div className="mt-2">
             <button
               onClick={() => setShowReserves(!showReserves)}
-              className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 hover:text-gray-900 transition-colors"
+              className="flex items-center gap-1 text-[11px] font-semibold text-gray-600 hover:text-gray-900 transition-colors"
             >
-              <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showReserves ? 'rotate-180' : ''}`} />
+              <ChevronDown className={`w-3 h-3 transition-transform ${showReserves ? 'rotate-180' : ''}`} />
               Amazon Reserves
             </button>
             {showReserves && (
-              <div className="mt-2 grid grid-cols-4 gap-3">
+              <div className="mt-1.5 grid grid-cols-4 gap-2">
                 {[
                   { label: 'Opening Balance', value: MOCK_RESERVES.openingBalance, color: 'text-gray-700' },
                   { label: 'Withheld This Period', value: MOCK_RESERVES.withheld, color: 'text-red-700' },
                   { label: 'Released This Period', value: MOCK_RESERVES.released, color: 'text-green-700' },
                   { label: 'Closing Balance', value: MOCK_RESERVES.closingBalance, color: 'text-gray-900' },
                 ].map((item) => (
-                  <div key={item.label} className="bg-white rounded-lg border border-gray-200 px-3 py-2.5">
-                    <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">{item.label}</div>
-                    <div className={`text-sm font-bold tabular-nums ${item.color}`}>
+                  <div key={item.label} className="bg-white rounded-md border border-gray-200 px-2.5 py-1.5">
+                    <div className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider">{item.label}</div>
+                    <div className={`text-xs font-bold tabular-nums ${item.color}`}>
                       {fc(convert(item.value, currency), currency, { compact: false })}
                     </div>
                   </div>
@@ -864,8 +907,8 @@ export default function Profitability({ onNavigate }: { onNavigate?: (section: s
         </div>
       )}
 
-      <div className="p-4 bg-slate-50 border-t border-slate-200">
-        <div className="flex items-center justify-between text-xs text-gray-600">
+      <div className="px-4 py-1.5 bg-slate-50 border-t border-slate-200">
+        <div className="flex items-center justify-between text-[11px] text-gray-600">
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-2">
               <div className="w-4 h-0.5 bg-cx-300"></div>
@@ -887,7 +930,7 @@ export default function Profitability({ onNavigate }: { onNavigate?: (section: s
             )}
           </div>
           <div className="flex items-center gap-4 text-gray-500">
-            <span>{POLICY_LABELS[policy]} basis · {currency}</span>
+            <span>{POLICY_LABELS[policy]} date · {POLICY_GAAP[policy].isGaap ? 'GAAP' : 'Non-GAAP'} · {currency}</span>
             <LastRefreshed offsetMinutes={16} />
           </div>
         </div>

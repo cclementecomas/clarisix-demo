@@ -14,7 +14,7 @@ import type { ProductProfitRow } from '../data/profitabilityDeepdiveData';
 import { BarChart2, X } from 'lucide-react';
 import {
   BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer,
+  Tooltip, ResponsiveContainer, LabelList,
 } from 'recharts';
 import { fc } from '../utils/currency';
 
@@ -206,8 +206,8 @@ function WaterfallPanel({ product, currency, onClose }: {
         </div>
       </div>
       <div className="p-5">
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={steps} margin={{ top: 25, right: 10, left: 10, bottom: 5 }}>
+        <ResponsiveContainer width="100%" height={320}>
+          <BarChart data={steps} margin={{ top: 42, right: 10, left: 10, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#EEF2F6" vertical={false} />
             <XAxis
               dataKey="name"
@@ -249,6 +249,59 @@ function WaterfallPanel({ product, currency, onClose }: {
               {steps.map((entry, idx) => (
                 <Cell key={idx} fill={getBarColor(entry)} />
               ))}
+              <LabelList
+                dataKey="value"
+                content={(props: { x?: number | string; y?: number | string; width?: number | string; index?: number }) => {
+                  const { x, y, width, index } = props;
+                  if (index == null) return null;
+                  const step = steps[index];
+                  if (!step) return null;
+
+                  const grossRevenue = product.grossRevenue || 1;
+                  const pct = (step.value / grossRevenue) * 100;
+                  const pctText = pct >= 100 ? `${pct.toFixed(0)}%` : pct >= 10 ? `${pct.toFixed(0)}%` : `${pct.toFixed(1)}%`;
+
+                  // Determine signed value text
+                  let signedValue: number;
+                  let signPrefix = '';
+                  if (step.type === 'cost') {
+                    signedValue = step.value;
+                    signPrefix = '−';
+                  } else if (step.type === 'addition') {
+                    signedValue = step.value;
+                    signPrefix = '+';
+                  } else if (step.type === 'subtotal' || step.type === 'profit') {
+                    signedValue = Math.abs(step.runningTotal);
+                    signPrefix = step.runningTotal < 0 ? '−' : '';
+                  } else {
+                    // revenue
+                    signedValue = step.value;
+                  }
+                  const valueText = `${signPrefix}${fc(signedValue, currency)}`;
+
+                  const cx = Number(x) + Number(width) / 2;
+                  const baseY = Number(y);
+
+                  // Color: red for costs / negative subtotals, green for profit/addition, dark gray for revenue
+                  const valueColor =
+                    step.type === 'cost' ? '#B91C1C' :
+                    step.type === 'addition' ? '#047857' :
+                    (step.type === 'subtotal' || step.type === 'profit')
+                      ? (step.runningTotal < 0 ? '#B91C1C' : '#0F172A')
+                      : '#0F172A';
+
+                  return (
+                    <g>
+                      <text x={cx} y={baseY - 18} textAnchor="middle" fontSize={10} fontWeight={700} fill={valueColor}>
+                        {valueText}
+                      </text>
+                      <text x={cx} y={baseY - 6} textAnchor="middle" fontSize={9} fontWeight={600} fill="#64748B">
+                        {pctText}
+                      </text>
+                    </g>
+                  );
+                }}
+              />
             </Bar>
           </BarChart>
         </ResponsiveContainer>
