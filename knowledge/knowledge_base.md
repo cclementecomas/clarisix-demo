@@ -186,6 +186,7 @@ Replenishment Plan Panel
 - Export CSV button: downloads full replenishment list with all columns, date-stamped filename.
 - Footer with total SKU count, total units, total estimated cost.
 - Fully reactive to settings changes (coverage, lead time, service level).
+- Title-only search bar in panel header (Apr 30 2026): filters all three urgency sections by product title with clear-button. Empty-results message when no match. Totals stay unaffected — search is a "find" tool, not a totals filter. Page-level "Search SKU, ASIN, or title" was removed; SKU/ASIN are already addressed by KPI filters above.
 
 Inventory Section Restructure (2026-04-16)
 
@@ -461,7 +462,7 @@ Row drawer (inline expansion):
 - Advanced batches: collapsed by default. Enable batch tracking only if you need inventory-layer accuracy. Reveals costing method (WAC/FIFO/LIFO) picker.
 
 Paste / Upload modal:
-- Step 1 (Add data): Big paste textarea + drag-drop file. Defaults panel for currency/marketplace/effective-from when rows omit them. Optional template download (de-emphasized).
+- Step 1 (Add data): Promoted "Download CSV template" button (top-right, with subtitle "Pre-filled headers + 3 example rows"). Three-tier "Accepted columns" reference card sits above the paste area showing Required (sku, landed_cost) / Common (currency, marketplace, effective_from) / Advanced (effective_to, quantity, received_date, batch_id, freight, duties, other) — sellers see the schema without needing to download. Big paste textarea with multi-column placeholder + drag-drop file. Defaults panel for currency/marketplace/effective-from when rows omit them.
 - Step 2 (Map columns): Auto-detect with fuzzy aliases. Required-column readiness badges (SKU mapped ✓, Cost mapped ✓). Sample values shown per column.
 - Step 3 (Review): 4 stat cards (rows found / ready / warnings / needs review). Estimated coverage after applying. Filter tabs (All / Warnings / Needs review). Per-row issue notes. "Apply N valid rows" CTA enabled even when bad rows exist. "Download failed rows" CSV.
 
