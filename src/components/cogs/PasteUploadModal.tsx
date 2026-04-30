@@ -413,13 +413,42 @@ function AddDataStep({
 
   return (
     <div className="space-y-4">
-      <div>
-        <p className="text-xs text-gray-700 mb-1">
-          Add your spreadsheet data. Minimum required columns: <span className="font-mono font-semibold">sku</span> and <span className="font-mono font-semibold">landed_cost</span>.
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-xs text-gray-700 max-w-md">
+          Paste from any spreadsheet, or upload a file. We detect columns automatically — common names like Seller SKU, COGS, or Landed Cost are recognized.
         </p>
-        <button onClick={downloadTemplate} className="inline-flex items-center gap-1 text-[10px] font-semibold text-gray-500 hover:text-gray-700">
-          <Download className="w-3 h-3" /> Download template (optional)
+        <button
+          onClick={downloadTemplate}
+          className="flex-shrink-0 inline-flex items-center gap-1.5 text-[11px] font-semibold text-cx-700 bg-cx-50 hover:bg-cx-100 border border-cx-200 px-3 py-1.5 rounded-md transition-colors"
+        >
+          <Download className="w-3.5 h-3.5" />
+          <div className="text-left leading-tight">
+            <div>Download CSV template</div>
+            <div className="text-[9px] font-normal text-cx-600/80">Pre-filled headers + 3 example rows</div>
+          </div>
         </button>
+      </div>
+
+      {/* Accepted columns reference */}
+      <div className="bg-blue-50/50 border border-blue-100 rounded-lg px-3 py-2.5">
+        <div className="text-[10px] font-bold text-blue-900 uppercase tracking-wider mb-1.5">Accepted columns</div>
+        <div className="space-y-1 text-[10px]">
+          <div className="flex items-baseline gap-2">
+            <span className="inline-flex items-center justify-center w-[64px] flex-shrink-0 rounded text-[9px] font-bold bg-rose-100 text-rose-700 border border-rose-200 px-1 py-0.5">REQUIRED</span>
+            <span className="font-mono text-gray-800">sku · landed_cost</span>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="inline-flex items-center justify-center w-[64px] flex-shrink-0 rounded text-[9px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-200 px-1 py-0.5">COMMON</span>
+            <span className="font-mono text-gray-700">currency · marketplace · effective_from</span>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="inline-flex items-center justify-center w-[64px] flex-shrink-0 rounded text-[9px] font-bold bg-gray-100 text-gray-600 border border-gray-200 px-1 py-0.5">ADVANCED</span>
+            <span className="font-mono text-gray-500">effective_to · quantity · received_date · batch_id · freight · duties · other</span>
+          </div>
+        </div>
+        <div className="text-[10px] text-blue-800/80 mt-1.5 italic">
+          Only <span className="font-mono font-semibold not-italic">sku</span> and <span className="font-mono font-semibold not-italic">landed_cost</span> are required. Missing fields use the defaults below.
+        </div>
       </div>
 
       {/* Paste area */}
@@ -431,7 +460,7 @@ function AddDataStep({
           value={pasted}
           onChange={(e) => setPasted(e.target.value)}
           rows={6}
-          placeholder={'sku, landed_cost\nSKU-001, 4.20\nSKU-002, 3.10'}
+          placeholder={'sku, landed_cost, currency, marketplace\nSKU-001, 4.20, USD, ALL\nSKU-002, 3.10, USD, US\nSKU-003, 2.10, GBP, UK'}
           className="w-full px-3 py-2 text-xs font-mono border border-gray-200 rounded-lg focus:ring-1 focus:ring-cx-500/30 focus:border-cx-400 outline-none"
         />
       </div>
