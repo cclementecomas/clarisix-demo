@@ -9,6 +9,7 @@ import {
   type TrendGranularity,
 } from '../data/trendsData';
 import TrendsPivotTable from './trends/TrendsPivotTable';
+import MetricMatrix from './trends/MetricMatrix';
 import { useDateFilter } from '../contexts/DateFilterContext';
 
 const granularityOptions: { value: TrendGranularity; label: string }[] = [
@@ -127,6 +128,8 @@ export default function Trends() {
         rows={rows}
         metricInfo={metricInfo}
       />
+
+      <MetricMatrix periods={periods} />
     </div>
   );
 }

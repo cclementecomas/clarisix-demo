@@ -142,6 +142,37 @@ Sales Deepdive (DeepDive.tsx)
 - Sales Share column: computed dynamically from `sales / totalSales * 100` via `computeShares()` in deepdiveData.ts. Ensures shares always total exactly 100% with rounding correction applied to first row. Applied to marketplace, category, and ASIN tables.
 
 
+Trends — Metrics over time matrix (May 5 2026 — MetricMatrix.tsx)
+
+A second section on the Trends page beneath the existing pivot table. Shows all 12 Sales-Deepdive metrics simultaneously with periods as rows.
+
+Layout:
+- Rows: time periods, driven by the page-level Day/Week/Month/Quarter granularity toggle (shared with the pivot above).
+- Columns: Sales, Units, Ad Spend, Ad Sales, ROAS, ACOS, TACOS, BBox Win, Ad Reliance, CVR, Page Views, Sessions.
+- Sticky first column (period label) so horizontal scroll keeps the date visible.
+- ↑ / ↓ marker per column header indicates polarity ("higher is better" vs "lower is better").
+
+Heatmap:
+- Each column independently shaded green→red based on relative position within that column's min/max.
+- Polarity reversed for cost metrics (Ad Spend, ACOS, TACOS, Ad Reliance) so red always means "worse."
+- Opacity capped at ~0.32 to keep text readable; neutral cells stay white.
+
+Cell selection (matches TrendsPivotTable / DeepDiveTable pattern):
+- Click → single select; click again → deselect.
+- Drag → rectangle select.
+- Ctrl/Cmd-click → toggle individual cells.
+- Window mouseup listener ends drag.
+- Initial "Click and drag cells to see statistics" hint pill auto-dismisses after 5s or on first interaction.
+- Selection resets when periods change.
+
+Stats placement (matches DeepDiveTable pattern, not TrendsPivotTable's header pattern):
+- Standard SelectionStats component (Count · Sum · Avg · Median · Min · Max) shown in the bottom-right footer alongside LastRefreshed, only when there's an active selection.
+- Cross-column selections produce raw stats (no unit awareness) — same behavior as DeepDiveTable. Acceptable since each column has tabular-nums and most users select within a single column.
+
+Data:
+- src/data/metricMatrixData.ts: generateMatrixData(periods) produces deterministic per-period values seeded by period label hash. Sales drives Ad Spend (6-13%); Ad Spend drives ACOS, TACOS, ROAS via formula. Other metrics noise around plausible ranges with gentle upward drift.
+
+
 Loading States (ClarisixSpinner.tsx)
 
 - SPINNER_VERBS: ~110 creative verbs (mix of tech, silly, action words) that cycle randomly every 1 second.
