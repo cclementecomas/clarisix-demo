@@ -124,6 +124,7 @@ export default function Profitability({ onNavigate }: { onNavigate?: (section: s
   const [showComparison, setShowComparison] = useState(false);
   const [comparisonPolicy, setComparisonPolicy] = useState<AccountingPolicy>('cash');
   const [showReserves, setShowReserves] = useState(false);
+  const [showBreakdownBar, setShowBreakdownBar] = useState(false);
 
   // When switching policy, reset settlement granularity if leaving cash
   const handlePolicyChange = (p: AccountingPolicy) => {
@@ -281,7 +282,7 @@ export default function Profitability({ onNavigate }: { onNavigate?: (section: s
 
     let rowClasses = '';
     let labelClasses = '';
-    let cellClasses = 'px-3 py-1 text-[13px] tabular-nums text-right whitespace-nowrap';
+    let cellClasses = 'px-3 py-0.5 text-xs tabular-nums text-right whitespace-nowrap';
 
     switch (styleType) {
       case 'header':
@@ -342,8 +343,8 @@ export default function Profitability({ onNavigate }: { onNavigate?: (section: s
     const isCostLine = metric.type === 'currency' && (current < 0 || prior < 0);
     const isGood = isCostLine ? delta <= 0 : delta >= 0;
     return (
-      <span className={`block text-[10px] font-medium leading-tight mt-0.5 ${isGood ? 'text-green-700' : 'text-red-600'}`}>
-        {delta > 0 ? '▲' : '▼'} {Math.abs(delta).toFixed(1)}% YoY
+      <span className={`ml-1 text-[9px] font-medium ${isGood ? 'text-green-700' : 'text-red-600'}`}>
+        {delta > 0 ? '▲' : '▼'}{Math.abs(delta).toFixed(0)}%
       </span>
     );
   };
@@ -578,96 +579,108 @@ export default function Profitability({ onNavigate }: { onNavigate?: (section: s
         </div>
       </div>
 
-      {/* ── Cost Breakdown Bar ──────────────────────────────────────────── */}
+      {/* ── Cost Breakdown Strip (cascade chips always visible, breakdown bar collapsible) ── */}
       {breakdownSegments.length > 0 && (
-        <div className="px-5 py-2.5 border-b border-gray-100 bg-white">
-          <div className="flex items-center gap-2 mb-1.5">
-            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Where each {CURRENCY_SYMBOLS[currency]}1 goes</span>
-            <span className="text-[10px] text-gray-400">({granularity === 'yearly' ? 'FY2025' : `FY${selectedYear}`})</span>
-          </div>
-
-          {/* Stacked bar */}
-          <div className="relative">
-            <div className="flex h-5 rounded-md overflow-hidden shadow-inner">
-              {breakdownSegments.map((seg, i) => (
-                <div
-                  key={i}
-                  className="relative flex items-center justify-center transition-opacity duration-150"
-                  style={{
-                    width: `${Math.abs(seg.pct)}%`,
-                    backgroundColor: seg.color,
-                    opacity: hoveredSegment !== null && hoveredSegment !== i ? 0.5 : 1,
-                  }}
-                  onMouseEnter={() => setHoveredSegment(i)}
-                  onMouseLeave={() => setHoveredSegment(null)}
-                >
-                  {Math.abs(seg.pct) >= 6 && (
-                    <span className="text-[10px] font-bold text-white drop-shadow-sm truncate px-1">
-                      {CURRENCY_SYMBOLS[currency]}{(Math.abs(seg.pct) / 100).toFixed(2)}
+        <div className="px-5 py-1.5 border-b border-gray-100 bg-white">
+          <div className="flex items-center justify-between gap-3">
+            {/* Cascade margin chips — always visible */}
+            <div className="flex items-center flex-wrap">
+              {cascadeChips.map((chip, i) => (
+                <div key={i} className="flex items-center">
+                  {i > 0 && <span className="mx-1.5 text-gray-300 text-[10px]">→</span>}
+                  <div className="flex items-center gap-1">
+                    <span className="text-[9px] font-bold text-gray-400 uppercase">{chip.label}</span>
+                    <span className={`text-[11px] font-extrabold ${
+                      chip.value >= 20 ? 'text-green-700' : chip.value >= 10 ? 'text-yellow-700' : chip.value >= 0 ? 'text-orange-700' : 'text-red-700'
+                    }`}>
+                      {chip.value.toFixed(1)}%
                     </span>
-                  )}
+                  </div>
                 </div>
               ))}
             </div>
+            {/* Toggle */}
+            <button
+              onClick={() => setShowBreakdownBar(!showBreakdownBar)}
+              className="flex items-center gap-1 text-[10px] font-semibold text-gray-400 hover:text-gray-700 transition-colors"
+            >
+              <ChevronDown className={`w-3 h-3 transition-transform ${showBreakdownBar ? 'rotate-180' : ''}`} />
+              Where each {CURRENCY_SYMBOLS[currency]}1 goes
+            </button>
+          </div>
 
-            {/* Hover tooltip */}
-            {hoveredSegment !== null && breakdownSegments[hoveredSegment] && (
-              <div className="absolute left-1/2 -translate-x-1/2 -bottom-[52px] z-30 pointer-events-none">
-                <div className="bg-gray-900 text-white text-[11px] px-3 py-1.5 rounded-lg shadow-xl whitespace-nowrap flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: breakdownSegments[hoveredSegment].color }} />
-                  <span className="font-semibold">{breakdownSegments[hoveredSegment].label}</span>
-                  <span className="text-white font-bold">
-                    {CURRENCY_SYMBOLS[currency]}{(Math.abs(breakdownSegments[hoveredSegment].pct) / 100).toFixed(2)}
-                  </span>
-                  <span className="text-gray-400">·</span>
-                  <span className="text-gray-300">
-                    {Math.abs(breakdownSegments[hoveredSegment].pct).toFixed(1)}%
-                  </span>
-                  <span className="text-gray-400">·</span>
-                  <span className="text-gray-400">
-                    {(() => {
-                      const v = convert(breakdownSegments[hoveredSegment].value, currency);
-                      return new Intl.NumberFormat('en-US', { style: 'currency', currency, minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(Math.abs(v));
-                    })()}
-                  </span>
+          {/* Collapsible breakdown bar */}
+          {showBreakdownBar && (
+            <div className="mt-2 pt-2 border-t border-gray-100">
+              <div className="text-[9px] text-gray-400 mb-1">FY{granularity === 'yearly' ? '2025' : selectedYear}</div>
+
+              {/* Stacked bar */}
+              <div className="relative">
+                <div className="flex h-5 rounded-md overflow-hidden shadow-inner">
+                  {breakdownSegments.map((seg, i) => (
+                    <div
+                      key={i}
+                      className="relative flex items-center justify-center transition-opacity duration-150"
+                      style={{
+                        width: `${Math.abs(seg.pct)}%`,
+                        backgroundColor: seg.color,
+                        opacity: hoveredSegment !== null && hoveredSegment !== i ? 0.5 : 1,
+                      }}
+                      onMouseEnter={() => setHoveredSegment(i)}
+                      onMouseLeave={() => setHoveredSegment(null)}
+                    >
+                      {Math.abs(seg.pct) >= 6 && (
+                        <span className="text-[10px] font-bold text-white drop-shadow-sm truncate px-1">
+                          {CURRENCY_SYMBOLS[currency]}{(Math.abs(seg.pct) / 100).toFixed(2)}
+                        </span>
+                      )}
+                    </div>
+                  ))}
                 </div>
-              </div>
-            )}
-          </div>
 
-          {/* Segment legend (below bar) */}
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1.5">
-            {breakdownSegments.map((seg, i) => (
-              <div
-                key={i}
-                className="flex items-center gap-1.5 cursor-default"
-                onMouseEnter={() => setHoveredSegment(i)}
-                onMouseLeave={() => setHoveredSegment(null)}
-              >
-                <div className="w-2 h-2 rounded-sm flex-shrink-0" style={{ backgroundColor: seg.color }} />
-                <span className={`text-[10px] ${hoveredSegment === i ? 'text-gray-900 font-semibold' : 'text-gray-500'} transition-colors`}>
-                  {seg.label}
-                </span>
+                {/* Hover tooltip */}
+                {hoveredSegment !== null && breakdownSegments[hoveredSegment] && (
+                  <div className="absolute left-1/2 -translate-x-1/2 -bottom-[52px] z-30 pointer-events-none">
+                    <div className="bg-gray-900 text-white text-[11px] px-3 py-1.5 rounded-lg shadow-xl whitespace-nowrap flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: breakdownSegments[hoveredSegment].color }} />
+                      <span className="font-semibold">{breakdownSegments[hoveredSegment].label}</span>
+                      <span className="text-white font-bold">
+                        {CURRENCY_SYMBOLS[currency]}{(Math.abs(breakdownSegments[hoveredSegment].pct) / 100).toFixed(2)}
+                      </span>
+                      <span className="text-gray-400">·</span>
+                      <span className="text-gray-300">
+                        {Math.abs(breakdownSegments[hoveredSegment].pct).toFixed(1)}%
+                      </span>
+                      <span className="text-gray-400">·</span>
+                      <span className="text-gray-400">
+                        {(() => {
+                          const v = convert(breakdownSegments[hoveredSegment].value, currency);
+                          return new Intl.NumberFormat('en-US', { style: 'currency', currency, minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(Math.abs(v));
+                        })()}
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
-            ))}
-          </div>
 
-          {/* Cascade margin chips */}
-          <div className="flex items-center mt-2 pt-2 border-t border-gray-100">
-            {cascadeChips.map((chip, i) => (
-              <div key={i} className="flex items-center">
-                {i > 0 && <span className="mx-2 text-gray-300 text-xs">→</span>}
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] font-bold text-gray-400 uppercase">{chip.label}</span>
-                  <span className={`text-[11px] font-extrabold ${
-                    chip.value >= 20 ? 'text-green-700' : chip.value >= 10 ? 'text-yellow-700' : chip.value >= 0 ? 'text-orange-700' : 'text-red-700'
-                  }`}>
-                    {chip.value.toFixed(1)}%
-                  </span>
-                </div>
+              {/* Segment legend (below bar) */}
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1.5">
+                {breakdownSegments.map((seg, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center gap-1.5 cursor-default"
+                    onMouseEnter={() => setHoveredSegment(i)}
+                    onMouseLeave={() => setHoveredSegment(null)}
+                  >
+                    <div className="w-2 h-2 rounded-sm flex-shrink-0" style={{ backgroundColor: seg.color }} />
+                    <span className={`text-[10px] ${hoveredSegment === i ? 'text-gray-900 font-semibold' : 'text-gray-500'} transition-colors`}>
+                      {seg.label}
+                    </span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -747,17 +760,17 @@ export default function Profitability({ onNavigate }: { onNavigate?: (section: s
 
               return (
                 <tr key={metric.label} className={rowClasses}>
-                  <td className={`sticky left-0 z-10 px-3 py-1 text-[13px] ${labelClasses} ${rowClasses}`}>
-                    <div className="flex items-center gap-1.5" style={{ paddingLeft: `${indent * 18}px` }}>
+                  <td className={`sticky left-0 z-10 px-3 py-0.5 text-xs ${labelClasses} ${rowClasses}`}>
+                    <div className="flex items-center gap-1" style={{ paddingLeft: `${indent * 14}px` }}>
                       {metric.isExpandable && (
                         <button
                           onClick={() => toggleRow(metric.label)}
                           className="text-gray-500 hover:text-gray-700 transition-colors"
                         >
-                          <ChevronRight className={`w-3.5 h-3.5 transition-transform ${expandedRows.has(metric.label) ? 'rotate-90' : ''}`} />
+                          <ChevronRight className={`w-3 h-3 transition-transform ${expandedRows.has(metric.label) ? 'rotate-90' : ''}`} />
                         </button>
                       )}
-                      {!metric.isExpandable && metric.indent === 0 && <span className="w-3.5"></span>}
+                      {!metric.isExpandable && metric.indent === 0 && <span className="w-3"></span>}
                       <span>{metric.label}</span>
                       {PL_TOOLTIPS[metric.label] && (
                         <InfoTooltip content={PL_TOOLTIPS[metric.label]} wide />
