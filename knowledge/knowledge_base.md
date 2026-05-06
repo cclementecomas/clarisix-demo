@@ -347,6 +347,29 @@ Settings → Account → Data Mapping
 - Download button exports the current mapping as `clarisix-category-mapping-YYYY-MM-DD.csv`.
 - Upload button (drag-and-drop + browse) accepts an updated CSV; shows confirmation with filename and row count.
 - Workflow: download → append/edit in spreadsheet → re-upload. Changes apply immediately to all filters and breakdown tables.
+- (May 5 2026) Extracted to its own page Settings → Products with full coverage tracking — see "Settings → Products" section below.
+
+Settings → Products (May 5 2026 — components/settings/ProductsSection.tsx)
+Mirrors the COGS Coverage philosophy for the product mapping problem.
+
+Why a separate page
+- The old Data Mapping card showed only the 5 SKUs that were already mapped, with no visibility into the 45 unmapped products. Sellers couldn't see they had a problem until they noticed "NA" everywhere downstream.
+- Unmapped SKUs don't disappear from filters — they bucket under "NA" in Brand, Category, Subcategory, which silently undermines reports.
+
+Coverage model
+- Source: inventoryData (50 SKUs) joined with seedMappings (5 pre-populated entries from the original Data Mapping demo).
+- Required fields: Brand + Category. Without either, status = "needs-mapping" (rose). 
+- Optional fields: Subcategory + Tag. With Brand+Category but Sub or Tag empty, status = "partial" (amber). All four set = "complete" (green).
+- Coverage % = (mapped products / total) × 100, where "mapped" includes both complete and partial.
+- productMappingData.ts exports the seed data, types, and `getMappingStatus()` helper.
+
+UI
+- Coverage header card with tier badge (STRONG ≥90, PARTIAL 60–89, NEEDS WORK <60), big % number, three sub-stats (Complete / Partial / Needs mapping).
+- Top toolbar: view toggle (Needs mapping / All / Mapped, defaults to Needs mapping when count > 0), search, count, Download mapping CSV, Upload mapping CSV.
+- Editable grid: SKU/ASIN/Title read-only; Brand/Category/Subcategory/Tag inline-editable with rose-bordered placeholders for required-but-empty fields. Status badge per row.
+- Unmapped rows: rose-tint background, "NEEDS MAPPING" badge next to SKU. Visual language matches uncosted rows in COGS Coverage.
+- Inline edits save to local state on every keystroke; status badge + coverage % update live.
+- Settings page made full-width (max-w-5xl removed) so the table has operating space.
 
 IPI Score + Storage Limits (2026-04-17)
 
@@ -545,3 +568,48 @@ Deferred to v2:
 - Historical-report COGS-incomplete warning.
 - True right-side overlay drawer (currently inline row expansion).
 - Auto-promotion of dormant SKUs on new sales.
+
+
+Settings restructure: Data Setup vs Account bands (May 6 2026)
+
+Rationale
+- The platform has two fundamentally different page kinds: analytics (read-only insight) and data foundation (editing inputs that everything depends on). They were scattered: COGS lived inside Profitability, Products in Settings, Connectors top-level, Account Specifics buried in Settings → Account. Users had to remember where each setup task lived.
+- Reorganized into a coherent two-band Settings sidebar so all data-quality work has one home, and Profitability becomes purely analytical.
+
+Settings sidebar (settings/Settings.tsx)
+Two grouped cards with uppercase section headers:
+
+DATA SETUP
+- Products (mapping — already there from the earlier extraction)
+- Costs (← was Profitability → COGS, now mounts COGSManager directly)
+- Account specifics (renamed from "Account"; still hosts campaign naming, audience labeling, COGS method)
+- Connections (← was top-level Connectors page)
+
+ACCOUNT
+- Preferences
+- Team
+- Security
+- Subscription
+- Invoices
+- Danger Zone
+
+Implementation:
+- Settings component now accepts an optional `initialTab` prop and exports `SettingsTabId` type. App.tsx tracks `settingsTab` state and passes it down for deep-links.
+- Default tab is now `products` (data setup is the most-frequented entry point) instead of `preferences`.
+- Sub-headers above each card use `text-[10px] font-bold uppercase tracking-wider text-gray-400`.
+- Top-level "Connectors" route in App.tsx kept as a thin forwarder (`<Settings initialTab="connections" />`) so the CommandPalette and any legacy callers keep working.
+- Profitability → COGS sub-nav removed from `dashboardData.menuItems` (`subItems: ['Overview', 'Deepdive']`).
+- Standalone Connectors button removed from Sidebar.
+- Profitability "Open COGS Coverage" banner now deep-links to `Settings → Costs` via `onNavigate('Settings', 'costs')`. App.tsx routes section==='Settings' through `handleNavigateToSettings(tab)`.
+
+Data Foundation card on Home (components/home/DataFoundationCard.tsx, May 6 2026)
+- Bottom of Home page (after Greeting → KPICards → PeriodSnapshot → HomeAlerts → DataFoundationCard).
+- Composite score: `revenueCoverage × 0.6 + mappingCoverage × 0.4`. Hard cap at 0 if no connectors are configured (no data → no foundation).
+- Tier badge: STRONG (≥90), PARTIAL (60–89), NEEDS WORK (<60).
+- Four signal rows in a 2-col grid, each clickable to deep-link the corresponding Settings tab:
+  1. Profit reliability — derived from cogsData.computeCoverage() over inventoryData.
+  2. Product mapping — % of SKUs with both Brand and Category set (uses seedMappings + getMappingStatus).
+  3. Connections — count of `connectors[].configured === true`.
+  4. Account specifics — informational shortcut (always green-passed).
+- Rows show colored status dot (good/warn/bad), label, detail line, and an arrow.
+- Generalizes the COGS Coverage / Mapping Coverage pattern into a single trust signal so sellers see one number for "are my reports trustworthy?"

@@ -11,7 +11,6 @@ import {
   Settings,
   HelpCircle,
   PanelLeftClose,
-  Cable,
   Building2,
   House,
   Clock,
@@ -225,24 +224,6 @@ export default function Sidebar({
               }`}
             />
             <span>Settings</span>
-          </button>
-          <button
-            onClick={() => onNavigate('connectors')}
-            className={`w-full flex items-center gap-3 px-2 py-2 text-sm rounded-md transition-colors relative ${
-              currentPage === 'connectors'
-                ? 'text-white bg-white/[0.08]'
-                : 'text-gray-500 hover:text-gray-300 hover:bg-white/[0.04]'
-            }`}
-          >
-            {currentPage === 'connectors' && (
-              <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-cx-300 rounded-r-full" />
-            )}
-            <Cable
-              className={`w-[18px] h-[18px] flex-shrink-0 ${
-                currentPage === 'connectors' ? 'text-cx-300' : ''
-              }`}
-            />
-            <span>Connectors</span>
           </button>
           <button className="w-full flex items-center gap-3 px-2 py-2 text-sm text-gray-500 hover:text-gray-300 rounded-md hover:bg-white/[0.04] transition-colors">
             <HelpCircle className="w-[18px] h-[18px] flex-shrink-0" />

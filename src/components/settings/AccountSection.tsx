@@ -1,30 +1,6 @@
-import { useState } from 'react';
 import { useAccountSpecifics } from '../../contexts/AccountSpecificsContext';
-import { Info, Download, Upload, Check, FileSpreadsheet, Calculator } from 'lucide-react';
+import { Info, Calculator } from 'lucide-react';
 import type { CostingMethod } from '../../data/cogsData';
-
-const MAPPING_HEADERS = ['SKU', 'ASIN', 'Product Title', 'Brand', 'Category', 'Subcategory', 'Tag'];
-
-const DEMO_MAPPING = [
-  ['SKU-01A', 'B0DEMO001X', 'ZeroWater 10-Cup Pitcher', 'ZeroWater', 'Home & Kitchen', 'Water Filtration', 'Bestseller'],
-  ['SKU-01B', 'B0DEMO002X', 'ZeroWater Replacement Filter 4-Pack', 'ZeroWater', 'Home & Kitchen', 'Water Filtration', 'Replenishable'],
-  ['SKU-02A', 'B0DEMO003X', 'Zamst A2-DX Ankle Brace', 'Zamst', 'Sports & Outdoors', 'Braces & Supports', 'New'],
-  ['SKU-03A', 'B0DEMO004X', 'BrightLife LED Desk Lamp', 'BrightLife', 'Electronics', 'Lighting', ''],
-  ['SKU-04A', 'B0DEMO005X', 'ClearPath Travel Backpack', 'ClearPath', 'Accessories', 'Bags & Packs', 'Seasonal'],
-];
-
-function downloadCurrentMapping() {
-  const rows = [MAPPING_HEADERS, ...DEMO_MAPPING];
-  const csv = rows.map((r) => r.map((c) => `"${c}"`).join(',')).join('\n');
-  const blob = new Blob([csv], { type: 'text/csv' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  const today = new Date().toISOString().slice(0, 10);
-  a.download = `clarisix-category-mapping-${today}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
 
 export default function AccountSection() {
   const {
@@ -33,30 +9,6 @@ export default function AccountSection() {
     audienceLabelingEnabled, setAudienceLabelingEnabled,
     cogsMethod, setCogsMethod,
   } = useAccountSpecifics();
-
-  const [mappingUploaded, setMappingUploaded] = useState(false);
-  const [mappingFileName, setMappingFileName] = useState('');
-  const [mappingRowCount, setMappingRowCount] = useState(0);
-  const [dragOver, setDragOver] = useState(false);
-
-  function handleMappingFile(file: File) {
-    setMappingFileName(file.name);
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target?.result as string;
-      const lines = text.trim().split('\n').filter((l) => l.trim().length > 0);
-      setMappingRowCount(Math.max(0, lines.length - 1));
-      setMappingUploaded(true);
-    };
-    reader.readAsText(file);
-  }
-
-  function handleMappingDrop(e: React.DragEvent) {
-    e.preventDefault();
-    setDragOver(false);
-    const file = e.dataTransfer.files[0];
-    if (file) handleMappingFile(file);
-  }
 
   return (
     <div className="space-y-6">
@@ -173,92 +125,6 @@ export default function AccountSection() {
                 />
               </button>
             </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Data Mapping */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100">
-          <div className="flex items-center gap-2">
-            <FileSpreadsheet className="w-4 h-4 text-gray-500" />
-            <h2 className="text-base font-semibold text-gray-900">Data Mapping</h2>
-          </div>
-          <p className="text-xs text-gray-500 mt-0.5">
-            Manage the SKU-to-brand/category mapping that powers your filters and breakdown tables.
-          </p>
-        </div>
-
-        <div className="px-6 py-5 space-y-4">
-          {/* Current mapping preview */}
-          <div>
-            <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2">Current Mapping</h3>
-            <div className="overflow-x-auto rounded-lg border border-gray-200">
-              <table className="w-full text-[11px]">
-                <thead>
-                  <tr className="bg-gray-50">
-                    {MAPPING_HEADERS.map((h) => (
-                      <th key={h} className="px-2.5 py-1.5 text-left font-semibold text-gray-600 whitespace-nowrap">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {DEMO_MAPPING.map((row, i) => (
-                    <tr key={i} className="text-gray-700">
-                      {row.map((cell, j) => (
-                        <td key={j} className="px-2.5 py-1.5 whitespace-nowrap">{cell || <span className="text-gray-300">—</span>}</td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <p className="text-[11px] text-gray-400 mt-1.5">{DEMO_MAPPING.length} SKUs mapped</p>
-          </div>
-
-          {/* Download / Upload actions */}
-          <div className="flex flex-col sm:flex-row gap-3">
-            <button
-              onClick={downloadCurrentMapping}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-colors"
-            >
-              <Download className="w-4 h-4" />
-              Download Current Mapping
-            </button>
-
-            {!mappingUploaded ? (
-              <label
-                onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-                onDragLeave={() => setDragOver(false)}
-                onDrop={handleMappingDrop}
-                className={`inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg cursor-pointer transition-colors ${
-                  dragOver
-                    ? 'text-cx-700 bg-cx-50 border border-cx-300'
-                    : 'text-cx-700 bg-cx-50 border border-cx-200 hover:bg-cx-100'
-                }`}
-              >
-                <Upload className="w-4 h-4" />
-                Upload Updated Mapping
-                <input type="file" accept=".csv" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleMappingFile(f); }} className="hidden" />
-              </label>
-            ) : (
-              <div className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-green-700 bg-green-50 border border-green-200 rounded-lg">
-                <Check className="w-4 h-4" />
-                <span className="truncate max-w-[200px]">{mappingFileName}</span>
-                <span className="text-green-600">({mappingRowCount} SKUs)</span>
-                <label className="ml-1 text-xs text-cx-600 hover:text-cx-700 cursor-pointer font-medium">
-                  Replace
-                  <input type="file" accept=".csv" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleMappingFile(f); }} className="hidden" />
-                </label>
-              </div>
-            )}
-          </div>
-
-          <div className="bg-gray-50 rounded-lg px-3 py-2.5">
-            <p className="text-[11px] text-gray-500">
-              <span className="font-semibold text-gray-600">Workflow:</span> Download your current mapping → add or edit rows in Excel/Sheets → upload the updated file.
-              Changes apply immediately to all filters and breakdown tables.
-            </p>
           </div>
         </div>
       </div>

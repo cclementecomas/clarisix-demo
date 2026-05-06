@@ -361,7 +361,7 @@ export default function Profitability({ onNavigate }: { onNavigate?: (section: s
             </span>
           </div>
           <button
-            onClick={() => onNavigate?.('Profitability', 'COGS')}
+            onClick={() => onNavigate?.('Settings', 'costs')}
             className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-800 hover:text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300 px-2.5 py-1 rounded-md transition-colors flex-shrink-0"
           >
             Open COGS Coverage

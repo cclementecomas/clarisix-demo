@@ -14,17 +14,16 @@ import InventoryPerformance from './components/InventoryPerformance';
 import ContentTracker from './components/ContentTracker';
 import Profitability from './components/Profitability';
 import ProfitabilityDeepdive from './components/ProfitabilityDeepdive';
-import COGSManager from './components/COGSManager';
-import Connectors from './components/Connectors';
 import Retention from './components/Retention';
 import Subscriptions from './components/Subscriptions';
-import Settings from './components/settings/Settings';
+import Settings, { type SettingsTabId } from './components/settings/Settings';
 import Trends from './components/Trends';
 import SalesHeatmap from './components/SalesHeatmap';
 import ComingSoon from './components/ComingSoon';
 import Footer from './components/Footer';
 import { SectionLoader } from './components/ClarisixSpinner';
 import HomeAlerts from './components/HomeAlerts';
+import DataFoundationCard from './components/home/DataFoundationCard';
 import PeriodSnapshot from './components/PeriodSnapshot';
 import OnboardingGateway from './components/OnboardingGateway';
 import OnboardingWizard from './components/onboarding/OnboardingWizard';
@@ -35,7 +34,13 @@ import { useOnboarding } from './contexts/OnboardingContext';
 import { OnboardingWizardProvider } from './contexts/OnboardingWizardContext';
 import { menuItems } from './data/dashboardData';
 
-function HomePage({ onCardClick, isEmbed }: { onCardClick: (section: string, sub: string) => void; isEmbed?: boolean }) {
+function HomePage({
+  onCardClick, onNavigateToSettings, isEmbed,
+}: {
+  onCardClick: (section: string, sub: string) => void;
+  onNavigateToSettings: (tab: string) => void;
+  isEmbed?: boolean;
+}) {
   return (
     <>
       {!isEmbed && <Greeting />}
@@ -48,6 +53,7 @@ function HomePage({ onCardClick, isEmbed }: { onCardClick: (section: string, sub
       ) : (
         <HomeAlerts onAlertClick={onCardClick} />
       )}
+      <DataFoundationCard onNavigateToSettings={onNavigateToSettings} />
     </>
   );
 }
@@ -76,6 +82,7 @@ export default function App() {
   const [activeSub, setActiveSub] = useState('Overview');
   const [collapsed, setCollapsed] = useState(false);
   const [currentPage, setCurrentPage] = useState('home');
+  const [settingsTab, setSettingsTab] = useState<SettingsTabId | undefined>(undefined);
   const [sectionLoading, setSectionLoading] = useState(false);
   const prevKey = useRef('');
 
@@ -103,19 +110,26 @@ export default function App() {
     setActiveSub(sub);
   };
 
+  const handleNavigateToSettings = (tab: string) => {
+    if (isEmbed) return;
+    setSettingsTab(tab as SettingsTabId);
+    setCurrentPage('settings');
+  };
+
   const renderContent = () => {
     if (sectionLoading) {
       return <SectionLoader />;
     }
 
     if (currentPage === 'home') {
-      return <HomePage onCardClick={handleKPIClick} />;
+      return <HomePage onCardClick={handleKPIClick} onNavigateToSettings={handleNavigateToSettings} />;
     }
     if (currentPage === 'settings') {
-      return <Settings />;
+      return <Settings initialTab={settingsTab} />;
     }
     if (currentPage === 'connectors') {
-      return <Connectors />;
+      // Legacy route — Connectors now lives inside Settings → Data Setup → Connections.
+      return <Settings initialTab="connections" />;
     }
     if (activeSection === 'Sales' && activeSub === 'Overview') {
       return <OverviewPage />;
@@ -148,13 +162,17 @@ export default function App() {
       return <ContentTracker />;
     }
     if (activeSection === 'Profitability' && activeSub === 'Overview') {
-      return <Profitability onNavigate={(section, sub) => { setActiveSection(section); setActiveSub(sub); }} />;
+      return <Profitability onNavigate={(section, sub) => {
+        if (section === 'Settings') {
+          handleNavigateToSettings(sub);
+          return;
+        }
+        setActiveSection(section);
+        setActiveSub(sub);
+      }} />;
     }
     if (activeSection === 'Profitability' && activeSub === 'Deepdive') {
       return <ProfitabilityDeepdive />;
-    }
-    if (activeSection === 'Profitability' && activeSub === 'COGS') {
-      return <COGSManager />;
     }
     if (activeSection === 'Customer Experience' && activeSub === 'Retention') {
       return <Retention />;
@@ -204,7 +222,7 @@ export default function App() {
 
         <main className={`flex-1 px-3 py-3 md:px-6 md:py-4 space-y-3 md:space-y-4 min-w-0 ${isEmbed ? 'max-w-full' : ''}`}>
           {isEmbed ? (
-            <HomePage onCardClick={handleKPIClick} isEmbed />
+            <HomePage onCardClick={handleKPIClick} onNavigateToSettings={handleNavigateToSettings} isEmbed />
           ) : isWizard ? (
             <OnboardingWizardProvider>
               <OnboardingWizard />
