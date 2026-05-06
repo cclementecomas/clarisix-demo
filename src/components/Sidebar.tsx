@@ -14,8 +14,9 @@ import {
   Building2,
   House,
   Clock,
+  Database,
 } from 'lucide-react';
-import { menuItems, filterOptions } from '../data/dashboardData';
+import { menuItems, adminItems, filterOptions } from '../data/dashboardData';
 import { useOnboarding } from '../contexts/OnboardingContext';
 
 const iconMap: Record<string, React.FC<{ className?: string }>> = {
@@ -25,6 +26,7 @@ const iconMap: Record<string, React.FC<{ className?: string }>> = {
   TrendingUp,
   FileText,
   Star,
+  Database,
 };
 
 interface SidebarProps {
@@ -36,6 +38,10 @@ interface SidebarProps {
   onToggleCollapse: () => void;
   onNavigate: (page: string) => void;
   currentPage: string;
+  /** Active sub label inside the Admin section (e.g. "Products"). */
+  activeAdminSub?: string;
+  /** Open a sub-item under Admin (e.g. ('Data', 'Products')). */
+  onAdminNavigate?: (section: string, sub: string) => void;
 }
 
 function AccountSelector() {
@@ -90,6 +96,8 @@ export default function Sidebar({
   onToggleCollapse,
   onNavigate,
   currentPage,
+  activeAdminSub,
+  onAdminNavigate,
 }: SidebarProps) {
   return (
     <>
@@ -195,6 +203,76 @@ export default function Sidebar({
                           <span className="flex-1">{sub}</span>
                           {isSoon && (
                             <Clock className="w-3 h-3 text-gray-600 flex-shrink-0" title="Coming soon" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          <div className="px-3 mt-4 mb-2">
+            <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest px-2">
+              Admin
+            </span>
+          </div>
+          {adminItems.map((item) => {
+            const Icon = iconMap[item.icon];
+            const isActive = currentPage === 'data' && activeSection === item.label;
+            const hasSubItems = item.subItems.length > 1;
+
+            return (
+              <div key={item.label}>
+                <button
+                  onClick={() => {
+                    onAdminNavigate?.(item.label, item.defaultSub);
+                  }}
+                  className={`w-full flex items-center gap-3 px-5 py-2.5 text-sm font-medium transition-all duration-200 group relative ${
+                    isActive
+                      ? 'text-white bg-white/[0.08]'
+                      : 'text-gray-400 hover:text-gray-200 hover:bg-white/[0.04]'
+                  }`}
+                >
+                  {isActive && (
+                    <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-cx-300 rounded-r-full" />
+                  )}
+                  {Icon && (
+                    <Icon
+                      className={`w-[18px] h-[18px] flex-shrink-0 ${
+                        isActive ? 'text-cx-300' : 'text-gray-500 group-hover:text-gray-400'
+                      }`}
+                    />
+                  )}
+                  <span className="flex-1 text-left">{item.label}</span>
+                  {hasSubItems && (
+                    <ChevronRight
+                      className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                        isActive ? 'rotate-90 text-gray-400' : 'text-gray-600'
+                      }`}
+                    />
+                  )}
+                </button>
+                {isActive && hasSubItems && (
+                  <div className="ml-10 mr-3 py-1 space-y-0.5">
+                    {item.subItems.map((sub) => {
+                      const isSoon = item.comingSoonSubs?.includes(sub);
+                      return (
+                        <button
+                          key={sub}
+                          onClick={() => onAdminNavigate?.(item.label, sub)}
+                          className={`flex items-center gap-1.5 w-full text-left text-[13px] px-3 py-1.5 rounded-md transition-colors ${
+                            activeAdminSub === sub
+                              ? 'text-cx-300 bg-cx-500/10 font-medium'
+                              : 'text-gray-500 hover:text-gray-300 hover:bg-white/[0.04]'
+                          }`}
+                        >
+                          <span className="flex-1">{sub}</span>
+                          {isSoon && (
+                            <span title="Coming soon">
+                              <Clock className="w-3 h-3 text-gray-600 flex-shrink-0" />
+                            </span>
                           )}
                         </button>
                       );

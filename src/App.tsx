@@ -110,11 +110,40 @@ export default function App() {
     setActiveSub(sub);
   };
 
+  const DATA_TABS: SettingsTabId[] = ['products', 'costs', 'account', 'connections'];
+  const isDataTab = (tab: SettingsTabId): boolean => DATA_TABS.includes(tab);
+
   const handleNavigateToSettings = (tab: string) => {
     if (isEmbed) return;
-    setSettingsTab(tab as SettingsTabId);
-    setCurrentPage('settings');
+    const t = tab as SettingsTabId;
+    setSettingsTab(t);
+    setCurrentPage(isDataTab(t) ? 'data' : 'settings');
   };
+
+  const handleAdminNavigate = (_section: string, sub: string) => {
+    if (isEmbed) return;
+    const map: Record<string, SettingsTabId> = {
+      'Products':          'products',
+      'Costs':             'costs',
+      'Account specifics': 'account',
+      'Connections':       'connections',
+    };
+    const tab = map[sub] ?? 'products';
+    setSettingsTab(tab);
+    setCurrentPage('data');
+  };
+
+  // Reverse-map current settingsTab to the visible Admin sub-item label so the
+  // sidebar highlights the right row.
+  const adminSubLabel: string | undefined = (() => {
+    const reverse: Record<string, string> = {
+      products: 'Products',
+      costs: 'Costs',
+      account: 'Account specifics',
+      connections: 'Connections',
+    };
+    return settingsTab ? reverse[settingsTab] : undefined;
+  })();
 
   const renderContent = () => {
     if (sectionLoading) {
@@ -125,11 +154,14 @@ export default function App() {
       return <HomePage onCardClick={handleKPIClick} onNavigateToSettings={handleNavigateToSettings} />;
     }
     if (currentPage === 'settings') {
-      return <Settings initialTab={settingsTab} />;
+      return <Settings initialTab={settingsTab} mode="account" />;
+    }
+    if (currentPage === 'data') {
+      return <Settings initialTab={settingsTab ?? 'products'} mode="data" />;
     }
     if (currentPage === 'connectors') {
-      // Legacy route — Connectors now lives inside Settings → Data Setup → Connections.
-      return <Settings initialTab="connections" />;
+      // Legacy route — Connectors now lives inside Admin → Data → Connections.
+      return <Settings initialTab="connections" mode="data" />;
     }
     if (activeSection === 'Sales' && activeSub === 'Overview') {
       return <OverviewPage />;
@@ -192,7 +224,7 @@ export default function App() {
     <div className={`min-h-screen bg-gray-50/80 flex ${isEmbed ? 'overflow-hidden max-w-[100vw]' : ''}`}>
       {!isOnboarding && !isEmbed && (
         <Sidebar
-          activeSection={activeSection}
+          activeSection={currentPage === 'data' ? 'Data' : activeSection}
           activeSub={activeSub}
           collapsed={collapsed}
           onSectionChange={handleSectionChange}
@@ -200,6 +232,8 @@ export default function App() {
           onToggleCollapse={() => setCollapsed(!collapsed)}
           onNavigate={setCurrentPage}
           currentPage={currentPage}
+          activeAdminSub={currentPage === 'data' ? adminSubLabel : undefined}
+          onAdminNavigate={handleAdminNavigate}
         />
       )}
 

@@ -613,3 +613,23 @@ Data Foundation card on Home (components/home/DataFoundationCard.tsx, May 6 2026
   4. Account specifics — informational shortcut (always green-passed).
 - Rows show colored status dot (good/warn/bad), label, detail line, and an arrow.
 - Generalizes the COGS Coverage / Mapping Coverage pattern into a single trust signal so sellers see one number for "are my reports trustworthy?"
+
+
+Admin section in left sidebar (May 6 2026)
+
+Rationale
+- Settings was getting heavy: 10 sub-tabs across two bands (Data Setup + Account) inside a single in-page sidebar nav. Data foundation work was buried two clicks deep (sidebar Settings → tab) and didn't get the visibility its impact warrants.
+- Promoted the Data Setup band to a top-level sidebar section called "Admin" so foundational work is reachable in one click and visible alongside Modules.
+
+Sidebar structure
+- After the existing MODULES section (Sales, Advertising, etc.), a new ADMIN section header followed by:
+  - "Data" (Database icon, expandable like a module): sub-items Products · Costs · Account specifics · Connections.
+- Bottom Settings entry kept as-is (single button); now opens the page filtered to the Account band only.
+
+Implementation
+- adminItems exported from src/data/dashboardData.ts. One entry "Data" with subItems and a `subToTab` mapping that translates visible labels to SettingsTabId values.
+- Sidebar.tsx mirrors the menuItems render loop for adminItems. Active state driven by `currentPage === 'data' && activeSection === 'Data'`. Sub-item highlight uses a new `activeAdminSub` prop.
+- App.tsx adds `'data'` page route. `handleAdminNavigate(section, sub)` maps sub-label → SettingsTabId, sets `settingsTab` state, and switches `currentPage` to `'data'`. `handleNavigateToSettings(tab)` is mode-aware: data-tabs go to the `'data'` page, account-tabs go to `'settings'`.
+- Settings.tsx accepts a `mode` prop (`'data' | 'account' | 'all'`) that filters which TabGroups render. Page title/subtitle adapt to mode (Data vs Settings). When `mode === 'data'`, the in-page sidebar nav is hidden entirely (avoids duplication with the left sidebar's Admin → Data sub-items); just renders the active section content full-width.
+- Profitability "Open COGS Coverage" banner and Home Data Foundation card both route through `handleNavigateToSettings`, landing automatically on the Data page (`currentPage='data'`) for data tabs.
+- Legacy `currentPage === 'connectors'` route forwards to `<Settings mode="data" initialTab="connections" />`, keeping the CommandPalette working.

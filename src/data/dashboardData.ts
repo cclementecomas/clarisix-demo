@@ -434,3 +434,24 @@ export const menuItems = [
     comingSoonSubs: ['Ratings and Reviews'],
   },
 ];
+
+// Admin section: data foundation work that powers the modules above.
+// Each adminItem renders like a module in the sidebar (expandable sub-items),
+// but its sub-items deep-link into the Settings layout pre-filtered to the
+// 'data' tab group.
+export const adminItems = [
+  {
+    label: 'Data',
+    icon: 'Database',
+    subItems: ['Products', 'Costs', 'Account specifics', 'Connections'],
+    defaultSub: 'Products',
+    comingSoonSubs: [] as string[],
+    /** Maps the visible sub-item label to the SettingsTabId it should load. */
+    subToTab: {
+      'Products':          'products',
+      'Costs':             'costs',
+      'Account specifics': 'account',
+      'Connections':       'connections',
+    } as Record<string, string>,
+  },
+];

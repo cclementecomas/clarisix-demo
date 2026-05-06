@@ -26,6 +26,8 @@ type TabId =
   | 'products' | 'costs' | 'account' | 'connections'
   | 'preferences' | 'team' | 'security' | 'subscription' | 'invoices' | 'danger';
 
+type SettingsMode = 'data' | 'account' | 'all';
+
 interface TabDef {
   id: TabId;
   label: string;
@@ -34,12 +36,14 @@ interface TabDef {
 
 interface TabGroup {
   label: string;
+  mode: 'data' | 'account';
   tabs: TabDef[];
 }
 
 const groups: TabGroup[] = [
   {
     label: 'Data Setup',
+    mode: 'data',
     tabs: [
       { id: 'products',    label: 'Products',          icon: Boxes },
       { id: 'costs',       label: 'Costs',             icon: DollarSign },
@@ -49,6 +53,7 @@ const groups: TabGroup[] = [
   },
   {
     label: 'Account',
+    mode: 'account',
     tabs: [
       { id: 'preferences',  label: 'Preferences',  icon: User },
       { id: 'team',         label: 'Team',         icon: Users },
@@ -60,8 +65,22 @@ const groups: TabGroup[] = [
   },
 ];
 
-export default function Settings({ initialTab }: { initialTab?: TabId } = {}) {
-  const [activeTab, setActiveTab] = useState<TabId>(initialTab ?? 'products');
+const MODE_TITLES: Record<SettingsMode, { title: string; subtitle: string }> = {
+  data:    { title: 'Data',     subtitle: 'Map products, set costs, and manage data sources' },
+  account: { title: 'Settings', subtitle: 'Manage account-level preferences and access' },
+  all:     { title: 'Settings', subtitle: 'Manage data foundations and account-level preferences' },
+};
+
+export default function Settings({
+  initialTab,
+  mode = 'all',
+}: {
+  initialTab?: TabId;
+  mode?: SettingsMode;
+} = {}) {
+  const visibleGroups = mode === 'all' ? groups : groups.filter((g) => g.mode === mode);
+  const defaultTab = visibleGroups[0]?.tabs[0]?.id ?? 'preferences';
+  const [activeTab, setActiveTab] = useState<TabId>(initialTab ?? defaultTab);
 
   // If parent supplies a new initialTab (e.g. user deep-linked from Profitability banner)
   // honor it on mount/change.
@@ -84,73 +103,81 @@ export default function Settings({ initialTab }: { initialTab?: TabId } = {}) {
     }
   };
 
+  const titles = MODE_TITLES[mode];
+
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-xl font-bold text-gray-900">Settings</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Manage data foundations and account-level preferences
-        </p>
+        <h1 className="text-xl font-bold text-gray-900">{titles.title}</h1>
+        <p className="text-sm text-gray-500 mt-1">{titles.subtitle}</p>
       </div>
 
-      <div className="flex gap-6">
-        <nav className="w-52 flex-shrink-0 space-y-3">
-          {groups.map((group) => (
-            <div key={group.label}>
-              <div className="px-2 mb-1.5">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                  {group.label}
-                </span>
-              </div>
-              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-                {group.tabs.map((tab, i) => {
-                  const Icon = tab.icon;
-                  const isActive = activeTab === tab.id;
-                  const isDanger = tab.id === 'danger';
+      {mode === 'data' ? (
+        // In-page nav is redundant: the left sidebar's Admin → Data already
+        // exposes the same tabs.
+        <div className="min-w-0">{renderSection()}</div>
+      ) : (
+        <div className="flex gap-6">
+          <nav className="w-52 flex-shrink-0 space-y-3">
+            {visibleGroups.map((group) => (
+              <div key={group.label}>
+                {visibleGroups.length > 1 && (
+                  <div className="px-2 mb-1.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                      {group.label}
+                    </span>
+                  </div>
+                )}
+                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+                  {group.tabs.map((tab, i) => {
+                    const Icon = tab.icon;
+                    const isActive = activeTab === tab.id;
+                    const isDanger = tab.id === 'danger';
 
-                  return (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveTab(tab.id)}
-                      className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium transition-all duration-150 relative ${
-                        i > 0 ? 'border-t border-gray-100' : ''
-                      } ${
-                        isActive
-                          ? isDanger
-                            ? 'bg-red-50 text-red-700'
-                            : 'bg-cx-50 text-cx-700'
-                          : isDanger
-                            ? 'text-gray-500 hover:bg-red-50/50 hover:text-red-600'
-                            : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'
-                      }`}
-                    >
-                      {isActive && (
-                        <span
-                          className={`absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full ${
-                            isDanger ? 'bg-red-500' : 'bg-cx-500'
-                          }`}
-                        />
-                      )}
-                      <Icon
-                        className={`w-4 h-4 flex-shrink-0 ${
+                    return (
+                      <button
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id)}
+                        className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium transition-all duration-150 relative ${
+                          i > 0 ? 'border-t border-gray-100' : ''
+                        } ${
                           isActive
                             ? isDanger
-                              ? 'text-red-500'
-                              : 'text-cx-500'
-                            : 'text-gray-400'
+                              ? 'bg-red-50 text-red-700'
+                              : 'bg-cx-50 text-cx-700'
+                            : isDanger
+                              ? 'text-gray-500 hover:bg-red-50/50 hover:text-red-600'
+                              : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'
                         }`}
-                      />
-                      {tab.label}
-                    </button>
-                  );
-                })}
+                      >
+                        {isActive && (
+                          <span
+                            className={`absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full ${
+                              isDanger ? 'bg-red-500' : 'bg-cx-500'
+                            }`}
+                          />
+                        )}
+                        <Icon
+                          className={`w-4 h-4 flex-shrink-0 ${
+                            isActive
+                              ? isDanger
+                                ? 'text-red-500'
+                                : 'text-cx-500'
+                              : 'text-gray-400'
+                          }`}
+                        />
+                        {tab.label}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
-        </nav>
+            ))}
+          </nav>
 
-        <div className="flex-1 min-w-0">{renderSection()}</div>
-      </div>
+          <div className="flex-1 min-w-0">{renderSection()}</div>
+        </div>
+      )}
     </div>
   );
 }
