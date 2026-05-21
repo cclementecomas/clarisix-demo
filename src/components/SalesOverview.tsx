@@ -236,20 +236,20 @@ export default function SalesOverview() {
     <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm flex-1 min-w-0">
       <div className="flex items-start justify-between mb-5 gap-4 flex-wrap">
         <div className="min-w-0">
-          <div className="flex items-center gap-1.5 mb-2">
-            <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Sales Overview</h2>
+          <div className="flex items-center gap-1.5 mb-1">
+            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Sales Overview</h2>
             <InfoTooltip content="Stacked bar chart of organic vs. ad-attributed sales. Slope shows trend over the selected granularity." />
           </div>
-          <div className="flex items-baseline gap-3 flex-wrap">
-            <span className="text-2xl font-bold text-gray-900 tabular-nums">
+          <div className="flex items-baseline gap-4 flex-wrap">
+            <p className="text-3xl font-bold text-gray-800 tabular-nums">
               {fc(totalSales, currency, { compact: false, decimals: 0 })}
-            </span>
-            <span className="text-2xl font-bold text-gray-900">Total sales</span>
-            <div className="flex items-center gap-4 pl-3 border-l border-gray-200 ml-1">
+            </p>
+            <div className="flex items-center gap-4">
               <ChangeChip label="PoP" value={popPct} />
               <ChangeChip label="LY" value={lyPct} />
             </div>
           </div>
+          <p className="text-sm text-gray-400 mt-0.5">Total sales</p>
         </div>
         <div className="flex items-center bg-gray-100 rounded-lg p-0.5 flex-shrink-0">
           {granularityOptions.map((opt) => (
