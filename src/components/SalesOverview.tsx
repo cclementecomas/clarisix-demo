@@ -1,10 +1,37 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Customized, LabelList } from 'recharts';
+import { TrendingUp, TrendingDown } from 'lucide-react';
 import { salesOverviewByGranularity, type Granularity, type SalesDataPoint } from '../data/dashboardData';
 import InfoTooltip from './InfoTooltip';
 import LastRefreshed from './LastRefreshed';
 import { useCurrency, type Currency } from '../contexts/CurrencyContext';
 import { fc, tickFmt } from '../utils/currency';
+
+// Plausible PoP / LY deltas per granularity for demo. Real implementation
+// would fetch the prior comparable period and YoY-aligned period from the
+// same source as the data already shown.
+const COMPARISON_BY_GRANULARITY: Record<Granularity, { popPct: number; lyPct: number }> = {
+  day:     { popPct:  4.2, lyPct: 18.7 },
+  week:    { popPct:  5.1, lyPct: 21.3 },
+  month:   { popPct:  7.3, lyPct: 24.1 },
+  quarter: { popPct: 12.4, lyPct: 28.6 },
+};
+
+function ChangeChip({ label, value }: { label: string; value: number }) {
+  const positive = value >= 0;
+  const color = positive ? 'text-green-800' : 'text-red-800';
+  const Icon = positive ? TrendingUp : TrendingDown;
+  const prefix = value > 0 ? '+' : '';
+  return (
+    <div className="flex items-center gap-1">
+      <span className="text-[9px] font-medium text-gray-500 uppercase">{label}</span>
+      <Icon className={`w-3 h-3 ${color}`} />
+      <span className={`text-[11px] font-semibold ${color}`}>
+        {prefix}{value.toFixed(2)}%
+      </span>
+    </div>
+  );
+}
 
 const granularityOptions: { value: Granularity; label: string }[] = [
   { value: 'day', label: 'Day' },
@@ -189,6 +216,12 @@ export default function SalesOverview() {
   const [granularity, setGranularity] = useState<Granularity>('month');
   const data = salesOverviewByGranularity[granularity];
 
+  const totalSales = useMemo(
+    () => data.reduce((sum, d) => sum + d.adSales + d.organicSales, 0),
+    [data]
+  );
+  const { popPct, lyPct } = COMPARISON_BY_GRANULARITY[granularity];
+
   const calculateGrowth = () => {
     if (data.length < 2) return 0;
     const firstTotal = data[0].adSales + data[0].organicSales;
@@ -201,12 +234,24 @@ export default function SalesOverview() {
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm flex-1 min-w-0">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-1.5">
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Sales Overview</h2>
-          <InfoTooltip content="Stacked bar chart of organic vs. ad-attributed sales. Slope shows trend over the selected granularity." />
+      <div className="flex items-start justify-between mb-5 gap-4 flex-wrap">
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5 mb-2">
+            <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Sales Overview</h2>
+            <InfoTooltip content="Stacked bar chart of organic vs. ad-attributed sales. Slope shows trend over the selected granularity." />
+          </div>
+          <div className="flex items-baseline gap-3 flex-wrap">
+            <span className="text-2xl font-bold text-gray-900 tabular-nums">
+              {fc(totalSales, currency, { compact: false, decimals: 0 })}
+            </span>
+            <span className="text-2xl font-bold text-gray-900">Total sales</span>
+            <div className="flex items-center gap-4 pl-3 border-l border-gray-200 ml-1">
+              <ChangeChip label="PoP" value={popPct} />
+              <ChangeChip label="LY" value={lyPct} />
+            </div>
+          </div>
         </div>
-        <div className="flex items-center bg-gray-100 rounded-lg p-0.5">
+        <div className="flex items-center bg-gray-100 rounded-lg p-0.5 flex-shrink-0">
           {granularityOptions.map((opt) => (
             <button
               key={opt.value}
