@@ -633,3 +633,19 @@ Implementation
 - Settings.tsx accepts a `mode` prop (`'data' | 'account' | 'all'`) that filters which TabGroups render. Page title/subtitle adapt to mode (Data vs Settings). When `mode === 'data'`, the in-page sidebar nav is hidden entirely (avoids duplication with the left sidebar's Admin → Data sub-items); just renders the active section content full-width.
 - Profitability "Open COGS Coverage" banner and Home Data Foundation card both route through `handleNavigateToSettings`, landing automatically on the Data page (`currentPage='data'`) for data tabs.
 - Legacy `currentPage === 'connectors'` route forwards to `<Settings mode="data" initialTab="connections" />`, keeping the CommandPalette working.
+
+
+Sales Overview — total sales headline (May 21 2026)
+
+Rationale
+- The stacked-bar chart shows per-bucket trend but never the headline total for the selected period. Users had no at-a-glance answer to "how much did we sell?" — a critical anchor before reading the chart.
+
+Implementation (components/SalesOverview.tsx)
+- Header restructured to mirror BudgetTracker's left column ("Sales Run Rate" panel) so the two side-by-side panels on Home → Sales share identical typographic rhythm.
+- Total sales value: `text-3xl font-bold text-gray-800 tabular-nums`, full-precision currency (no compact M/k). Updates with granularity (Day / Week / Month / Quarter) — computed from `data.reduce((sum, d) => sum + d.adSales + d.organicSales, 0)`.
+- "Total sales" caption: `text-sm text-gray-400 mt-0.5` directly below, mirroring "Month-to-date sales" in BudgetTracker.
+- PoP and LY chips sit inline to the right of the value on the same baseline. Use the same TrendingUp/TrendingDown + green-800/red-800 + `text-[11px] font-semibold` pattern as the canonical ChangeRow in KPICards.
+- Comparison %s hardcoded per granularity for the wireframe (`COMPARISON_BY_GRANULARITY`). Real implementation would pull the prior comparable period + YoY-aligned period from the same source as the chart data.
+
+Adjacent tweak (components/BudgetTracker.tsx)
+- MTD value color softened from `text-gray-900` → `text-gray-800` so it reads as "a bit gray" rather than near-black. Both panels now share the same value tone.
