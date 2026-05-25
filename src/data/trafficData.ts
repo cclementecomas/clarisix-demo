@@ -297,6 +297,24 @@ const PRODUCTS: { asin: string; product: string; category: string }[] = [
   { asin: 'B0DEMO020X', product: 'USB-C Cable 2m 3-Pack',           category: 'Electronics' },
 ];
 
+// Helpers for plausible deltas.
+//   ppDelta: percentage-point change (for rate metrics like CVR, BBox, CTR).
+//   Bounded so the implied previous value stays inside [floor, ceiling].
+function ppDelta(current: number, typicalSpread: number, floor = 0.1, ceiling = 100): number {
+  // Random delta in roughly N(0, typicalSpread/2). Clamp so prev stays valid.
+  const raw = (r() - 0.5) * 2 * typicalSpread;
+  const maxNeg = current - floor;          // delta ≥ -maxNeg → prev ≥ floor
+  const maxPos = ceiling - current;        // delta ≤ +maxPos → prev ≤ ceiling
+  const bounded = Math.max(-maxNeg, Math.min(maxPos, raw));
+  return Math.round(bounded * 10) / 10;
+}
+
+// pctDelta: percent change (for volume metrics like sessions, page views).
+function pctDelta(typicalSpread: number): number {
+  const raw = (r() - 0.5) * 2 * typicalSpread;
+  return Math.round(raw * 10) / 10;
+}
+
 export const productTrafficData: ProductTrafficRow[] = PRODUCTS.map((p) => {
   const sessions        = Math.round(800 + r() * 4200);
   const pvPerSession    = Math.round((1.2 + r() * 0.8) * 100) / 100;
@@ -312,16 +330,20 @@ export const productTrafficData: ProductTrafficRow[] = PRODUCTS.map((p) => {
   const ctr             = adImpressions > 0 ? Math.round((adClicks / adImpressions) * 10000) / 100 : 0;
   const addToCartRate   = Math.round((cvr * (1.3 + r() * 0.6)) * 10) / 10;
 
-  // PoP / LY deltas
-  const sessionsPoP      = Math.round((r() * 60 - 25) * 10) / 10;
-  const sessionsLY       = Math.round((r() * 80 - 30) * 10) / 10;
-  const pageViewsPoP     = Math.round((r() * 50 - 20) * 10) / 10;
-  const cvrPoP           = Math.round((r() * 20 - 10) * 10) / 10;
-  const cvrLY            = Math.round((r() * 30 - 15) * 10) / 10;
-  const buyBoxPctPoP     = Math.round((r() * 20 - 10) * 10) / 10;
-  const adImpressionsPoP = Math.round((r() * 40 - 15) * 10) / 10;
-  const ctrPoP           = Math.round((r() * 20 - 10) * 10) / 10;
-  const organicPctPoP    = Math.round((r() * 20 - 10) * 10) / 10;
+  // ─── Plausible PoP / LY deltas ───────────────────────────────────────
+  // Volume metrics: percent-change, typical PoP spread ±15-25%.
+  const sessionsPoP      = pctDelta(20);
+  const sessionsLY       = pctDelta(28);
+  const pageViewsPoP     = pctDelta(18);
+  const adImpressionsPoP = pctDelta(25);
+
+  // Rate metrics: percentage-point change, bounded by current value so the
+  // implied previous value stays in a realistic range.
+  const cvrPoP           = ppDelta(cvr,        1.5, 1, 35);     // CVR moves ±0.5-1.5pp typically
+  const cvrLY            = ppDelta(cvr,        3.0, 1, 35);
+  const buyBoxPctPoP     = ppDelta(buyBoxPct,  2.5, 30, 100);   // BBox moves ±1-2.5pp
+  const ctrPoP           = ppDelta(ctr,        0.15, 0.05, 5);  // CTR small absolute, small delta
+  const organicPctPoP    = ppDelta(organicPct, 3.5, 5, 95);     // Organic share moves a few pp
 
   return {
     ...p,
