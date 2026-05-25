@@ -679,11 +679,12 @@ Data layer (data/deepdiveData.ts)
 
 Column visibility & order (components/DeepDive.tsx)
 - 30 columns total, ordered by business narrative across 5 bands:
-  1. Volume & revenue: Sales · Sales Share · Orders · Units · Avg Price · Discounts
+  1. Volume & revenue: Sales · Sales Share · Orders · Units · Avg Price
   2. Customer mix: NTB Orders · NTB % · S&S Orders · S&S %
   3. Demand funnel: Page Views · Sessions · CVR · BBox Win · Organic %
-  4. Ads activity: Ad Spend · Ad Sales · Ad CPC · CTR · Ad CVR · ROAS · ACOS · TACOS · Total CPA · Ad Reliance
+  4. Marketing & promo: Discounts · Ad Spend · Ad Sales · Ad CPC · CTR · Ad CVR · ROAS · ACOS · TACOS · Total CPA · Ad Reliance
   5. Margin cascade: Product Margin · Channel Margin · Growth Margin · Net Profit/Unit
 - Default-visible (18 columns, locked May 25 2026): Sales, Sales Share, Orders, Units, Avg Price, NTB Orders, S&S Orders, Page Views, Sessions, CVR, Ad Spend, ROAS, ACOS, TACOS, Product Margin, Channel Margin, Growth Margin, Net Profit/Unit. The remaining 12 (Discounts, NTB %, S&S %, BBox Win, Organic %, Ad Sales, Ad CPC, CTR, Ad CVR, Total CPA, Ad Reliance) are `hide: true` — listed in the ColumnToggle and one click away.
-- Visual grouping (May 25 2026): a thin band-header row above the columns shows the 5 buckets (`Volume & revenue`, `Customer mix`, `Demand funnel`, `Ads activity`, `Margin cascade`) with `colSpan` driven by contiguous visible columns. 1px left-borders between buckets in both the band and main header rows reinforce the boundaries. Pinned-left column gets a blank cell in the band row. Each table's `subtitle` prop carries the plain-English narrative ("what I sold → who bought it → how they got there → what I paid → what's left") just below the title for the operator-friendly framing alongside the taxonomic bucket labels.
+- Visual grouping (May 25 2026): a thin band-header row above the columns shows the 5 buckets (`Volume & revenue`, `Customer mix`, `Demand funnel`, `Marketing & promo`, `Margin cascade`) with `colSpan` driven by contiguous visible columns. 1px left-borders between buckets in both the band and main header rows reinforce the boundaries. Pinned-left column gets a blank cell in the band row. Each table's `subtitle` prop carries the plain-English narrative ("what I sold → who bought it → how they got there → what I paid → what's left") just below the title for the operator-friendly framing alongside the taxonomic bucket labels.
+- "Marketing & promo" rename (May 25 2026): bucket originally `Ads activity`; renamed because Discounts moved into it. Discounts is fundamentally an acquisition lever (substitutable with ad spend in operator decision-making) rather than a revenue line, even though P&L accounting treats it as a reduction to gross sales. Renamed band reads "spend ladder: Discounts → Ad Spend → efficiency ratios." Discounts stays `hide: true` (default-off) so it doesn't bloat the default visible set.
 - METRIC_AVG_KEYS extended so percentage / rate / margin metrics aggregate as averages and unit/order counts as sums in the totals row.

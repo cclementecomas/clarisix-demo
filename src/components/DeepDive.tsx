@@ -107,7 +107,7 @@ function metricColumns(currency: Parameters<typeof currencyFormatter>[0]): Colum
   const VOL = 'Volume & revenue';
   const MIX = 'Customer mix';
   const FUNNEL = 'Demand funnel';
-  const ADS = 'Ads activity';
+  const ADS = 'Marketing & promo';
   const MARGIN = 'Margin cascade';
 
   return [
@@ -117,7 +117,6 @@ function metricColumns(currency: Parameters<typeof currencyFormatter>[0]): Colum
     { field: 'orders',      headerName: 'Orders',       valueFormatter: numberFormatter,   width: 120, group: VOL, subFields: pctSub('orders') },
     { field: 'units',       headerName: 'Units',        valueFormatter: numberFormatter,   width: 120, group: VOL, subFields: pctSub('units') },
     { field: 'avgPrice',    headerName: 'Avg Price',    valueFormatter: fmtCurrency,       width: 130, group: VOL, subFields: pctSub('avgPrice') },
-    { field: 'discounts',   headerName: 'Discounts',    valueFormatter: fmtCurrency,       width: 130, group: VOL, hide: true, subFields: pctSub('discounts') },
 
     // ─── 2) Customer mix (S&S, NTB) ──────────────────────────────────
     { field: 'ntbOrders',   headerName: 'NTB Orders',   valueFormatter: numberFormatter,   width: 130, group: MIX,             subFields: pctSub('ntbOrders') },
@@ -132,7 +131,8 @@ function metricColumns(currency: Parameters<typeof currencyFormatter>[0]): Colum
     { field: 'bboxWinRate', headerName: 'BBox Win',     valueFormatter: pctShareFormatter, width: 120, group: FUNNEL, hide: true, subFields: ppSub('bboxWinRate') },
     { field: 'organicPct',  headerName: 'Organic %',    valueFormatter: pctShareFormatter, width: 120, group: FUNNEL, hide: true, subFields: ppSub('organicPct') },
 
-    // ─── 4) Ads activity ─────────────────────────────────────────────
+    // ─── 4) Marketing & promo (acquisition spend → efficiency) ───────
+    { field: 'discounts',   headerName: 'Discounts',    valueFormatter: fmtCurrency,       width: 130, group: ADS, hide: true, subFields: pctSub('discounts') },
     { field: 'adSpend',     headerName: 'Ad Spend',     valueFormatter: fmtCurrency,       width: 130, group: ADS,             subFields: pctSub('adSpend') },
     { field: 'adSales',     headerName: 'Ad Sales',     valueFormatter: fmtCurrency,       width: 130, group: ADS, hide: true, subFields: pctSub('adSales') },
     { field: 'adCpc',       headerName: 'Ad CPC',       valueFormatter: fmtCurrency,       width: 110, group: ADS, hide: true, subFields: pctSub('adCpc') },
