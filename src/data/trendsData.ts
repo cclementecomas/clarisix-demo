@@ -1,16 +1,37 @@
 export type TrendMetric =
+  // Volume & revenue
   | 'sales'
   | 'netSales'
-  | 'adSpend'
-  | 'adSales'
   | 'organicSales'
   | 'units'
+  | 'orders'
+  | 'avgPrice'
+  // Customer mix
+  | 'ntbOrders'
+  | 'ntbPct'
+  | 'ssOrders'
+  | 'ssPct'
+  // Demand funnel
+  | 'pageViews'
+  | 'sessions'
+  | 'cvr'
+  | 'organicPct'
+  // Marketing & promo
+  | 'discounts'
+  | 'adSpend'
+  | 'adSales'
+  | 'adCpc'
+  | 'ctr'
+  | 'adCvr'
   | 'roas'
   | 'acos'
   | 'tacos'
-  | 'pageViews'
-  | 'sessions'
-  | 'cvr';
+  | 'totalCpa'
+  // Margin cascade
+  | 'productMargin'
+  | 'channelMargin'
+  | 'growthMargin'
+  | 'netProfitPerUnit';
 
 export type TrendDimension =
   | 'marketplace'
@@ -26,6 +47,8 @@ export interface TrendMetricOption {
   isCurrency: boolean;
   isPercent: boolean;
   suffix?: string;
+  /** Bucket label used to render section dividers inside the dropdown. */
+  group?: string;
 }
 
 export interface TrendDimensionOption {
@@ -33,19 +56,46 @@ export interface TrendDimensionOption {
   label: string;
 }
 
+// Ordered by the 5-band Sales Deepdive narrative:
+//   what I sold → who bought it → how they got there → what I paid → what's left
 export const metricOptions: TrendMetricOption[] = [
-  { value: 'sales', label: 'Sales', isCurrency: true, isPercent: false },
-  { value: 'netSales', label: 'Net Sales', isCurrency: true, isPercent: false },
-  { value: 'adSpend', label: 'Ad Spend', isCurrency: true, isPercent: false },
-  { value: 'adSales', label: 'Ad Sales', isCurrency: true, isPercent: false },
-  { value: 'organicSales', label: 'Organic Sales', isCurrency: true, isPercent: false },
-  { value: 'units', label: 'Units', isCurrency: false, isPercent: false },
-  { value: 'roas', label: 'ROAS', isCurrency: false, isPercent: false, suffix: 'x' },
-  { value: 'acos', label: 'ACOS', isCurrency: false, isPercent: true },
-  { value: 'tacos', label: 'TACOS', isCurrency: false, isPercent: true },
-  { value: 'pageViews', label: 'Page Views', isCurrency: false, isPercent: false },
-  { value: 'sessions', label: 'Sessions', isCurrency: false, isPercent: false },
-  { value: 'cvr', label: 'Conversion Rate', isCurrency: false, isPercent: true },
+  // Volume & revenue
+  { value: 'sales',           label: 'Sales',             isCurrency: true,  isPercent: false, group: 'Volume & revenue' },
+  { value: 'netSales',        label: 'Net Sales',         isCurrency: true,  isPercent: false, group: 'Volume & revenue' },
+  { value: 'organicSales',    label: 'Organic Sales',     isCurrency: true,  isPercent: false, group: 'Volume & revenue' },
+  { value: 'units',           label: 'Units',             isCurrency: false, isPercent: false, group: 'Volume & revenue' },
+  { value: 'orders',          label: 'Orders',            isCurrency: false, isPercent: false, group: 'Volume & revenue' },
+  { value: 'avgPrice',        label: 'Avg Price',         isCurrency: true,  isPercent: false, group: 'Volume & revenue' },
+
+  // Customer mix
+  { value: 'ntbOrders',       label: 'NTB Orders',        isCurrency: false, isPercent: false, group: 'Customer mix' },
+  { value: 'ntbPct',          label: 'NTB %',             isCurrency: false, isPercent: true,  group: 'Customer mix' },
+  { value: 'ssOrders',        label: 'S&S Orders',        isCurrency: false, isPercent: false, group: 'Customer mix' },
+  { value: 'ssPct',           label: 'S&S %',             isCurrency: false, isPercent: true,  group: 'Customer mix' },
+
+  // Demand funnel
+  { value: 'pageViews',       label: 'Page Views',        isCurrency: false, isPercent: false, group: 'Demand funnel' },
+  { value: 'sessions',        label: 'Sessions',          isCurrency: false, isPercent: false, group: 'Demand funnel' },
+  { value: 'cvr',             label: 'Conversion Rate',   isCurrency: false, isPercent: true,  group: 'Demand funnel' },
+  { value: 'organicPct',      label: 'Organic %',         isCurrency: false, isPercent: true,  group: 'Demand funnel' },
+
+  // Marketing & promo
+  { value: 'discounts',       label: 'Discounts',         isCurrency: true,  isPercent: false, group: 'Marketing & promo' },
+  { value: 'adSpend',         label: 'Ad Spend',          isCurrency: true,  isPercent: false, group: 'Marketing & promo' },
+  { value: 'adSales',         label: 'Ad Sales',          isCurrency: true,  isPercent: false, group: 'Marketing & promo' },
+  { value: 'adCpc',           label: 'Ad CPC',            isCurrency: true,  isPercent: false, group: 'Marketing & promo' },
+  { value: 'ctr',             label: 'CTR',               isCurrency: false, isPercent: true,  group: 'Marketing & promo' },
+  { value: 'adCvr',           label: 'Ad CVR',            isCurrency: false, isPercent: true,  group: 'Marketing & promo' },
+  { value: 'roas',            label: 'ROAS',              isCurrency: false, isPercent: false, suffix: 'x', group: 'Marketing & promo' },
+  { value: 'acos',            label: 'ACOS',              isCurrency: false, isPercent: true,  group: 'Marketing & promo' },
+  { value: 'tacos',           label: 'TACOS',             isCurrency: false, isPercent: true,  group: 'Marketing & promo' },
+  { value: 'totalCpa',        label: 'Total CPA',         isCurrency: true,  isPercent: false, group: 'Marketing & promo' },
+
+  // Margin cascade
+  { value: 'productMargin',   label: 'Product Margin',    isCurrency: false, isPercent: true,  group: 'Margin cascade' },
+  { value: 'channelMargin',   label: 'Channel Margin',    isCurrency: false, isPercent: true,  group: 'Margin cascade' },
+  { value: 'growthMargin',    label: 'Growth Margin',     isCurrency: false, isPercent: true,  group: 'Margin cascade' },
+  { value: 'netProfitPerUnit',label: 'Net Profit / Unit', isCurrency: true,  isPercent: false, group: 'Margin cascade' },
 ];
 
 export const dimensionOptions: TrendDimensionOption[] = [
@@ -134,18 +184,43 @@ function getBaseScale(metric: TrendMetric, dimension: string): number {
   const dimHash = dimension.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
 
   const scales: Record<TrendMetric, [number, number]> = {
+    // Volume & revenue
     sales: [800, 18000],
     netSales: [600, 14000],
-    adSpend: [100, 9000],
-    adSales: [400, 14000],
     organicSales: [300, 12000],
     units: [50, 2000],
-    roas: [1.5, 5.0],
-    acos: [8, 35],
-    tacos: [5, 25],
+    orders: [40, 1500],
+    avgPrice: [12, 80],
+
+    // Customer mix
+    ntbOrders: [15, 800],
+    ntbPct: [35, 55],
+    ssOrders: [5, 300],
+    ssPct: [10, 28],
+
+    // Demand funnel
     pageViews: [2000, 60000],
     sessions: [1500, 45000],
     cvr: [4, 14],
+    organicPct: [30, 75],
+
+    // Marketing & promo
+    discounts: [30, 2000],
+    adSpend: [100, 9000],
+    adSales: [400, 14000],
+    adCpc: [0.45, 2.25],
+    ctr: [0.3, 1.5],
+    adCvr: [5, 15],
+    roas: [1.5, 5.0],
+    acos: [8, 35],
+    tacos: [5, 25],
+    totalCpa: [2, 15],
+
+    // Margin cascade
+    productMargin: [45, 68],
+    channelMargin: [30, 55],
+    growthMargin: [10, 40],
+    netProfitPerUnit: [3, 25],
   };
 
   const [min, max] = scales[metric];

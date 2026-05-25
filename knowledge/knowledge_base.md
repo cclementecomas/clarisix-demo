@@ -658,6 +658,23 @@ Trends — traffic metrics added to dropdown (May 22 2026, data/trendsData.ts)
 - getBaseScale ranges added: pageViews [2000, 60000], sessions [1500, 45000], cvr [4, 14]. Selecting any of them re-generates the pivot at the right scale and format. The MetricMatrix section below already showed all of these — this just gives the single-metric pivot the same options.
 
 
+Trends — full Sales Deepdive parity in metric dropdown (May 25 2026)
+
+Rationale
+- The dropdown lagged behind Deepdive: had 12 entries vs Deepdive's 30 columns. Sellers exploring a metric trend over time had no way to chart Orders, Avg Price, NTB/S&S, margins, or any of the ad mechanics.
+- Brought the dropdown to parity with the Deepdive column set and grouped it using the same 5-band narrative so the two pages share a vocabulary.
+
+Implementation (data/trendsData.ts + components/Trends.tsx)
+- TrendMetric union extended with 16 keys: orders, avgPrice, ntbOrders, ntbPct, ssOrders, ssPct, organicPct, discounts, adCpc, ctr, adCvr, totalCpa, productMargin, channelMargin, growthMargin, netProfitPerUnit.
+- TrendMetricOption gains an optional `group` field. metricOptions reordered to the 5-band narrative (Volume & revenue → Customer mix → Demand funnel → Marketing & promo → Margin cascade) — same buckets and order as the Deepdive table groups.
+- getBaseScale extended with deterministic ranges for the new keys: orders [40, 1500], avgPrice [12, 80], ntbOrders [15, 800], ntbPct [35, 55], ssOrders [5, 300], ssPct [10, 28], organicPct [30, 75], discounts [30, 2000], adCpc [0.45, 2.25], ctr [0.3, 1.5], adCvr [5, 15], totalCpa [2, 15], productMargin [45, 68], channelMargin [30, 55], growthMargin [10, 40], netProfitPerUnit [3, 25].
+- Dropdown component in Trends.tsx detects `group` on options and renders thin uppercase section labels (`text-[9px] font-bold uppercase tracking-[0.12em] text-gray-400`) with a 1px top divider when the group changes. Behavior unchanged when no options carry a group (Dimension dropdown stays flat).
+- Dropdown panel gains `max-h-[440px] overflow-y-auto` since 28 options would otherwise overflow the viewport.
+
+Known small gap
+- `bboxWinRate` and `adReliance` exist as Deepdive columns but were not added to the Trends dropdown — scope limited to the 16 "new" metrics from the May 25 expansion. They can be added later for full parity (and a value/percent flag tweak in the dropdown's formatter).
+
+
 Sales Deepdive — column expansion + business-ordered visibility (May 25 2026)
 
 Rationale

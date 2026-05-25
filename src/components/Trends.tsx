@@ -27,11 +27,12 @@ function Dropdown<T extends string>({
 }: {
   label: string;
   value: T;
-  options: { value: T; label: string }[];
+  options: { value: T; label: string; group?: string }[];
   onChange: (v: T) => void;
 }) {
   const [open, setOpen] = useState(false);
   const selected = options.find(o => o.value === value);
+  const anyGrouped = options.some(o => o.group);
 
   return (
     <div className="flex items-center gap-2">
@@ -47,20 +48,30 @@ function Dropdown<T extends string>({
         {open && (
           <>
             <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-            <div className="absolute top-full left-0 mt-1 z-20 bg-white border border-gray-200 rounded-lg shadow-xl py-1 min-w-[200px]">
-              {options.map(opt => (
-                <button
-                  key={opt.value}
-                  onClick={() => { onChange(opt.value); setOpen(false); }}
-                  className={`block w-full text-left px-4 py-2 text-sm transition-colors ${
-                    value === opt.value
-                      ? 'text-cx-700 bg-cx-50 font-semibold'
-                      : 'text-gray-700 hover:bg-gray-50 font-medium'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
+            <div className="absolute top-full left-0 mt-1 z-20 bg-white border border-gray-200 rounded-lg shadow-xl py-1 min-w-[220px] max-h-[440px] overflow-y-auto">
+              {options.map((opt, i) => {
+                const prevGroup = i > 0 ? options[i - 1].group : undefined;
+                const isNewGroup = anyGrouped && opt.group && opt.group !== prevGroup;
+                return (
+                  <div key={opt.value}>
+                    {isNewGroup && (
+                      <div className={`px-4 pt-2 pb-1 text-[9px] font-bold uppercase tracking-[0.12em] text-gray-400 ${i > 0 ? 'border-t border-gray-100 mt-1' : ''}`}>
+                        {opt.group}
+                      </div>
+                    )}
+                    <button
+                      onClick={() => { onChange(opt.value); setOpen(false); }}
+                      className={`block w-full text-left px-4 py-2 text-sm transition-colors ${
+                        value === opt.value
+                          ? 'text-cx-700 bg-cx-50 font-semibold'
+                          : 'text-gray-700 hover:bg-gray-50 font-medium'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           </>
         )}
