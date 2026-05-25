@@ -18,6 +18,8 @@ export interface ColumnDef {
   valueFormatter?: (params: { value: unknown; row: any }) => string | React.ReactNode;
   hide?: boolean;
   tooltip?: string;
+  /** Group label used to render the band header row above the columns. */
+  group?: string;
   subFields?: { field: string; label?: string; formatter?: (params: { value: unknown; row: any }) => string | React.ReactNode; cellStyle?: (params: { value: unknown; row: any }) => Record<string, string> }[];
 }
 
@@ -43,6 +45,7 @@ interface DeepDiveTableProps {
   childLabelField?: string;
   hideHeader?: boolean;
   tooltip?: string;
+  subtitle?: string;
   embedded?: boolean; // strips outer card + title/InfoTooltip/Export when nested inside a section card
   showPoP?: boolean;
   onPoPChange?: (v: boolean) => void;
@@ -146,7 +149,7 @@ function getRectCells(
   return cells;
 }
 
-export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottomRowData, childRowsMap, rowKeyField, childLabelField, tooltip, hideHeader = false, embedded = false, showPoP: propShowPoP, onPoPChange, showLY: propShowLY, onLYChange, selectMode: propSelectMode, onSelectModeChange, onSelectedValuesChange, visibleColumnsOverride, copyablePinnedCell = false }: DeepDiveTableProps) {
+export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottomRowData, childRowsMap, rowKeyField, childLabelField, tooltip, subtitle, hideHeader = false, embedded = false, showPoP: propShowPoP, onPoPChange, showLY: propShowLY, onLYChange, selectMode: propSelectMode, onSelectModeChange, onSelectedValuesChange, visibleColumnsOverride, copyablePinnedCell = false }: DeepDiveTableProps) {
   const [selectedCells, setSelectedCells] = useState<SelectedCell[]>([]);
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>(null);
@@ -458,9 +461,14 @@ export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottom
         </div>
       )}
       {!hideHeader && !embedded && <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
-        <div className="flex items-center gap-1.5">
-          {!embedded && title && <h3 className="text-sm font-semibold text-gray-900">{title}</h3>}
-          {!embedded && <InfoTooltip content={tooltip} />}
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5">
+            {!embedded && title && <h3 className="text-sm font-semibold text-gray-900">{title}</h3>}
+            {!embedded && <InfoTooltip content={tooltip} />}
+          </div>
+          {subtitle && (
+            <p className="text-[10px] text-gray-400 mt-0.5 leading-tight">{subtitle}</p>
+          )}
         </div>
         <div className="flex items-center gap-3">
           {hasChildren && (
@@ -578,26 +586,85 @@ export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottom
             })}
           </colgroup>
           <thead className="sticky top-0 z-20">
+            {/* Group band header — only renders when any visible column declares a `group` */}
+            {(() => {
+              const groupedCols = visibleCols.filter((c) => !c.pinned);
+              const hasGroups = groupedCols.some((c) => c.group);
+              if (!hasGroups) return null;
+
+              // Build contiguous runs of same-group columns
+              const runs: { group: string | undefined; span: number; startIdx: number }[] = [];
+              let curGroup: string | undefined = undefined;
+              let curRun: { group: string | undefined; span: number; startIdx: number } | null = null;
+              groupedCols.forEach((c, i) => {
+                if (curRun && c.group === curGroup) {
+                  curRun.span += 1;
+                } else {
+                  curRun = { group: c.group, span: 1, startIdx: i };
+                  curGroup = c.group;
+                  runs.push(curRun);
+                }
+              });
+
+              const hasPinned = visibleCols.some((c) => c.pinned === 'left');
+
+              return (
+                <tr className="bg-slate-50 border-b border-slate-100">
+                  {hasPinned && (
+                    <th
+                      className="sticky left-0 z-30 bg-slate-50 px-3 py-1"
+                      aria-hidden
+                    />
+                  )}
+                  {runs.map((run, i) => (
+                    <th
+                      key={`group-${i}`}
+                      colSpan={run.span}
+                      className={`px-3 py-1 text-left text-[9px] font-bold uppercase tracking-[0.12em] text-slate-400 select-none whitespace-nowrap ${
+                        i > 0 ? 'border-l border-slate-200' : ''
+                      }`}
+                    >
+                      {run.group ?? ''}
+                    </th>
+                  ))}
+                </tr>
+              );
+            })()}
             <tr className="bg-slate-50 border-b-2 border-slate-200">
-              {visibleCols.map((col) => {
-                const isPinned = col.pinned === 'left';
-                return (
-                  <th
-                    key={col.field}
-                    onClick={() => handleSort(col.field)}
-                    className={`px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 cursor-pointer select-none whitespace-nowrap hover:bg-slate-100 transition-colors overflow-hidden text-ellipsis ${
-                      isPinned ? 'sticky left-0 z-30 bg-slate-50' : ''
-                    }`}
-                  >
-                    <span className="inline-flex items-center gap-1">
-                      {col.headerName}
-                      {col.tooltip && <InfoTooltip content={col.tooltip} />}
-                      {sortField === col.field && sortDir === 'asc' && <ArrowUp className="w-3 h-3 text-cx-500 flex-shrink-0" />}
-                      {sortField === col.field && sortDir === 'desc' && <ArrowDown className="w-3 h-3 text-cx-500 flex-shrink-0" />}
-                    </span>
-                  </th>
-                );
-              })}
+              {(() => {
+                // Track the first non-pinned column of each new group so we
+                // can apply a subtle left divider for visual continuity with
+                // the band row above.
+                const groupedCols = visibleCols.filter((c) => !c.pinned);
+                const firstOfGroup = new Set<string>();
+                let lastGroup: string | undefined = undefined;
+                groupedCols.forEach((c, idx) => {
+                  if (idx > 0 && c.group !== lastGroup) firstOfGroup.add(c.field);
+                  lastGroup = c.group;
+                });
+                return visibleCols.map((col) => {
+                  const isPinned = col.pinned === 'left';
+                  const isGroupStart = firstOfGroup.has(col.field);
+                  return (
+                    <th
+                      key={col.field}
+                      onClick={() => handleSort(col.field)}
+                      className={`px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 cursor-pointer select-none whitespace-nowrap hover:bg-slate-100 transition-colors overflow-hidden text-ellipsis ${
+                        isPinned ? 'sticky left-0 z-30 bg-slate-50' : ''
+                      } ${
+                        isGroupStart ? 'border-l border-slate-200' : ''
+                      }`}
+                    >
+                      <span className="inline-flex items-center gap-1">
+                        {col.headerName}
+                        {col.tooltip && <InfoTooltip content={col.tooltip} />}
+                        {sortField === col.field && sortDir === 'asc' && <ArrowUp className="w-3 h-3 text-cx-500 flex-shrink-0" />}
+                        {sortField === col.field && sortDir === 'desc' && <ArrowDown className="w-3 h-3 text-cx-500 flex-shrink-0" />}
+                      </span>
+                    </th>
+                  );
+                });
+              })()}
             </tr>
           </thead>
           <tbody>
