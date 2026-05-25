@@ -27,6 +27,26 @@ function startOfWeek(d: Date): Date {
   return startOfDay(r);
 }
 
+function endOfWeek(d: Date): Date {
+  const r = new Date(d);
+  r.setDate(r.getDate() - r.getDay() + 6);
+  return startOfDay(r);
+}
+
+/**
+ * Snap an arbitrary date range to the enclosing Brand-Analytics weeks
+ * (Sunday → Saturday). Used by pages that pull weekly-only data (Traffic, SQP).
+ */
+export function snapToWeeks(range: DateRange): { snapped: DateRange; wasSnapped: boolean; weekCount: number } {
+  const snapStart = startOfWeek(range.start);
+  const snapEnd = endOfWeek(range.end);
+  const wasSnapped =
+    snapStart.getTime() !== startOfDay(range.start).getTime() ||
+    snapEnd.getTime() !== startOfDay(range.end).getTime();
+  const weekCount = Math.max(1, Math.round((snapEnd.getTime() - snapStart.getTime()) / (7 * 86400000)) + 1);
+  return { snapped: { start: snapStart, end: snapEnd }, wasSnapped, weekCount };
+}
+
 function startOfMonth(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), 1);
 }
