@@ -7,7 +7,10 @@ export type TrendMetric =
   | 'units'
   | 'roas'
   | 'acos'
-  | 'tacos';
+  | 'tacos'
+  | 'pageViews'
+  | 'sessions'
+  | 'cvr';
 
 export type TrendDimension =
   | 'marketplace'
@@ -40,6 +43,9 @@ export const metricOptions: TrendMetricOption[] = [
   { value: 'roas', label: 'ROAS', isCurrency: false, isPercent: false, suffix: 'x' },
   { value: 'acos', label: 'ACOS', isCurrency: false, isPercent: true },
   { value: 'tacos', label: 'TACOS', isCurrency: false, isPercent: true },
+  { value: 'pageViews', label: 'Page Views', isCurrency: false, isPercent: false },
+  { value: 'sessions', label: 'Sessions', isCurrency: false, isPercent: false },
+  { value: 'cvr', label: 'Conversion Rate', isCurrency: false, isPercent: true },
 ];
 
 export const dimensionOptions: TrendDimensionOption[] = [
@@ -137,6 +143,9 @@ function getBaseScale(metric: TrendMetric, dimension: string): number {
     roas: [1.5, 5.0],
     acos: [8, 35],
     tacos: [5, 25],
+    pageViews: [2000, 60000],
+    sessions: [1500, 45000],
+    cvr: [4, 14],
   };
 
   const [min, max] = scales[metric];

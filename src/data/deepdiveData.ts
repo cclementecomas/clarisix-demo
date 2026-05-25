@@ -38,6 +38,23 @@ export interface MetricFields {
   sessions: number;
   sessionsPoP: number;
   sessionsDiffLY: number;
+  // ─── Added May 2026 — derived from existing fields + seeded jitter ───
+  orders: number;            ordersPoP: number;            ordersDiffLY: number;
+  organicPct: number;        organicPctPoP: number;        organicPctDiffLY: number;
+  avgPrice: number;          avgPricePoP: number;          avgPriceDiffLY: number;
+  ssOrders: number;          ssOrdersPoP: number;          ssOrdersDiffLY: number;
+  ssPct: number;             ssPctPoP: number;             ssPctDiffLY: number;
+  ntbOrders: number;         ntbOrdersPoP: number;         ntbOrdersDiffLY: number;
+  ntbPct: number;            ntbPctPoP: number;            ntbPctDiffLY: number;
+  totalCpa: number;          totalCpaPoP: number;          totalCpaDiffLY: number;
+  productMargin: number;     productMarginPoP: number;     productMarginDiffLY: number;
+  channelMargin: number;     channelMarginPoP: number;     channelMarginDiffLY: number;
+  growthMargin: number;      growthMarginPoP: number;      growthMarginDiffLY: number;
+  netProfitPerUnit: number;  netProfitPerUnitPoP: number;  netProfitPerUnitDiffLY: number;
+  adCpc: number;             adCpcPoP: number;             adCpcDiffLY: number;
+  ctr: number;               ctrPoP: number;               ctrDiffLY: number;
+  adCvr: number;             adCvrPoP: number;             adCvrDiffLY: number;
+  discounts: number;         discountsPoP: number;         discountsDiffLY: number;
 }
 
 export interface MarketplaceRow extends MetricFields {
@@ -58,7 +75,9 @@ export interface SkuRow extends MetricFields {
   title: string;
 }
 
-export const marketplaceData: MarketplaceRow[] = [
+// New derived fields are populated by `enrichDerivedFields` below.
+// Row literals retain only the source fields; cast at the boundary.
+export const marketplaceData = ([
   {
     marketplace: 'Germany',
     sales: 115086, salesPoP: -28.28, salesDiffLY: -31.74,
@@ -203,9 +222,9 @@ export const marketplaceData: MarketplaceRow[] = [
     pageViews: 920, pageViewsPoP: -8.60, pageViewsDiffLY: 34.80,
     sessions: 622, sessionsPoP: -10.40, sessionsDiffLY: 30.20,
   },
-];
+] as unknown) as MarketplaceRow[];
 
-export const categoryData: CategoryRow[] = [
+export const categoryData = ([
   {
     category: 'Personal Care',
     sales: 142300, salesPoP: -8.31, salesDiffLY: 10.74,
@@ -334,9 +353,9 @@ export const categoryData: CategoryRow[] = [
     pageViews: 6400, pageViewsPoP: -8.40, pageViewsDiffLY: -2.80,
     sessions: 4360, sessionsPoP: -10.20, sessionsDiffLY: -4.60,
   },
-];
+] as unknown) as CategoryRow[];
 
-export const asinData: AsinRow[] = [
+export const asinData = ([
   {
     asin: 'B0DEMO001X', title: 'Everyday Essentials Pack 120ct',
     sales: 68400, salesPoP: -5.13, salesDiffLY: 11.76,
@@ -497,7 +516,7 @@ export const asinData: AsinRow[] = [
     pageViews: 6800, pageViewsPoP: -6.20, pageViewsDiffLY: -2.40,
     sessions: 4600, sessionsPoP: -8.40, sessionsDiffLY: -4.80,
   },
-];
+] as unknown) as AsinRow[];
 
 // Compute salesShare from actual sales values so shares always total 100%
 function computeShares(rows: MetricFields[]) {
@@ -517,11 +536,129 @@ computeShares(marketplaceData);
 computeShares(categoryData);
 computeShares(asinData);
 
+// ─── Derived field enrichment ────────────────────────────────────────────
+// Adds 16 derived fields per row using formulas anchored to existing
+// values + a deterministic per-row seed so demo numbers stay stable
+// across renders.
+
+function hashSeed(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return Math.abs(h | 0) || 1;
+}
+
+function seededRng(seed: number): () => number {
+  let s = seed;
+  return () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; };
+}
+
+function enrichDerivedFields(rows: MetricFields[], rowLabels: string[]) {
+  rows.forEach((r, i) => {
+    const rand = seededRng(hashSeed(rowLabels[i] || `row-${i}`));
+    const jit = (base: number, spread: number) => base + (rand() - 0.5) * spread;
+
+    // ─ Orders + price ─
+    const unitsPerOrder = 1.1 + rand() * 0.25;           // 1.10–1.35
+    r.orders = Math.max(1, Math.round(r.units / unitsPerOrder));
+    r.ordersPoP = +jit(r.unitsPoP, 2).toFixed(2);
+    r.ordersDiffLY = +jit(r.unitsDiffLY, 2).toFixed(2);
+    r.avgPrice = r.units > 0 ? +(r.sales / r.units).toFixed(2) : 0;
+    r.avgPricePoP = +jit(r.salesPoP - r.unitsPoP, 1).toFixed(2);
+    r.avgPriceDiffLY = +jit(r.salesDiffLY - r.unitsDiffLY, 1).toFixed(2);
+    r.organicPct = +(100 - r.adReliance).toFixed(2);
+    r.organicPctPoP = +(-r.adReliancePoP).toFixed(2);
+    r.organicPctDiffLY = +(-r.adRelianceDiffLY).toFixed(2);
+
+    // ─ Customer mix ─
+    const ssRatio = 0.10 + rand() * 0.18;                // 10–28%
+    const ntbRatio = 0.35 + rand() * 0.20;               // 35–55%
+    r.ssOrders = Math.max(0, Math.round(r.orders * ssRatio));
+    r.ssPct = +(ssRatio * 100).toFixed(1);
+    r.ssOrdersPoP = +jit(r.ordersPoP, 3).toFixed(2);
+    r.ssOrdersDiffLY = +jit(r.ordersDiffLY, 3).toFixed(2);
+    r.ssPctPoP = +jit(0, 2).toFixed(2);
+    r.ssPctDiffLY = +jit(0, 3).toFixed(2);
+    r.ntbOrders = Math.max(0, Math.round(r.orders * ntbRatio));
+    r.ntbPct = +(ntbRatio * 100).toFixed(1);
+    r.ntbOrdersPoP = +jit(r.ordersPoP, 3).toFixed(2);
+    r.ntbOrdersDiffLY = +jit(r.ordersDiffLY, 3).toFixed(2);
+    r.ntbPctPoP = +jit(0, 2).toFixed(2);
+    r.ntbPctDiffLY = +jit(0, 3).toFixed(2);
+
+    // ─ Acquisition cost ─
+    r.totalCpa = r.orders > 0 ? +(r.adSpend / r.orders).toFixed(2) : 0;
+    r.totalCpaPoP = +jit(r.adSpendPoP - r.ordersPoP, 2).toFixed(2);
+    r.totalCpaDiffLY = +jit(r.adSpendDiffLY - r.ordersDiffLY, 2).toFixed(2);
+
+    // ─ Margins cascade (Product → Channel → Growth) ─
+    const productMarginBase = 52 + rand() * 14;          // 52–66%
+    r.productMargin = +productMarginBase.toFixed(1);
+    r.productMarginPoP = +jit(0, 2).toFixed(2);
+    r.productMarginDiffLY = +jit(0, 3).toFixed(2);
+    const channelDelta = 12 + rand() * 4;                // Amazon fees ~12–16pp
+    r.channelMargin = +(r.productMargin - channelDelta).toFixed(1);
+    r.channelMarginPoP = +jit(r.productMarginPoP, 1).toFixed(2);
+    r.channelMarginDiffLY = +jit(r.productMarginDiffLY, 1.5).toFixed(2);
+    r.growthMargin = +(r.channelMargin - r.tacos).toFixed(1);
+    r.growthMarginPoP = +jit(r.channelMarginPoP - r.tacosPoP, 1).toFixed(2);
+    r.growthMarginDiffLY = +jit(r.channelMarginDiffLY - r.tacosDiffLY, 1.5).toFixed(2);
+    r.netProfitPerUnit = +(r.avgPrice * (r.growthMargin / 100)).toFixed(2);
+    r.netProfitPerUnitPoP = +jit(r.growthMarginPoP, 2).toFixed(2);
+    r.netProfitPerUnitDiffLY = +jit(r.growthMarginDiffLY, 3).toFixed(2);
+
+    // ─ Ad mechanics ─
+    r.adCpc = +(0.45 + rand() * 1.8).toFixed(2);         // €0.45–€2.25
+    r.adCpcPoP = +jit(0, 6).toFixed(2);
+    r.adCpcDiffLY = +jit(0, 10).toFixed(2);
+    r.ctr = +(0.30 + rand() * 1.1).toFixed(2);           // 0.30–1.40%
+    r.ctrPoP = +jit(0, 2).toFixed(2);
+    r.ctrDiffLY = +jit(0, 3).toFixed(2);
+    r.adCvr = +(5 + rand() * 10).toFixed(1);             // 5–15%
+    r.adCvrPoP = +jit(r.cvrPoP, 1).toFixed(2);
+    r.adCvrDiffLY = +jit(r.cvrDiffLY, 1.5).toFixed(2);
+
+    // ─ Discounts ─
+    const discountsPctOfSales = 0.03 + rand() * 0.09;    // 3–12%
+    r.discounts = Math.round(r.sales * discountsPctOfSales);
+    r.discountsPoP = +jit(r.salesPoP, 3).toFixed(2);
+    r.discountsDiffLY = +jit(r.salesDiffLY, 4).toFixed(2);
+  });
+}
+
+enrichDerivedFields(marketplaceData, marketplaceData.map((r) => r.marketplace));
+enrichDerivedFields(categoryData, categoryData.map((r) => r.category));
+enrichDerivedFields(asinData, asinData.map((r) => r.asin));
+
+// Zero-init for the derived fields — the enrichment pass populates real
+// values once the split rows are in place.
+const ZERO_DERIVED = {
+  orders: 0, ordersPoP: 0, ordersDiffLY: 0,
+  organicPct: 0, organicPctPoP: 0, organicPctDiffLY: 0,
+  avgPrice: 0, avgPricePoP: 0, avgPriceDiffLY: 0,
+  ssOrders: 0, ssOrdersPoP: 0, ssOrdersDiffLY: 0,
+  ssPct: 0, ssPctPoP: 0, ssPctDiffLY: 0,
+  ntbOrders: 0, ntbOrdersPoP: 0, ntbOrdersDiffLY: 0,
+  ntbPct: 0, ntbPctPoP: 0, ntbPctDiffLY: 0,
+  totalCpa: 0, totalCpaPoP: 0, totalCpaDiffLY: 0,
+  productMargin: 0, productMarginPoP: 0, productMarginDiffLY: 0,
+  channelMargin: 0, channelMarginPoP: 0, channelMarginDiffLY: 0,
+  growthMargin: 0, growthMarginPoP: 0, growthMarginDiffLY: 0,
+  netProfitPerUnit: 0, netProfitPerUnitPoP: 0, netProfitPerUnitDiffLY: 0,
+  adCpc: 0, adCpcPoP: 0, adCpcDiffLY: 0,
+  ctr: 0, ctrPoP: 0, ctrDiffLY: 0,
+  adCvr: 0, adCvrPoP: 0, adCvrDiffLY: 0,
+  discounts: 0, discountsPoP: 0, discountsDiffLY: 0,
+};
+
 function splitMetrics(parent: MetricFields, ratio1: number): [MetricFields, MetricFields] {
   const r2 = 1 - ratio1;
   const jitter = (base: number, spread = 2) => base + (Math.random() - 0.5) * spread;
   const split = (v: number) => Math.round(v * ratio1);
   const m1: MetricFields = {
+    ...ZERO_DERIVED,
     sales: split(parent.sales), salesPoP: jitter(parent.salesPoP), salesDiffLY: jitter(parent.salesDiffLY),
     salesShare: +(parent.salesShare * ratio1).toFixed(2), salesSharePoP: jitter(parent.salesSharePoP, 1), salesShareDiffLY: jitter(parent.salesShareDiffLY, 1),
     units: split(parent.units), unitsPoP: jitter(parent.unitsPoP), unitsDiffLY: jitter(parent.unitsDiffLY),
@@ -537,6 +674,7 @@ function splitMetrics(parent: MetricFields, ratio1: number): [MetricFields, Metr
     sessions: split(parent.sessions), sessionsPoP: jitter(parent.sessionsPoP), sessionsDiffLY: jitter(parent.sessionsDiffLY),
   };
   const m2: MetricFields = {
+    ...ZERO_DERIVED,
     sales: parent.sales - m1.sales, salesPoP: jitter(parent.salesPoP), salesDiffLY: jitter(parent.salesDiffLY),
     salesShare: +(parent.salesShare * r2).toFixed(2), salesSharePoP: jitter(parent.salesSharePoP, 1), salesShareDiffLY: jitter(parent.salesShareDiffLY, 1),
     units: parent.units - m1.units, unitsPoP: jitter(parent.unitsPoP), unitsDiffLY: jitter(parent.unitsDiffLY),
@@ -577,4 +715,5 @@ for (const [asin, sku1, sku2, ratio] of skuPairs) {
     { sku: sku1, title: `${parent.title} — Variant A`, ...m1 },
     { sku: sku2, title: `${parent.title} — Variant B`, ...m2 },
   ];
+  enrichDerivedFields(skuDataByAsin[asin], skuDataByAsin[asin].map((r) => r.sku));
 }

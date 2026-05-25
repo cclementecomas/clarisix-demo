@@ -649,3 +649,40 @@ Implementation (components/SalesOverview.tsx)
 
 Adjacent tweak (components/BudgetTracker.tsx)
 - MTD value color softened from `text-gray-900` → `text-gray-800` so it reads as "a bit gray" rather than near-black. Both panels now share the same value tone.
+
+
+Trends — traffic metrics added to dropdown (May 22 2026, data/trendsData.ts)
+
+- TrendMetric union extended with `pageViews`, `sessions`, `cvr`.
+- metricOptions extended (labels: 'Page Views', 'Sessions', 'Conversion Rate'). pageViews/sessions are number-typed, cvr is percent-typed.
+- getBaseScale ranges added: pageViews [2000, 60000], sessions [1500, 45000], cvr [4, 14]. Selecting any of them re-generates the pivot at the right scale and format. The MetricMatrix section below already showed all of these — this just gives the single-metric pivot the same options.
+
+
+Sales Deepdive — column expansion + business-ordered visibility (May 25 2026)
+
+Rationale
+- The Deepdive tables (Marketplace / Category / ASIN) had 13 columns focused on the ad-funnel. Sellers asked for the rest of the decision-making picture: order economics, customer mix (NTB / S&S), margin cascade, ad mechanics (CPC / CTR / Ad CVR), and discounts.
+- Order matters as much as inclusion: column sequence is now narrative-first ("what did I sell → who bought → how did they get there → what did I pay → what's left").
+
+Data layer (data/deepdiveData.ts)
+- MetricFields interface extended with 16 new metric groups × 3 (value + PoP + DiffLY) = 48 new properties: orders, organicPct, avgPrice, ssOrders, ssPct, ntbOrders, ntbPct, totalCpa, productMargin, channelMargin, growthMargin, netProfitPerUnit, adCpc, ctr, adCvr, discounts.
+- `enrichDerivedFields(rows, labels)` mutation pass adds the new fields deterministically per row using a per-row hashed seed. Formulas anchored to existing data so totals stay internally consistent:
+  - orders = round(units / unitsPerOrder), where unitsPerOrder ~1.10–1.35 (seeded)
+  - avgPrice = sales / units (exact)
+  - organicPct = 100 - adReliance (mechanical)
+  - ssRatio ~10–28%, ntbRatio ~35–55% drive ssOrders/ntbOrders + their %s
+  - totalCpa = adSpend / orders
+  - productMargin seeded 52–66%, channelMargin = productMargin − (12–16) for Amazon fees, growthMargin = channelMargin − tacos, netProfitPerUnit = avgPrice × growthMargin
+  - adCpc €0.45–€2.25, ctr 0.30–1.40%, adCvr 5–15%, discounts 3–12% of sales
+- Row literals (marketplaceData, categoryData, asinData) kept untouched; cast at export boundary (`as unknown as MarketplaceRow[]` etc.) since the enrichment populates the new fields at module load. splitMetrics extended with ZERO_DERIVED stub so SKU child rows pass the interface check; enriched after splitting.
+- All three datasets + per-ASIN SKU rows are enriched on module import.
+
+Column visibility & order (components/DeepDive.tsx)
+- 30 columns total, ordered by business narrative across 5 bands:
+  1. Volume & revenue: Sales · Sales Share · Orders · Units · Avg Price · Discounts
+  2. Customer mix: NTB Orders · NTB % · S&S Orders · S&S %
+  3. Demand funnel: Page Views · Sessions · CVR · BBox Win · Organic %
+  4. Ads activity: Ad Spend · Ad Sales · Ad CPC · CTR · Ad CVR · ROAS · ACOS · TACOS · Total CPA · Ad Reliance
+  5. Margin cascade: Product Margin · Channel Margin · Growth Margin · Net Profit/Unit
+- Default-visible (11 columns): Sales, Sales Share, Orders, Units, Avg Price, CVR, Ad Spend, ROAS, ACOS, TACOS, Product Margin. The remaining 19 are `hide: true` — listed in the ColumnToggle and one click away.
+- METRIC_AVG_KEYS extended so percentage / rate / margin metrics aggregate as averages and unit/order counts as sums in the totals row.

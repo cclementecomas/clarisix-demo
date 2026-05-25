@@ -30,16 +30,32 @@ const METRIC_AVG_KEYS = [
   'salesPoP', 'salesDiffLY',
   'salesSharePoP', 'salesShareDiffLY',
   'unitsPoP', 'unitsDiffLY',
+  'ordersPoP', 'ordersDiffLY',
+  'avgPrice', 'avgPricePoP', 'avgPriceDiffLY',
+  'organicPct', 'organicPctPoP', 'organicPctDiffLY',
+  'ssPct', 'ssPctPoP', 'ssPctDiffLY',
+  'ssOrdersPoP', 'ssOrdersDiffLY',
+  'ntbPct', 'ntbPctPoP', 'ntbPctDiffLY',
+  'ntbOrdersPoP', 'ntbOrdersDiffLY',
+  'discountsPoP', 'discountsDiffLY',
   'adSpendPoP', 'adSpendDiffLY',
   'adSalesPoP', 'adSalesDiffLY',
   'roas', 'roasPoP', 'roasDiffLY',
   'acos', 'acosPoP', 'acosDiffLY',
   'tacos', 'tacosPoP', 'tacosDiffLY',
+  'totalCpa', 'totalCpaPoP', 'totalCpaDiffLY',
+  'adCpc', 'adCpcPoP', 'adCpcDiffLY',
+  'ctr', 'ctrPoP', 'ctrDiffLY',
+  'adCvr', 'adCvrPoP', 'adCvrDiffLY',
   'bboxWinRate', 'bboxWinRatePoP', 'bboxWinRateDiffLY',
   'adReliance', 'adReliancePoP', 'adRelianceDiffLY',
   'cvr', 'cvrPoP', 'cvrDiffLY',
   'pageViewsPoP', 'pageViewsDiffLY',
   'sessionsPoP', 'sessionsDiffLY',
+  'productMargin', 'productMarginPoP', 'productMarginDiffLY',
+  'channelMargin', 'channelMarginPoP', 'channelMarginDiffLY',
+  'growthMargin', 'growthMarginPoP', 'growthMarginDiffLY',
+  'netProfitPerUnit', 'netProfitPerUnitPoP', 'netProfitPerUnitDiffLY',
 ];
 
 const SHARE_KEYS = ['salesShare'];
@@ -80,20 +96,52 @@ function metricColumns(currency: Parameters<typeof currencyFormatter>[0]): Colum
 
   const fmtCurrency = currencyFormatter(currency);
 
+  // Column order follows business narrative:
+  //   1) Volume & revenue
+  //   2) Customer mix (NTB / S&S)
+  //   3) Demand funnel (traffic & conversion)
+  //   4) Ads activity (spend → efficiency)
+  //   5) Margin cascade (Product → Channel → Growth → Net Profit/Unit)
+  // `hide: true` keeps the column in the ColumnToggle but off by default.
   return [
-    { field: 'sales', headerName: 'Sales', valueFormatter: fmtCurrency, width: 140, subFields: pctSub('sales') },
-    { field: 'salesShare', headerName: 'Sales Share', valueFormatter: pctShareFormatter, width: 140, subFields: ppSub('salesShare') },
-    { field: 'units', headerName: 'Units', valueFormatter: numberFormatter, width: 130, subFields: pctSub('units') },
-    { field: 'adSpend', headerName: 'Ad Spend', valueFormatter: fmtCurrency, width: 140, subFields: pctSub('adSpend') },
-    { field: 'adSales', headerName: 'Ad Sales', valueFormatter: fmtCurrency, width: 140, subFields: pctSub('adSales') },
-    { field: 'roas', headerName: 'ROAS', valueFormatter: roasFormatter, width: 130, subFields: pctSub('roas') },
-    { field: 'acos', headerName: 'ACOS', valueFormatter: pctShareFormatter, width: 140, subFields: ppSub('acos') },
-    { field: 'tacos', headerName: 'TACOS', valueFormatter: pctShareFormatter, width: 140, subFields: ppSub('tacos') },
-    { field: 'bboxWinRate', headerName: 'BBox Win Rate', valueFormatter: pctShareFormatter, width: 150, subFields: ppSub('bboxWinRate') },
-    { field: 'adReliance', headerName: 'Ad Reliance', valueFormatter: pctShareFormatter, width: 140, subFields: ppSub('adReliance') },
-    { field: 'cvr', headerName: 'CVR', valueFormatter: pctShareFormatter, width: 130, subFields: ppSub('cvr') },
-    { field: 'pageViews', headerName: 'Page Views', valueFormatter: numberFormatter, width: 140, subFields: pctSub('pageViews') },
-    { field: 'sessions', headerName: 'Sessions', valueFormatter: numberFormatter, width: 130, subFields: pctSub('sessions') },
+    // ─── 1) Volume & revenue ─────────────────────────────────────────
+    { field: 'sales',       headerName: 'Sales',        valueFormatter: fmtCurrency,      width: 140, subFields: pctSub('sales') },
+    { field: 'salesShare',  headerName: 'Sales Share',  valueFormatter: pctShareFormatter, width: 140, subFields: ppSub('salesShare') },
+    { field: 'orders',      headerName: 'Orders',       valueFormatter: numberFormatter,   width: 120, subFields: pctSub('orders') },
+    { field: 'units',       headerName: 'Units',        valueFormatter: numberFormatter,   width: 120, subFields: pctSub('units') },
+    { field: 'avgPrice',    headerName: 'Avg Price',    valueFormatter: fmtCurrency,       width: 130, subFields: pctSub('avgPrice') },
+    { field: 'discounts',   headerName: 'Discounts',    valueFormatter: fmtCurrency,       width: 130, hide: true, subFields: pctSub('discounts') },
+
+    // ─── 2) Customer mix (S&S, NTB) ──────────────────────────────────
+    { field: 'ntbOrders',   headerName: 'NTB Orders',   valueFormatter: numberFormatter,   width: 130, hide: true, subFields: pctSub('ntbOrders') },
+    { field: 'ntbPct',      headerName: 'NTB %',        valueFormatter: pctShareFormatter, width: 110, hide: true, subFields: ppSub('ntbPct') },
+    { field: 'ssOrders',    headerName: 'S&S Orders',   valueFormatter: numberFormatter,   width: 130, hide: true, subFields: pctSub('ssOrders') },
+    { field: 'ssPct',       headerName: 'S&S %',        valueFormatter: pctShareFormatter, width: 110, hide: true, subFields: ppSub('ssPct') },
+
+    // ─── 3) Demand funnel (traffic & conversion) ─────────────────────
+    { field: 'pageViews',   headerName: 'Page Views',   valueFormatter: numberFormatter,   width: 130, hide: true, subFields: pctSub('pageViews') },
+    { field: 'sessions',    headerName: 'Sessions',     valueFormatter: numberFormatter,   width: 120, hide: true, subFields: pctSub('sessions') },
+    { field: 'cvr',         headerName: 'CVR',          valueFormatter: pctShareFormatter, width: 110,             subFields: ppSub('cvr') },
+    { field: 'bboxWinRate', headerName: 'BBox Win',     valueFormatter: pctShareFormatter, width: 120, hide: true, subFields: ppSub('bboxWinRate') },
+    { field: 'organicPct',  headerName: 'Organic %',    valueFormatter: pctShareFormatter, width: 120, hide: true, subFields: ppSub('organicPct') },
+
+    // ─── 4) Ads activity ─────────────────────────────────────────────
+    { field: 'adSpend',     headerName: 'Ad Spend',     valueFormatter: fmtCurrency,       width: 130,             subFields: pctSub('adSpend') },
+    { field: 'adSales',     headerName: 'Ad Sales',     valueFormatter: fmtCurrency,       width: 130, hide: true, subFields: pctSub('adSales') },
+    { field: 'adCpc',       headerName: 'Ad CPC',       valueFormatter: fmtCurrency,       width: 110, hide: true, subFields: pctSub('adCpc') },
+    { field: 'ctr',         headerName: 'CTR',          valueFormatter: pctShareFormatter, width: 100, hide: true, subFields: ppSub('ctr') },
+    { field: 'adCvr',       headerName: 'Ad CVR',       valueFormatter: pctShareFormatter, width: 110, hide: true, subFields: ppSub('adCvr') },
+    { field: 'roas',        headerName: 'ROAS',         valueFormatter: roasFormatter,     width: 110,             subFields: pctSub('roas') },
+    { field: 'acos',        headerName: 'ACOS',         valueFormatter: pctShareFormatter, width: 110,             subFields: ppSub('acos') },
+    { field: 'tacos',       headerName: 'TACOS',        valueFormatter: pctShareFormatter, width: 110,             subFields: ppSub('tacos') },
+    { field: 'totalCpa',    headerName: 'Total CPA',    valueFormatter: fmtCurrency,       width: 120, hide: true, subFields: pctSub('totalCpa') },
+    { field: 'adReliance',  headerName: 'Ad Reliance',  valueFormatter: pctShareFormatter, width: 130, hide: true, subFields: ppSub('adReliance') },
+
+    // ─── 5) Margin cascade ───────────────────────────────────────────
+    { field: 'productMargin',    headerName: 'Product Margin',    valueFormatter: pctShareFormatter, width: 150,             subFields: ppSub('productMargin') },
+    { field: 'channelMargin',    headerName: 'Channel Margin',    valueFormatter: pctShareFormatter, width: 150, hide: true, subFields: ppSub('channelMargin') },
+    { field: 'growthMargin',     headerName: 'Growth Margin',     valueFormatter: pctShareFormatter, width: 150, hide: true, subFields: ppSub('growthMargin') },
+    { field: 'netProfitPerUnit', headerName: 'Net Profit / Unit', valueFormatter: fmtCurrency,       width: 150, hide: true, subFields: pctSub('netProfitPerUnit') },
   ];
 }
 
