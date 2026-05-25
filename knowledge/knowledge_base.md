@@ -719,4 +719,140 @@ Implementation (data/metricMatrixData.ts + components/trends/MetricMatrix.tsx)
 - matrixMetrics reordered into 5 bands: Volume & revenue → Customer mix → Demand funnel → Marketing & promo → Margin cascade. Same buckets, same column order, same higher-is-better polarities as Deepdive — Ad Spend / Discounts / ACOS / TACOS / Total CPA / Ad CPC / Ad Reliance flip red↔green relative to "good" metrics.
 - generateMatrixData extended with formulas mirroring the Deepdive enrichment: orders = round(units / unitsPerOrder); avgPrice = sales / units; ntb/ss as ratios of orders; growthMargin = channelMargin − tacos; netProfitPerUnit = avgPrice × growthMargin%. Per-period values are internally consistent (no contradictions between e.g. ROAS and ACOS).
 - MetricMatrix.tsx renders a band-header row above the column row using the same pattern as DeepDiveTable: contiguous-run colSpans per band, 1px left dividers between bands in both the band row and the column header row, blank sticky cell over the pinned Period column. Heatmap shading, cell selection, and "Why did this move?" diagnostic all continue to work across the new columns automatically.
+
+
+Sales → Traffic — insight-first funnel diagnostic (May 25 2026)
+
+Rationale
+- Old Traffic page was a polished dashboard: KPI tiles → funnel → trends → source mix → product table. Reader had to assemble the story manually across five separate components.
+- Rebuilt around the shortest-path-to-insight principle: in under 10 seconds the user should know what the bottleneck is, how much it's worth, which ASINs cause it, and what to do next.
+
+Hero insight card (funnel/HeroInsightCard.tsx)
+- Replaces the 6 KPI tiles at the top. Auto-detects the leak transition from `brandFunnelDiagnostic.biggestOpportunityIdx` so the headline always matches the data.
+- Layout: rose/amber gradient card with a 1px accent bar on top. Left = main-leak headline ("Click → Cart Add"), three metric tiles (Gap vs market in pp, Impact / wk in €, Units / wk recoverable at €35 ASP), and a dark "Review top leaking ASINs" CTA that scrolls to the table via `#leaking-asins-table` anchor.
+- Hero card uses the conversion's `shortLabel` (not stage labels) so transition naming stays single-form across the page.
+
+ProductTrafficTable rebuild (funnel/ProductTrafficTable.tsx)
+- Default sort changed from `cvr ascending` to `lostRevenue descending`. New column `Lost revenue / wk` is the primary attention anchor with a mini-bar showing each ASIN's share of total leak.
+- `estimateLostRevenue(row, diagnostic)`: gap × sessions × 0.5 (half-recovery) × 0.5 (downstream ATC→Purchase) × €35 ASP, computed against whichever stage is the brand's leak (Click → Cart Add). ASINs above the market rate score 0.
+- "So what" header line surfaces top-3 concentration: "Top 3 ASINs account for ~X% of the lost revenue at Click → Cart Add."
+- Footer shows total weekly portfolio leak.
+- Earlier iteration tried split MECE columns (`Funnel issue` × `Likely cause`) — removed because only `Buy Box` and `Availability` are directly observable from Business Reports; the other four causes (Content / Price / Reviews / Paid mismatch) are guesswork without signals from Content Tracker / Reviews / Pricing. Future work: signal-driven scoring with hover transparency once those modules are joined in.
+
+FunnelDiagnostic.tsx so-what lines + emphasis
+- Every chart module now leads with a derived "So what:" interpretation sentence in 12px text below the title, with `"So what:"` bolded.
+- FunnelStageCards: "Your click → cart add conversion is X% vs market Y% — a Zpp gap. Earlier stages are healthy, so the loss is concentrated here." (uses conv shortLabel — single framing, no mixing of share and conv-rate percentages).
+- StageTrendCharts: counts weeks-below-market for the leak stage, labels as persistent (≥6/12) or recent — action implication included. Leak stage's mini-chart gets `highlight` prop → amber border + ring.
+- TrafficSourceDecomposition: derived insight — "Organic grows from X% of impressions to Y% of purchases (+Npp down-funnel), while paid loses share. Paid traffic is contributing volume but converting worse." Numbers computed live from organic / total counts.
+
+Page structure (Traffic.tsx)
+1. HeroInsightCard
+2. FunnelStageCards
+3. ProductTrafficTable (`id="leaking-asins-table"`)
+4. StageTrendCharts
+5. TrafficSourceDecomposition
+- TrafficKPICards component deleted (orphaned by hero card replacement). InsightStrip still exists in FunnelDiagnostic.tsx because SQP keyword detail still uses it (`KeywordDetailDrawer` uses its own composition).
+
+Transition / metric naming convention (locked May 25 2026)
+- Transitions everywhere: `Click → Cart Add` (full, singular). `Cart Add → Purchase`. `CTR` retained as a known abbreviation.
+- Rate metrics in tables: `Add-to-Cart Rate` (full). `ATC` retained only inside the 4-dot funnel-health micro-component where horizontal space is tight.
+- Stage tile labels stay plural ("Cart Adds") — they're noun counts, not transitions.
+- All driven from `conversions[].shortLabel` in funnelDiagnosticData.ts so the source of truth is one map.
+
+Bottleneck "focus mode" approach
+- Spec asked for an explicit focus-mode toggle that retargets every module to the leak stage. Implemented implicitly instead: every module computes itself against `diagnostic.biggestOpportunityIdx`. Change the brand's leak (e.g., if data shifted to Cart Add → Purchase), and the hero card, trends highlight, product table sort, and source chart all re-narrate automatically. No separate state.
+
+
+Sales → SQP — full page (May 25 2026)
+
+Initial build
+- New page on the Sales bar (between Traffic and Targets) covering Brand Analytics Search Query Performance data. Decision tool, not a dashboard: each keyword treated as an asset with a Defend / Invest / Harvest / Tail position.
+
+Data model (data/sqpData.ts)
+- KeywordRow shape mirrors Brand Analytics SQP columns: market volume, per-stage `{marketCount, brandCount, share}` for Impressions / Clicks / Cart Adds / Purchases, opportunity score (`marketVolume × max(0, portfolioAvg − yourClickShare)`), `opportunityEur` (€/wk recoverable at half-gap close), 4-week trend, 12-week trend series, top ASIN winning the query, PPC spend/ACOS, recommended action.
+- 30 demo keywords seeded across all 4 quadrants. Status (`defend/invest/optimize/harvest/drop`) and action label both derived from market vol + share + trend4w.
+- Helpers: `keywordQuadrant(k, volumeMedian, avgClickShare)` returns the BCG bucket from portfolio-stable boundaries (so quadrant doesn't shift when the map filter changes). `keywordMarketStageShares(k)` returns synthetic per-stage market shares for the funnel diagnostic (mirrors the formula used in the drawer). `keywordMainGap(k)` returns the stage with the largest gap vs market — used by the table's "Main gap" column.
+- `sqpSummary` extended with `totalOpportunityEur`, `top5ConcentrationPct`, `volumeMedian`, `dominantOppQuadrant`, `oppByQuadrant`. Drives the hero card narrative.
+- `QUADRANT_LABEL`, `QUADRANT_ACTION`, `QUADRANT_STYLE` exported as canonical maps so the map, table, drawer, and hero card all render identically. Action strings: Defend = "Protect share, avoid losing rank", Invest = "Increase bid / content / rank", Harvest = "Maintain, optimize ACOS", Tail = "Ignore or test cheaply".
+- "Niche wins" quadrant renamed to "Harvest" (clearer action framing).
+
+Hero insight card (sqp/SQPHeroCard.tsx)
+- Top-of-page block answering "what is the main issue, how big, where concentrated, what next" in five seconds.
+- Headline derived from `dominantOppQuadrant`: under-indexed on high-volume terms (Invest), share erosion on hero keywords (Defend), concentrated wins on low-volume terms (Harvest), or opportunity scattered across the long tail (Tail).
+- Three metric tiles: Opportunity / wk (sum of `opportunityEur`), Concentration (% of opportunity € in top-5 keywords), Under-indexed (count of keywords below portfolio avg click share).
+- "Next step" CTA opens the top-opportunity keyword directly in the drawer.
+
+Portfolio map (sqp/PortfolioMap.tsx)
+- BCG-style SVG scatter: X = market search volume (log scale), Y = click or purchase share (toggle in header), dot size = your purchases at that keyword, dot color = 4-week trend (green up / gray flat / red down).
+- 4 quadrant overlays with action subtitles instead of position descriptions: DEFEND "Protect share, hold rank", HARVEST "Maintain, optimize ACOS", INVEST "Increase bid / content / rank", TAIL "Ignore or test cheaply". Quadrant dividers = volume × share medians of the plotted set.
+- Header controls: `Rank by` (Opportunity / Purchases) + `Show` (Top 25 / 50 / 100 / 250 / All) — default Top 50 by Opportunity. Map plots only the top-N of whatever it receives; full list goes to the table.
+- "Top N by Opportunity" hides Defend keywords (their opportunity score is zero by formula); switching the lens to Purchases surfaces them. That's the whole point of having both lenses — different questions, same map.
+- Empty-state guard so the SVG doesn't NaN at zero keywords.
+- Earlier iteration with preset tabs (Top opportunities / Hero terms / Rising stars / All) + chip filters across the map was scrapped — user said too complicated. Settled on the single Top-N + lens dropdown approach.
+
+Prioritized keyword table (sqp/KeywordTable.tsx)
+- Replaced the older filter-chip + inline-detail design. Now a clean tabular view: Keyword · Position (quadrant chip from `keywordQuadrant`) · Market Vol · Click Share · Purch Share · Main gap · Opportunity · Top ASIN · ACOS / PPC · Action.
+- "Main gap" column shows the worst stage's label + pp gap from `keywordMainGap()`. Beats-market rows show a green flat indicator.
+- Sorted by `opportunityEur` desc. Click any row to open the detail drawer. Selected row is highlighted in cx-50.
+- "Analyst mode" toggle (full SQP column dump) explicitly deferred.
+
+Keyword detail drawer (sqp/KeywordDetailDrawer.tsx)
+- Slide-in side panel from the right edge (max-w 520px). Opens on row click or map dot click. Backdrop dims the page; Esc closes. Replaces the inline-expansion pattern.
+- Sticky header: quadrant chip, intent/QSS context, keyword query, market volume + opportunity € summary line, X close button.
+- Recommended action surfaced first in an amber strip — it's the why-you-opened-this. Main gap + pp shown right under it.
+- Five sections below:
+  1. Weekly trend (12w) — your click share + purchase share over time as a 2-line SVG mini-chart.
+  2. You vs market — CTR (Impr→Click) + CVR (Click→Purchase) comparison cards. Computed from brand/market counts.
+  3. Share gap by stage — 4 horizontal bars per stage (you vs synthetic market share), main-gap stage highlighted with amber border.
+  4. Which ASINs get the purchases — top ASIN card with brand-purchase-share %.
+  5. Paid vs organic contribution — stacked split estimated from ACOS (paid weight = ACOS/60, clamped [0.15, 0.65]). Honest caveat in italic: Brand Analytics doesn't publish per-keyword paid attribution.
+
+Page composition (SQP.tsx)
+1. SQPHeroCard
+2. PortfolioMap
+3. KeywordTable (sorted by opportunity, full catalog)
+4. KeywordDetailDrawer (overlay, opens from any selection)
+- `selected` state lifted to SQP.tsx so map clicks and row clicks both feed the same drawer.
+
+
+Settings → Data → Keyword rules (May 25 2026)
+
+Rationale
+- SQP intent classification (Branded / Generic / Competitor / Long-tail / Category) was hardcoded per keyword in demo data. Real implementation needs configurable rules; users need a place to define them.
+
+Module (settings/KeywordRulesSection.tsx + data/keywordRulesData.ts)
+- New tab in Settings's Data Setup band (between Costs and Account specifics). Registered in `adminItems.subItems`, `subToTab`, App.tsx's `DATA_TABS` + admin maps. Tab id `keywordRules`.
+- Header card explains evaluation order: branded → competitor → longTail → category → generic (first match wins), shown as 5 numbered colored chips with chevrons.
+- "My brands" section: read-only chips derived automatically from `seedMappings` (Products mapping). Per-brand variant editor below each — add typo / international-spelling variants that should also match (e.g. ZeroWater → "zero water", "zerowater", "0water"). Add-on-Enter, X-to-remove chip UI.
+- "Competitor brands": editable chip list, fully manual entry. No auto-detect (intentional for the wireframe — auto-classifying competitors is its own problem).
+- "Category keywords": editable chip list (generic product-category terms).
+- "Long-tail threshold": 2–8 word-count slider, default 4.
+- "Classification preview" panel at the bottom: type a sample SQP query, see which rule matched and the assigned intent live. 5 pre-canned example queries as quick-pick chips ("zerowater filter replacement 6 pack", "brita pitcher replacement", etc.).
+- `classifyQuery(query, state)` runs the rules in order and returns `{ intent, reason, matchedBrand?, matchedTerm? }` — re-usable when the SQP intent filter is migrated off hardcoded values.
+- State local to the section for now (not wired to context). Lift to context once SQP starts consuming it.
+
+
+Sales → Home BudgetTracker — projected EOM as headline (May 25 2026)
+
+Rationale
+- Card title says "Sales Run Rate" but the big number was MTD actual. Mixed framing — run rate implies the projection, not what's banked so far.
+- Reframed so the headline matches the title and added a 3-stat strip below the chart to fill what was visual deadspace under the x-axis.
+
+Header changes (components/BudgetTracker.tsx)
+- Main value: `projectedEom` (€141,887) instead of `mtdTotal`. Caption: "Projected end-of-month" instead of "Month-to-date sales".
+- MTD actual now a small cx-500-dotted chip directly under the projection caption — supporting context, not headline.
+- Right column simplified to just the Avg Daily tile (the legend duplicating EOM proj alongside the new headline was redundant and was removed).
+
+Stat strip below chart
+- 3 mini stats in a single grid row with thin dividers: vs Last month · Days remaining · Pace.
+- vs Last month uses a synthetic `lastMonthTotal = €126,240` for the demo so the delta is non-trivial (+12.4%). Color tone follows sign (emerald/rose).
+- Pace bucket: ≥+5% → "Ahead" (green), ≥-2% → "On track" (gray), else → "Behind" (rose).
+- Turns the previously empty bottom of the card into the natural follow-up answer to seeing a projection ("how does it compare?").
+
+
+Weekly data freshness badge (WeeklyDataBadge.tsx) — applied to SQP + Traffic
+
+- Sky-blue chip in the page header next to LastRefreshed on both pages. Reads the global date filter and labels the data scope as weekly (Brand Analytics SQP and the Business Reports inputs used on Traffic both publish on weekly snapshots).
+- `useWeeklySnappedRange()` hook exposes the snapped range to consumers that need it. Helper `snapToWeeks` lives in utils/dateRanges.ts (`endOfWeek` returns Saturday; `snapToWeeks` returns `{ snapped, wasSnapped, weekCount }`).
+- Pattern in place but the actual snap-back of the global date picker is not yet enforced — badge currently communicates the granularity, full snap-and-render is follow-up work.
 - Period column transparency bug fixed: sticky body cell was `group-hover:bg-gray-50/60` (partial-opacity) which leaked the scrolled-under cells through on hover. Changed to `group-hover:bg-gray-50` (solid). Default `bg-white` already opaque.
