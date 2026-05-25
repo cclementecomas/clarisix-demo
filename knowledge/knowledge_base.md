@@ -705,3 +705,18 @@ Column visibility & order (components/DeepDive.tsx)
 - Visual grouping (May 25 2026): a thin band-header row above the columns shows the 5 buckets (`Volume & revenue`, `Customer mix`, `Demand funnel`, `Marketing & promo`, `Margin cascade`) with `colSpan` driven by contiguous visible columns. 1px left-borders between buckets in both the band and main header rows reinforce the boundaries. Pinned-left column gets a blank cell in the band row. Each table's `subtitle` prop carries the plain-English narrative ("what I sold → who bought it → how they got there → what I paid → what's left") just below the title for the operator-friendly framing alongside the taxonomic bucket labels.
 - "Marketing & promo" rename (May 25 2026): bucket originally `Ads activity`; renamed because Discounts moved into it. Discounts is fundamentally an acquisition lever (substitutable with ad spend in operator decision-making) rather than a revenue line, even though P&L accounting treats it as a reduction to gross sales. Renamed band reads "spend ladder: Discounts → Ad Spend → efficiency ratios." Discounts stays `hide: true` (default-off) so it doesn't bloat the default visible set.
 - METRIC_AVG_KEYS extended so percentage / rate / margin metrics aggregate as averages and unit/order counts as sums in the totals row.
+
+
+Trends "Metrics over time" matrix — parity with Sales Deepdive (May 25 2026)
+
+Rationale
+- The matrix was the earliest view but lagged behind: 12 columns vs Deepdive's 30. Sellers reading the heatmap couldn't see Orders, Margins, NTB/S&S, Avg Price, or ad mechanics over time.
+- Brought it to parity with Sales Deepdive (28 metric columns) and applied the same 5-band visual grouping so the two views read identically.
+
+Implementation (data/metricMatrixData.ts + components/trends/MetricMatrix.tsx)
+- MatrixMetricKey expanded from 12 → 28 keys: added orders, avgPrice, ntbOrders, ntbPct, ssOrders, ssPct, organicPct, discounts, adCpc, ctr, adCvr, totalCpa, productMargin, channelMargin, growthMargin, netProfitPerUnit.
+- MatrixMetric interface gains a required `group` field for band labels.
+- matrixMetrics reordered into 5 bands: Volume & revenue → Customer mix → Demand funnel → Marketing & promo → Margin cascade. Same buckets, same column order, same higher-is-better polarities as Deepdive — Ad Spend / Discounts / ACOS / TACOS / Total CPA / Ad CPC / Ad Reliance flip red↔green relative to "good" metrics.
+- generateMatrixData extended with formulas mirroring the Deepdive enrichment: orders = round(units / unitsPerOrder); avgPrice = sales / units; ntb/ss as ratios of orders; growthMargin = channelMargin − tacos; netProfitPerUnit = avgPrice × growthMargin%. Per-period values are internally consistent (no contradictions between e.g. ROAS and ACOS).
+- MetricMatrix.tsx renders a band-header row above the column row using the same pattern as DeepDiveTable: contiguous-run colSpans per band, 1px left dividers between bands in both the band row and the column header row, blank sticky cell over the pinned Period column. Heatmap shading, cell selection, and "Why did this move?" diagnostic all continue to work across the new columns automatically.
+- Period column transparency bug fixed: sticky body cell was `group-hover:bg-gray-50/60` (partial-opacity) which leaked the scrolled-under cells through on hover. Changed to `group-hover:bg-gray-50` (solid). Default `bg-white` already opaque.

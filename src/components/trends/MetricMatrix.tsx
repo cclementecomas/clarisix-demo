@@ -200,33 +200,76 @@ export default function MetricMatrix({ periods }: { periods: string[] }) {
       <div className="overflow-x-auto">
         <table className="w-full text-sm border-collapse">
           <thead>
+            {/* Group band header — contiguous-run colSpans per band */}
+            {(() => {
+              const runs: { group: string; span: number; firstColIdx: number }[] = [];
+              let cur: { group: string; span: number; firstColIdx: number } | null = null;
+              matrixMetrics.forEach((m, i) => {
+                if (cur && m.group === cur.group) {
+                  cur.span += 1;
+                } else {
+                  cur = { group: m.group, span: 1, firstColIdx: i };
+                  runs.push(cur);
+                }
+              });
+              return (
+                <tr className="bg-gray-50 border-b border-gray-100">
+                  <th
+                    aria-hidden
+                    className="sticky left-0 z-10 bg-gray-50 px-3 py-1"
+                  />
+                  {runs.map((run, i) => (
+                    <th
+                      key={`group-${i}`}
+                      colSpan={run.span}
+                      className={`px-3 py-1 text-left text-[9px] font-bold uppercase tracking-[0.12em] text-gray-400 whitespace-nowrap ${
+                        i > 0 ? 'border-l border-gray-200' : ''
+                      }`}
+                    >
+                      {run.group}
+                    </th>
+                  ))}
+                </tr>
+              );
+            })()}
             <tr className="bg-gray-50 border-b border-gray-200">
               <th className="sticky left-0 z-10 bg-gray-50 px-3 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-gray-500 min-w-[100px]">
                 Period
               </th>
-              {matrixMetrics.map((m) => (
-                <th
-                  key={m.key}
-                  className="px-3 py-2 text-right text-[10px] font-bold uppercase tracking-wider text-gray-500 whitespace-nowrap"
-                  title={m.tooltip}
-                >
-                  <div className="flex items-center justify-end gap-1">
-                    <span>{m.label}</span>
-                    <span
-                      className="text-[8px] font-bold"
-                      style={{ color: m.higherIsBetter ? '#16A34A' : '#DC2626' }}
-                    >
-                      {m.higherIsBetter ? '↑' : '↓'}
-                    </span>
-                  </div>
-                </th>
-              ))}
+              {(() => {
+                // Mark first column of each new group for the 1px left divider
+                const firstOfGroup = new Set<number>();
+                let lastGroup: string | undefined;
+                matrixMetrics.forEach((m, i) => {
+                  if (i > 0 && m.group !== lastGroup) firstOfGroup.add(i);
+                  lastGroup = m.group;
+                });
+                return matrixMetrics.map((m, i) => (
+                  <th
+                    key={m.key}
+                    className={`px-3 py-2 text-right text-[10px] font-bold uppercase tracking-wider text-gray-500 whitespace-nowrap ${
+                      firstOfGroup.has(i) ? 'border-l border-gray-200' : ''
+                    }`}
+                    title={m.tooltip}
+                  >
+                    <div className="flex items-center justify-end gap-1">
+                      <span>{m.label}</span>
+                      <span
+                        className="text-[8px] font-bold"
+                        style={{ color: m.higherIsBetter ? '#16A34A' : '#DC2626' }}
+                      >
+                        {m.higherIsBetter ? '↑' : '↓'}
+                      </span>
+                    </div>
+                  </th>
+                ));
+              })()}
             </tr>
           </thead>
           <tbody>
             {rows.map((row, rowIdx) => (
               <tr key={row.period} className="border-b border-gray-50 hover:bg-gray-50/40 transition-colors group">
-                <td className="sticky left-0 z-10 bg-white group-hover:bg-gray-50/60 transition-colors px-3 py-1.5 text-[12px] font-mono font-semibold text-gray-700 border-r border-gray-100">
+                <td className="sticky left-0 z-10 bg-white group-hover:bg-gray-50 transition-colors px-3 py-1.5 text-[12px] font-mono font-semibold text-gray-700 border-r border-gray-100">
                   {row.period}
                 </td>
                 {matrixMetrics.map((m, colIdx) => {
