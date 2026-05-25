@@ -18,6 +18,7 @@ import Retention from './components/Retention';
 import Subscriptions from './components/Subscriptions';
 import Settings, { type SettingsTabId } from './components/settings/Settings';
 import Trends from './components/Trends';
+import SQP from './components/SQP';
 import SalesHeatmap from './components/SalesHeatmap';
 import ComingSoon from './components/ComingSoon';
 import Footer from './components/Footer';
@@ -110,7 +111,7 @@ export default function App() {
     setActiveSub(sub);
   };
 
-  const DATA_TABS: SettingsTabId[] = ['products', 'costs', 'account', 'connections'];
+  const DATA_TABS: SettingsTabId[] = ['products', 'costs', 'keywordRules', 'account', 'connections'];
   const isDataTab = (tab: SettingsTabId): boolean => DATA_TABS.includes(tab);
 
   const handleNavigateToSettings = (tab: string) => {
@@ -125,6 +126,7 @@ export default function App() {
     const map: Record<string, SettingsTabId> = {
       'Products':          'products',
       'Costs':             'costs',
+      'Keyword rules':     'keywordRules',
       'Account specifics': 'account',
       'Connections':       'connections',
     };
@@ -139,6 +141,7 @@ export default function App() {
     const reverse: Record<string, string> = {
       products: 'Products',
       costs: 'Costs',
+      keywordRules: 'Keyword rules',
       account: 'Account specifics',
       connections: 'Connections',
     };
@@ -174,6 +177,9 @@ export default function App() {
     }
     if (activeSection === 'Sales' && activeSub === 'Trends') {
       return <Trends />;
+    }
+    if (activeSection === 'Sales' && activeSub === 'SQP') {
+      return <SQP />;
     }
     if (activeSection === 'Advertising' && activeSub === 'Overview') {
       return <AdvertisingOverview />;

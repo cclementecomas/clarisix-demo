@@ -394,7 +394,7 @@ export const menuItems = [
   {
     label: 'Sales',
     icon: 'BarChart3',
-    subItems: ['Overview', 'Deepdive', 'Traffic', 'Targets', 'Trends'],
+    subItems: ['Overview', 'Deepdive', 'Traffic', 'SQP', 'Targets', 'Trends'],
     defaultSub: 'Overview',
     comingSoonSubs: ['Targets'],
   },
@@ -443,13 +443,14 @@ export const adminItems = [
   {
     label: 'Data',
     icon: 'Database',
-    subItems: ['Products', 'Costs', 'Account specifics', 'Connections'],
+    subItems: ['Products', 'Costs', 'Keyword rules', 'Account specifics', 'Connections'],
     defaultSub: 'Products',
     comingSoonSubs: [] as string[],
     /** Maps the visible sub-item label to the SettingsTabId it should load. */
     subToTab: {
       'Products':          'products',
       'Costs':             'costs',
+      'Keyword rules':     'keywordRules',
       'Account specifics': 'account',
       'Connections':       'connections',
     } as Record<string, string>,
