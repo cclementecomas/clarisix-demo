@@ -34,7 +34,7 @@ export function deriveBrands(): string[] {
   const seen = new Set<string>();
   const list: string[] = [];
   for (const m of seedMappings) {
-    const b = m.brand.trim();
+    const b = (m.brand ?? '').trim();
     if (b && !seen.has(b)) {
       seen.add(b);
       list.push(b);

@@ -56,7 +56,6 @@ function DrawerContent({ keyword: k, onClose }: { keyword: KeywordRow; onClose: 
   // Synthetic for the wireframe: ACoS implies paid share — higher ACoS,
   // higher paid weight. Pin to plausible bounds.
   const paidWeight = Math.min(0.65, Math.max(0.15, k.ppc.acos / 60));
-  const organicWeight = 1 - paidWeight;
   const yourPurchases = k.purchases.brandCount;
   const paidPurchases = Math.round(yourPurchases * paidWeight);
   const organicPurchases = yourPurchases - paidPurchases;
