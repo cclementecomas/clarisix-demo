@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Customized, LabelList } from 'recharts';
-import { TrendingUp, TrendingDown } from 'lucide-react';
+import { TrendingUp, TrendingDown, Lightbulb } from 'lucide-react';
 import { salesOverviewByGranularity, type Granularity, type SalesDataPoint } from '../data/dashboardData';
+import { organicAdInsight, organicGrowthPct, adGrowthPct, adDependencyPct } from '../data/salesOverviewInsights';
 import InfoTooltip from './InfoTooltip';
 import LastRefreshed from './LastRefreshed';
 import { useCurrency, type Currency } from '../contexts/CurrencyContext';
@@ -267,6 +268,21 @@ export default function SalesOverview() {
           ))}
         </div>
       </div>
+
+      {/* Organic vs ad interpretation strip (Rule 5) */}
+      <div className="mb-4 px-3 py-2 rounded-lg bg-slate-50/60 border border-slate-200 flex items-start gap-2">
+        <Lightbulb className="w-3.5 h-3.5 text-amber-500 flex-shrink-0 mt-0.5" />
+        <div className="min-w-0 flex-1">
+          <p className="text-[12px] text-gray-800 leading-relaxed">
+            <span className="font-semibold">So what:</span>{' '}
+            <span className="text-gray-700">{organicAdInsight}</span>
+          </p>
+          <p className="text-[10px] text-gray-500 mt-0.5">
+            Organic {organicGrowthPct >= 0 ? '+' : ''}{organicGrowthPct}% · Ad sales {adGrowthPct >= 0 ? '+' : ''}{adGrowthPct}% · Ad dependency {adDependencyPct.toFixed(0)}%
+          </p>
+        </div>
+      </div>
+
       <div className="h-[280px]">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 50, right: 10, left: 0, bottom: 0 }} barCategoryGap="20%">

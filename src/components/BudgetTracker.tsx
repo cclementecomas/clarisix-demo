@@ -2,6 +2,10 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import InfoTooltip from './InfoTooltip';
 import { useCurrency, type Currency } from '../contexts/CurrencyContext';
 import { fc, tickFmt } from '../utils/currency';
+import {
+  TARGET_SALES, LAST_MONTH_TOTAL,
+  paceStatus, gapToTarget, requiredDailyToTarget, popChangePct,
+} from '../data/salesOverviewInsights';
 
 const DAYS_IN_MONTH = 31;
 const CURRENT_DAY = 21;
@@ -34,14 +38,7 @@ const mtdTotal = dailySales.reduce((sum, d) => sum + d.sales, 0);
 const avgDailySales = Math.round(mtdTotal / CURRENT_DAY);
 const projectedEom = Math.round(avgDailySales * DAYS_IN_MONTH);
 
-// Comparison context shown in the bottom stat strip.
-const lastMonthTotal = 126_240;
-const vsLastMonthPct = +(((projectedEom - lastMonthTotal) / lastMonthTotal) * 100).toFixed(1);
 const daysRemaining = DAYS_IN_MONTH - CURRENT_DAY;
-const pace: { label: string; tone: 'good' | 'neutral' | 'bad' } =
-  vsLastMonthPct >= 5  ? { label: 'Ahead',    tone: 'good'    } :
-  vsLastMonthPct >= -2 ? { label: 'On track', tone: 'neutral' } :
-                         { label: 'Behind',   tone: 'bad'     };
 
 function buildChartData() {
   const data: Array<{ day: number; actual: number | null; projected: number | null }> = [];
@@ -98,7 +95,7 @@ export default function BudgetTracker() {
   const CustomTooltip = createCustomTooltip(currency);
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm flex-1 min-w-0">
+    <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm flex-1 min-w-0 flex flex-col">
       <div className="flex items-start justify-between mb-5">
         <div>
           <div className="flex items-center gap-1.5 mb-1">
@@ -117,7 +114,8 @@ export default function BudgetTracker() {
           <p className="text-base font-bold text-gray-900">{fc(avgDailySales, currency, { compact: false })}</p>
         </div>
       </div>
-      <div className="h-[222px]">
+      <div className="relative flex-1 min-h-[222px]">
+        <div className="absolute inset-0">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
             <defs>
@@ -173,29 +171,56 @@ export default function BudgetTracker() {
             />
           </AreaChart>
         </ResponsiveContainer>
+        </div>
       </div>
 
-      {/* Stat strip — projection context */}
+      {/* Stat strip — projection context.
+          When a target exists, the first tile shows the gap to that target;
+          the third tile swaps "vs Last month" pace for a required-daily metric. */}
       <div className="mt-4 pt-4 border-t border-gray-100 grid grid-cols-3 divide-x divide-gray-100">
-        <div className="pr-3">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">vs Last month</p>
-          <p className={`text-base font-bold tabular-nums mt-0.5 ${vsLastMonthPct >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-            {vsLastMonthPct >= 0 ? '+' : ''}{vsLastMonthPct.toFixed(1)}%
-          </p>
-          <p className="text-[10px] text-gray-400 mt-0.5">{fc(lastMonthTotal, currency, { compact: true })} last month</p>
-        </div>
+        {TARGET_SALES ? (
+          <div className="pr-3">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Gap to target</p>
+            <p className={`text-base font-bold tabular-nums mt-0.5 ${gapToTarget >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+              {gapToTarget >= 0 ? '+' : '−'}{fc(Math.abs(gapToTarget), currency, { compact: true })}
+            </p>
+            <p className="text-[10px] text-gray-400 mt-0.5">vs {fc(TARGET_SALES, currency, { compact: true })} target</p>
+          </div>
+        ) : (
+          <div className="pr-3">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">vs Last month</p>
+            <p className={`text-base font-bold tabular-nums mt-0.5 ${popChangePct >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+              {popChangePct >= 0 ? '+' : ''}{popChangePct.toFixed(1)}%
+            </p>
+            <p className="text-[10px] text-gray-400 mt-0.5">{fc(LAST_MONTH_TOTAL, currency, { compact: true })} last month</p>
+          </div>
+        )}
         <div className="px-3">
           <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Days remaining</p>
           <p className="text-base font-bold text-gray-900 tabular-nums mt-0.5">{daysRemaining}</p>
           <p className="text-[10px] text-gray-400 mt-0.5">of {DAYS_IN_MONTH} days</p>
         </div>
-        <div className="pl-3">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Pace</p>
-          <p className={`text-base font-bold mt-0.5 ${pace.tone === 'good' ? 'text-emerald-700' : pace.tone === 'bad' ? 'text-rose-700' : 'text-gray-900'}`}>
-            {pace.label}
-          </p>
-          <p className="text-[10px] text-gray-400 mt-0.5">vs last month run-rate</p>
-        </div>
+        {TARGET_SALES ? (
+          <div className="pl-3">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Required / day</p>
+            <p className={`text-base font-bold tabular-nums mt-0.5 ${requiredDailyToTarget > avgDailySales ? 'text-rose-700' : 'text-emerald-700'}`}>
+              {fc(requiredDailyToTarget, currency, { compact: true })}
+            </p>
+            <p className="text-[10px] text-gray-400 mt-0.5">
+              {requiredDailyToTarget > avgDailySales
+                ? `+${Math.round(((requiredDailyToTarget - avgDailySales) / avgDailySales) * 100)}% vs current`
+                : 'within current pace'}
+            </p>
+          </div>
+        ) : (
+          <div className="pl-3">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Pace</p>
+            <p className={`text-base font-bold mt-0.5 ${paceStatus.tone === 'good' ? 'text-emerald-700' : paceStatus.tone === 'bad' ? 'text-rose-700' : 'text-gray-900'}`}>
+              {paceStatus.label}
+            </p>
+            <p className="text-[10px] text-gray-400 mt-0.5">vs last month run-rate</p>
+          </div>
+        )}
       </div>
     </div>
   );

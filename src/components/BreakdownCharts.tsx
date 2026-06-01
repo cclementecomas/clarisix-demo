@@ -1,9 +1,18 @@
-import { useState } from 'react';
+// ─── Sales Overview Breakdown Charts ─────────────────────────────────────
+// Marketplace · Category · ASIN bullet bars with two ranking modes:
+//   - Growth contribution (default — what's driving change)
+//   - Sales (the absolute-volume view)
+//
+// Each row shows: current sales, change vs previous period, contribution %.
+
+import { useMemo, useState } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { salesByMarketplace, salesByCategory, salesByASIN, type ASINDataItem } from '../data/dashboardData';
 import InfoTooltip from './InfoTooltip';
 import { fc } from '../utils/currency';
 import { useCurrency } from '../contexts/CurrencyContext';
+
+type RankMode = 'growth' | 'sales';
 
 interface DataItem {
   name: string;
@@ -11,14 +20,57 @@ interface DataItem {
   previous: number;
 }
 
+interface EnrichedItem extends DataItem {
+  change: number;          // signed €
+  changePct: number;       // signed %
+  contributionPct: number; // share of total positive change (>=0)
+}
+
+function enrich<T extends DataItem>(rows: T[]): (T & EnrichedItem)[] {
+  const totalPositive = rows.reduce((s, r) => s + Math.max(0, r.value - r.previous), 0) || 1;
+  return rows.map((r) => {
+    const change = r.value - r.previous;
+    const changePct = r.previous > 0 ? (change / r.previous) * 100 : 0;
+    const contributionPct = change > 0 ? (change / totalPositive) * 100 : 0;
+    return { ...r, change, changePct, contributionPct };
+  });
+}
+
+function sortBy<T extends EnrichedItem>(rows: T[], mode: RankMode): T[] {
+  if (mode === 'growth') {
+    // Largest growth contributors first; negatives at the bottom (most negative last).
+    return [...rows].sort((a, b) => b.change - a.change);
+  }
+  return [...rows].sort((a, b) => b.value - a.value);
+}
+
+function RankToggle({ mode, onChange }: { mode: RankMode; onChange: (m: RankMode) => void }) {
+  return (
+    <div className="flex items-center bg-gray-100 rounded-md p-0.5">
+      <button
+        onClick={() => onChange('growth')}
+        className={`px-2 py-0.5 text-[10px] font-semibold rounded transition-all ${
+          mode === 'growth' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+        }`}
+      >
+        Growth
+      </button>
+      <button
+        onClick={() => onChange('sales')}
+        className={`px-2 py-0.5 text-[10px] font-semibold rounded transition-all ${
+          mode === 'sales' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+        }`}
+      >
+        Sales
+      </button>
+    </div>
+  );
+}
+
 function BulletBar({
-  item,
-  maxValue,
-  colorOpacity,
-  label,
-  indent,
+  item, maxValue, colorOpacity, label, indent,
 }: {
-  item: DataItem;
+  item: EnrichedItem;
   maxValue: number;
   colorOpacity: number;
   label?: string;
@@ -28,8 +80,7 @@ function BulletBar({
   const [hovered, setHovered] = useState(false);
   const currentPct = (item.value / maxValue) * 100;
   const previousPct = (item.previous / maxValue) * 100;
-  const change = ((item.value - item.previous) / item.previous) * 100;
-  const isUp = change >= 0;
+  const isUp = item.change >= 0;
 
   return (
     <div
@@ -37,11 +88,11 @@ function BulletBar({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <div className={`flex items-center gap-3 ${indent ? 'pl-3' : ''}`}>
+      <div className={`flex items-center gap-2 ${indent ? 'pl-3' : ''}`}>
         <span className={`text-[11px] text-gray-600 ${indent ? 'w-[100px]' : 'w-[88px]'} text-right truncate shrink-0 font-medium leading-tight`}>
           {label ?? item.name}
         </span>
-        <div className="relative flex-1 h-[18px] bg-gray-50 rounded-sm overflow-visible">
+        <div className="relative flex-1 h-[18px] bg-gray-50 rounded-sm overflow-visible min-w-0">
           <div
             className="absolute inset-y-0 left-0 rounded-sm transition-all duration-300"
             style={{
@@ -59,10 +110,16 @@ function BulletBar({
         <span className="text-[11px] text-gray-500 w-12 text-right shrink-0 tabular-nums font-medium">
           {fc(item.value, currency)}
         </span>
+        <span className={`text-[10px] font-semibold w-14 text-right shrink-0 tabular-nums ${isUp ? 'text-emerald-700' : 'text-rose-700'}`}>
+          {isUp ? '+' : '−'}{fc(Math.abs(item.change), currency)}
+        </span>
+        <span className="text-[10px] font-medium text-gray-500 w-12 text-right shrink-0 tabular-nums">
+          {item.contributionPct > 0 ? `${item.contributionPct.toFixed(0)}%` : '—'}
+        </span>
       </div>
 
       {hovered && (
-        <div className="absolute z-20 left-[100px] -top-[52px] bg-gray-900 text-white px-3 py-2 rounded-lg text-xs shadow-xl pointer-events-none whitespace-nowrap">
+        <div className="absolute z-20 left-[100px] -top-[64px] bg-gray-900 text-white px-3 py-2 rounded-lg text-xs shadow-xl pointer-events-none whitespace-nowrap">
           <p className="font-medium mb-1">{label ?? item.name}</p>
           <div className="flex items-center gap-3">
             <span className="text-cx-300 font-semibold">
@@ -72,26 +129,56 @@ function BulletBar({
               prev {fc(item.previous, currency, { compact: false })}
             </span>
             <span className={`font-semibold ${isUp ? 'text-green-400' : 'text-red-400'}`}>
-              {isUp ? '+' : ''}{change.toFixed(1)}%
+              {isUp ? '+' : ''}{item.changePct.toFixed(1)}%
             </span>
           </div>
+          {item.contributionPct > 0 && (
+            <p className="text-[10px] text-gray-400 mt-1">{item.contributionPct.toFixed(1)}% of total growth</p>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-function BulletChart({ title, data, tooltip }: { title: string; data: DataItem[]; tooltip?: string }) {
-  const maxValue = Math.max(...data.map((d) => Math.max(d.value, d.previous))) * 1.08;
+function HeaderLabels({ mode }: { mode: RankMode }) {
+  return (
+    <div className="flex items-center gap-2 mb-2 pl-1">
+      <span className="w-[88px]" />
+      <span className="flex-1" />
+      <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400 w-12 text-right shrink-0">Sales</span>
+      <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400 w-14 text-right shrink-0">Δ €</span>
+      <span className={`text-[9px] font-bold uppercase tracking-wider w-12 text-right shrink-0 ${mode === 'growth' ? 'text-cx-600' : 'text-gray-400'}`}>
+        % Growth
+      </span>
+    </div>
+  );
+}
+
+function BulletChart({
+  title, data, tooltip, mode, onModeChange,
+}: {
+  title: string;
+  data: DataItem[];
+  tooltip?: string;
+  mode: RankMode;
+  onModeChange: (m: RankMode) => void;
+}) {
+  const enriched = useMemo(() => sortBy(enrich(data), mode), [data, mode]);
+  const maxValue = Math.max(...enriched.map((d) => Math.max(d.value, d.previous))) * 1.08;
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-      <div className="flex items-center gap-1.5 mb-5">
-        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">{title}</h2>
-        <InfoTooltip content={tooltip} />
+      <div className="flex items-center justify-between mb-4 gap-2">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider truncate">{title}</h2>
+          <InfoTooltip content={tooltip} />
+        </div>
+        <RankToggle mode={mode} onChange={onModeChange} />
       </div>
+      <HeaderLabels mode={mode} />
       <div className="space-y-[10px]">
-        {data.map((item, index) => (
+        {enriched.map((item, index) => (
           <BulletBar
             key={item.name}
             item={item}
@@ -105,10 +192,19 @@ function BulletChart({ title, data, tooltip }: { title: string; data: DataItem[]
   );
 }
 
-function ASINBulletChart({ title, data, tooltip }: { title: string; data: ASINDataItem[]; tooltip?: string }) {
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const maxValue = Math.max(...data.map((d) => Math.max(d.value, d.previous))) * 1.08;
+function ASINBulletChart({
+  title, data, tooltip, mode, onModeChange,
+}: {
+  title: string;
+  data: ASINDataItem[];
+  tooltip?: string;
+  mode: RankMode;
+  onModeChange: (m: RankMode) => void;
+}) {
+  const enriched = useMemo(() => sortBy(enrich(data), mode), [data, mode]);
+  const maxValue = Math.max(...enriched.map((d) => Math.max(d.value, d.previous))) * 1.08;
 
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const toggleExpand = (asin: string) => {
     setExpanded((prev) => {
       const next = new Set(prev);
@@ -120,12 +216,16 @@ function ASINBulletChart({ title, data, tooltip }: { title: string; data: ASINDa
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-      <div className="flex items-center gap-1.5 mb-5">
-        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">{title}</h2>
-        <InfoTooltip content={tooltip} />
+      <div className="flex items-center justify-between mb-4 gap-2">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider truncate">{title}</h2>
+          <InfoTooltip content={tooltip} />
+        </div>
+        <RankToggle mode={mode} onChange={onModeChange} />
       </div>
+      <HeaderLabels mode={mode} />
       <div className="space-y-[6px]">
-        {data.map((item, index) => {
+        {enriched.map((item, index) => {
           const isExpanded = expanded.has(item.name);
           return (
             <div key={item.name}>
@@ -142,15 +242,18 @@ function ASINBulletChart({ title, data, tooltip }: { title: string; data: ASINDa
               </div>
               {isExpanded && (
                 <div className="ml-5 mt-1 space-y-[6px] pb-1">
-                  {item.skus.map((sku, si) => (
-                    <BulletBar
-                      key={sku.name}
-                      item={sku}
-                      maxValue={maxValue}
-                      colorOpacity={(1 - index * 0.05) * 0.7}
-                      indent
-                    />
-                  ))}
+                  {item.skus.map((sku) => {
+                    const enrichedSku = enrich([sku])[0];
+                    return (
+                      <BulletBar
+                        key={sku.name}
+                        item={enrichedSku}
+                        maxValue={maxValue}
+                        colorOpacity={(1 - index * 0.05) * 0.7}
+                        indent
+                      />
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -163,11 +266,9 @@ function ASINBulletChart({ title, data, tooltip }: { title: string; data: ASINDa
 }
 
 function ASINBulletBar({
-  item,
-  maxValue,
-  colorOpacity,
+  item, maxValue, colorOpacity,
 }: {
-  item: ASINDataItem;
+  item: ASINDataItem & EnrichedItem;
   maxValue: number;
   colorOpacity: number;
 }) {
@@ -175,8 +276,7 @@ function ASINBulletBar({
   const [hovered, setHovered] = useState(false);
   const currentPct = (item.value / maxValue) * 100;
   const previousPct = (item.previous / maxValue) * 100;
-  const change = ((item.value - item.previous) / item.previous) * 100;
-  const isUp = change >= 0;
+  const isUp = item.change >= 0;
 
   return (
     <div
@@ -189,7 +289,7 @@ function ASINBulletBar({
           <div className="text-[11px] text-gray-700 font-semibold leading-tight truncate">{item.name}</div>
           <div className="text-[9px] text-gray-400 leading-tight truncate" title={item.productName}>{item.productName}</div>
         </div>
-        <div className="relative flex-1 h-[18px] bg-gray-50 rounded-sm overflow-visible">
+        <div className="relative flex-1 h-[18px] bg-gray-50 rounded-sm overflow-visible min-w-0">
           <div
             className="absolute inset-y-0 left-0 rounded-sm transition-all duration-300"
             style={{
@@ -205,10 +305,16 @@ function ASINBulletBar({
         <span className="text-[11px] text-gray-500 w-12 text-right shrink-0 tabular-nums font-medium">
           {fc(item.value, currency)}
         </span>
+        <span className={`text-[10px] font-semibold w-14 text-right shrink-0 tabular-nums ${isUp ? 'text-emerald-700' : 'text-rose-700'}`}>
+          {isUp ? '+' : '−'}{fc(Math.abs(item.change), currency)}
+        </span>
+        <span className="text-[10px] font-medium text-gray-500 w-12 text-right shrink-0 tabular-nums">
+          {item.contributionPct > 0 ? `${item.contributionPct.toFixed(0)}%` : '—'}
+        </span>
       </div>
 
       {hovered && (
-        <div className="absolute z-20 left-[100px] -top-[52px] bg-gray-900 text-white px-3 py-2 rounded-lg text-xs shadow-xl pointer-events-none whitespace-nowrap">
+        <div className="absolute z-20 left-[100px] -top-[64px] bg-gray-900 text-white px-3 py-2 rounded-lg text-xs shadow-xl pointer-events-none whitespace-nowrap">
           <p className="font-medium mb-0.5">{item.name}</p>
           <p className="text-gray-400 mb-1">{item.productName}</p>
           <div className="flex items-center gap-3">
@@ -219,9 +325,12 @@ function ASINBulletBar({
               prev {fc(item.previous, currency, { compact: false })}
             </span>
             <span className={`font-semibold ${isUp ? 'text-green-400' : 'text-red-400'}`}>
-              {isUp ? '+' : ''}{change.toFixed(1)}%
+              {isUp ? '+' : ''}{item.changePct.toFixed(1)}%
             </span>
           </div>
+          {item.contributionPct > 0 && (
+            <p className="text-[10px] text-gray-400 mt-1">{item.contributionPct.toFixed(1)}% of total growth</p>
+          )}
         </div>
       )}
     </div>
@@ -244,11 +353,32 @@ function ChartLegend() {
 }
 
 export default function BreakdownCharts() {
+  // Rank mode applies to all three cards in sync — same question, three lenses.
+  // Default is 'growth' so the eye lands on what's driving change, not what's biggest.
+  const [mode, setMode] = useState<RankMode>('growth');
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <BulletChart title="Sales by Marketplace" data={salesByMarketplace} tooltip="Revenue split by Amazon marketplace. Gray marker shows the prior period for comparison." />
-      <BulletChart title="Sales by Category" data={salesByCategory} tooltip="Revenue split by product category. Gray marker shows the prior period for comparison." />
-      <ASINBulletChart title="Sales by ASIN" data={salesByASIN} tooltip="Revenue per ASIN, expandable to show individual SKUs. Gray marker shows the prior period for comparison." />
+      <BulletChart
+        title="Sales by Marketplace"
+        data={salesByMarketplace}
+        tooltip="Revenue split by Amazon marketplace. Rank toggle: Growth shows top contributors to change; Sales shows largest absolute volume."
+        mode={mode}
+        onModeChange={setMode}
+      />
+      <BulletChart
+        title="Sales by Category"
+        data={salesByCategory}
+        tooltip="Revenue split by product category. Rank toggle: Growth shows top contributors to change; Sales shows largest absolute volume."
+        mode={mode}
+        onModeChange={setMode}
+      />
+      <ASINBulletChart
+        title="Sales by ASIN"
+        data={salesByASIN}
+        tooltip="Revenue per ASIN, expandable to show individual SKUs. Rank toggle: Growth shows top contributors to change; Sales shows largest absolute volume."
+        mode={mode}
+        onModeChange={setMode}
+      />
     </div>
   );
 }

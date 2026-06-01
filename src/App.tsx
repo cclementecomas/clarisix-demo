@@ -19,6 +19,8 @@ import Subscriptions from './components/Subscriptions';
 import Settings, { type SettingsTabId } from './components/settings/Settings';
 import Trends from './components/Trends';
 import SQP from './components/SQP';
+import ExecutiveInsightCard from './components/sales/ExecutiveInsightCard';
+import NeedsAttentionPanel from './components/sales/NeedsAttentionPanel';
 import SalesHeatmap from './components/SalesHeatmap';
 import ComingSoon from './components/ComingSoon';
 import Footer from './components/Footer';
@@ -59,14 +61,38 @@ function HomePage({
   );
 }
 
-function OverviewPage() {
+/** Routes the executive-insight / attention-panel CTAs into either a scroll
+ *  to the right anchor on this page, or a navigation to the Profitability
+ *  module. Anchors are set as ids further down in the page. */
+function handleSalesOverviewCta(route: string, onNavigate: (section: string, sub: string) => void) {
+  if (route === 'profitability') {
+    onNavigate('Profitability', 'Overview');
+    return;
+  }
+  const anchorMap: Record<string, string> = {
+    'breakdown-marketplace': 'sales-breakdown',
+    'breakdown-category':    'sales-breakdown',
+    'breakdown-asin':        'sales-breakdown',
+    'run-rate':              'sales-run-rate',
+    'sales-trend':           'sales-trend',
+  };
+  const anchor = anchorMap[route];
+  if (!anchor) return;
+  const el = document.getElementById(anchor);
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function OverviewPage({ onNavigate }: { onNavigate: (section: string, sub: string) => void }) {
+  const cta = (route: string) => handleSalesOverviewCta(route, onNavigate);
   return (
     <>
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_3fr] gap-6">
-        <BudgetTracker />
-        <SalesOverview />
+      <ExecutiveInsightCard onCta={cta} />
+      <NeedsAttentionPanel onCta={cta} />
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_3fr] gap-6 items-stretch">
+        <div id="sales-run-rate" className="flex"><BudgetTracker /></div>
+        <div id="sales-trend" className="flex"><SalesOverview /></div>
       </div>
-      <BreakdownCharts />
+      <div id="sales-breakdown"><BreakdownCharts /></div>
       <SalesHeatmap />
     </>
   );
@@ -167,7 +193,7 @@ export default function App() {
       return <Settings initialTab="connections" mode="data" />;
     }
     if (activeSection === 'Sales' && activeSub === 'Overview') {
-      return <OverviewPage />;
+      return <OverviewPage onNavigate={(section, sub) => { setActiveSection(section); setActiveSub(sub); }} />;
     }
     if (activeSection === 'Sales' && activeSub === 'Deepdive') {
       return <DeepDive />;
