@@ -856,3 +856,68 @@ Weekly data freshness badge (WeeklyDataBadge.tsx) — applied to SQP + Traffic
 - `useWeeklySnappedRange()` hook exposes the snapped range to consumers that need it. Helper `snapToWeeks` lives in utils/dateRanges.ts (`endOfWeek` returns Saturday; `snapToWeeks` returns `{ snapped, wasSnapped, weekCount }`).
 - Pattern in place but the actual snap-back of the global date picker is not yet enforced — badge currently communicates the granularity, full snap-and-render is follow-up work.
 - Period column transparency bug fixed: sticky body cell was `group-hover:bg-gray-50/60` (partial-opacity) which leaked the scrolled-under cells through on hover. Changed to `group-hover:bg-gray-50` (solid). Default `bg-white` already opaque.
+
+
+Sales → Overview — decision-tool restructure (Jun 1 2026)
+
+Rationale
+- Old page was a polished dashboard: KPI tiles + run-rate chart + stacked-bar trend + 3 breakdown bullet charts + heatmap. It answered "what happened" but the user had to assemble the story across five components to know "are we on track, why, what changed, and what should I do next."
+- Locked seven decision-making rules (in the salesOverviewInsights module) that turn raw numbers into an executive narrative, a Needs Attention triage, and ranking that defaults to growth contribution instead of absolute volume.
+
+Shared insights module (data/salesOverviewInsights.ts)
+- Centralizes every derived value the page needs so the executive card, the BudgetTracker stat strip, the SalesOverview trend chart, the Needs Attention panel, and the breakdown charts all stay in sync.
+- Constants for the demo period (May 2026): TARGET_SALES €150k, LAST_MONTH_TOTAL €126.2k, LAST_YEAR_SAME_PERIOD €120k, MTD_ACTUAL €96.1k, PROJECTED_EOM €141.9k, AVG_DAILY_SALES €4.6k, DAYS_REMAINING 10, plus the organic/ad current+previous split.
+- Rule 1 — Pace status: computePaceStatus uses target first if present (On track / Behind target) and falls back to prev-period (Ahead of last period / Behind last period). Exported as `paceStatus: { label, tone }`.
+- Rule 2 — Executive headline: fixed template "{Period} is pacing {status}. Projected sales are {projected}, {gap_or_delta} {comparison}." Branches on whether a target exists.
+- Rule 3 — Drivers / watchouts: enrichDrivers() computes change €, change %, and contributionPct (this row's positive change ÷ total positive change). Top positive across marketplace/category/ASIN = mainDriver. Top negative passing the watchout threshold (`< -€1,000 OR < -10%`) = mainWatchout.
+- Rule 5 — Organic vs ad insight: branches on `adGrowth - organicGrowth` and ad dependency thresholds (>10pp difference, >50% ad share). Returns the one-line interpretation string.
+- Rule 6 — Needs Attention: buildAlerts() in priority order: target-gap (critical) → pace-gap (required daily > current daily, warning) → top-decline (mainWatchout, warning) → ad-dependent (warning) or ad-share-high (info). Returns at most 3.
+- Rule 7 — headlineCta(): routes the executive card's CTA based on the first matching condition (behind target → growth drivers; ASIN decline → declining ASINs; ad>organic → profitability; etc.).
+
+Executive insight card (components/sales/ExecutiveInsightCard.tsx)
+- Top-of-page hero, full width. Visual style mirrors Traffic/SQP heroes: gradient bg, 1px accent bar, headline column + 3 metric tiles + dark CTA.
+- Tone follows paceStatus (good = emerald, bad = rose, neutral = slate).
+- Metric tiles: Projected EOM (with MTD actual sub), Gap to target / vs Last period (depending on target presence), vs Last year.
+- Below the metric row, a 2-column driver/watchout strip with the kind tag (marketplace/category/ASIN), name, change €, and contribution % or change %.
+- CTA derived from headlineCta() and routed via onCta prop.
+
+Needs Attention panel (components/sales/NeedsAttentionPanel.tsx)
+- Compact 3-column grid (1 col on mobile). Each alert is a clickable card with severity icon, title, supporting detail, and a "CTA →" link styled like an action chip.
+- Severity → color: critical = rose, warning = amber, info = sky.
+- Hidden entirely if attentionAlerts is empty.
+
+BudgetTracker — target-aware stat strip (components/BudgetTracker.tsx)
+- Now imports paceStatus / gapToTarget / requiredDailyToTarget / popChangePct from salesOverviewInsights — single source of truth.
+- Stat strip behavior:
+  - When TARGET_SALES exists: tiles become Gap to target / Days remaining / Required per day. The Required/day tile compares against current avgDailySales and shows "+X% vs current" delta.
+  - When no target: falls back to original vs Last month / Days remaining / Pace tiles.
+- Card outer changed to `flex flex-col`; chart container changed from `h-[222px]` fixed to `relative flex-1 min-h-[222px]` with the ResponsiveContainer wrapped in an `absolute inset-0` div. This lets the chart absorb extra grid-row height (when SalesOverview is taller) so the stat strip stays flush at the bottom — fixes the "card floating with whitespace below" issue.
+
+Grid wrapper height inheritance fix (App.tsx)
+- Wrapping `<div id="sales-run-rate">` and `<div id="sales-trend">` are now `className="flex"` so their children's `flex-1` actually takes effect. Without this, the wrappers stretched to grid row height but BudgetTracker/SalesOverview inside them sat at their natural content height, creating uneven card bottoms.
+
+BreakdownCharts — rank by growth contribution (components/BreakdownCharts.tsx)
+- Rule 4: three cards (Marketplace / Category / ASIN) now share a single Growth | Sales toggle. Default = Growth.
+- Internal helpers enrich() (adds change €, change %, contributionPct) and sortBy() (mode-aware sorting).
+- Each bullet bar now shows three numeric columns after the bar: Sales · Δ € (signed, color-coded) · % Growth contribution.
+- Header columns label the metrics for readability.
+- Hover tooltip surfaces "X% of total growth" for positive contributors.
+- ASIN child SKU rows are enriched on the fly so they show the same Δ + contribution columns.
+
+SalesOverview — organic vs ad insight strip (components/SalesOverview.tsx)
+- New 12px "So what:" strip above the chart pulls organicAdInsight + the supporting numbers (Organic %, Ad %, Ad dependency %) from the insights module.
+- Slate background, amber lightbulb icon, two-line layout — same pattern as Traffic's so-what lines.
+
+Page structure (App.tsx OverviewPage)
+1. ExecutiveInsightCard
+2. NeedsAttentionPanel
+3. Grid: BudgetTracker (1fr) + SalesOverview (3fr)
+4. BreakdownCharts (rank-toggle defaulting to Growth)
+5. SalesHeatmap (unchanged, supporting)
+- handleSalesOverviewCta() routes the CTAs:
+  - profitability → navigates to Profitability/Overview
+  - breakdown-* → scrolls to `#sales-breakdown` anchor
+  - run-rate / sales-trend → scrolls to their anchors
+
+Data-source honesty (deferred to follow-up)
+- The SQP keyword detail drawer's "synthetic market" share-gap bars and "main gap vs synthetic market" line are flagged as not API-grounded — there's no Amazon-published per-query market-share benchmark. Real options: (a) drop the comparison, (b) relabel as "vs your portfolio average" (which is derivable), (c) gate behind a category-benchmarks feature once a real source is wired. Same goes for the paid/organic split estimated from ACoS. Not changed in this batch; tracked.
