@@ -73,31 +73,47 @@ export default function ColumnToggle({ columns, visibleColumns, onToggle }: Colu
           <div className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
             Toggle Columns
           </div>
-          {columns.map((col) => {
-            const visible = visibleColumns.has(col.field);
-            return (
-              <button
-                key={col.field}
-                onClick={() => onToggle(col.field)}
-                className={`flex items-center gap-2.5 w-full px-3 py-1.5 text-left text-sm transition-colors ${
-                  visible
-                    ? 'text-gray-800 hover:bg-gray-50'
-                    : 'text-gray-400 hover:bg-gray-50'
-                }`}
-              >
-                <div
-                  className={`w-4 h-4 rounded flex items-center justify-center flex-shrink-0 transition-colors ${
-                    visible
-                      ? 'bg-cx-500 text-white'
-                      : 'border border-gray-300 bg-white'
-                  }`}
-                >
-                  {visible && <Check className="w-3 h-3" />}
-                </div>
-                <span className="truncate">{col.headerName || col.field}</span>
-              </button>
-            );
-          })}
+          {(() => {
+            // Group columns by their `group` field (the troubleshooting
+            // question), preserving the order they appear in `columns`.
+            const groupOrder: string[] = [];
+            const buckets: Record<string, ColumnDef[]> = {};
+            for (const col of columns) {
+              const g = col.group ?? '';
+              if (!buckets[g]) { buckets[g] = []; groupOrder.push(g); }
+              buckets[g].push(col);
+            }
+            return groupOrder.map((g, gi) => (
+              <div key={g || `__ungrouped_${gi}`}>
+                {g && (
+                  <div className={`px-3 ${gi === 0 ? 'pt-1 pb-1' : 'pt-2 pb-1 mt-1 border-t border-gray-100'} text-[10px] font-bold uppercase tracking-wider text-gray-500`}>
+                    {g}
+                  </div>
+                )}
+                {buckets[g].map((col) => {
+                  const visible = visibleColumns.has(col.field);
+                  return (
+                    <button
+                      key={col.field}
+                      onClick={() => onToggle(col.field)}
+                      className={`flex items-center gap-2.5 w-full px-3 py-1.5 text-left text-sm transition-colors ${
+                        visible ? 'text-gray-800 hover:bg-gray-50' : 'text-gray-400 hover:bg-gray-50'
+                      }`}
+                    >
+                      <div
+                        className={`w-4 h-4 rounded flex items-center justify-center flex-shrink-0 transition-colors ${
+                          visible ? 'bg-cx-500 text-white' : 'border border-gray-300 bg-white'
+                        }`}
+                      >
+                        {visible && <Check className="w-3 h-3" />}
+                      </div>
+                      <span className="truncate">{col.headerName || col.field}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            ));
+          })()}
         </div>,
         document.body
       )}

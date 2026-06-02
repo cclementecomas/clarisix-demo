@@ -1,21 +1,39 @@
-import { useMemo } from 'react';
+// ─── Sales Deepdive — issue-detection + troubleshooting layout ────────────
+// Page structure:
+//   1. Issues detected panel (top 5 cross-entity issues by severity)
+//   2. Entity selector (Marketplace / Category / ASIN) + view tabs
+//   3. Troubleshooting table (simplified diagnostic columns, severity-sorted)
+//   4. Entity detail drawer (slides in from row / issue-card click)
+//   5. Full metric table (collapsed, opens the existing dense DeepDiveTable
+//      for power users / export)
+
+import { useMemo, useState } from 'react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import type { ColumnDef } from './deepdive/DeepDiveTable';
 import DeepDiveTable, {
   percentCellStyle,
+  costPercentCellStyle,
   percentFormatter,
   ppFormatter,
   currencyFormatter,
   numberFormatter,
   pctShareFormatter,
 } from './deepdive/DeepDiveTable';
+import IssuesPanel from './deepdive/IssuesPanel';
+import TroubleshootingTable, { type ModeTabId, type EntityFilter } from './deepdive/TroubleshootingTable';
+import EntityDetailDrawer from './deepdive/EntityDetailDrawer';
 import {
   marketplaceData,
   categoryData,
   asinData,
   skuDataByAsin,
 } from '../data/deepdiveData';
+import {
+  allDiagnostics,
+  type Diagnostic,
+  type RankKey,
+} from '../data/deepdiveDiagnostics';
 import { useCurrency } from '../contexts/CurrencyContext';
-import { fc } from '../utils/currency';
 import LastRefreshed from './LastRefreshed';
 
 type Row = Record<string, unknown>;
@@ -84,67 +102,73 @@ function buildTotals(
 }
 
 function metricColumns(currency: Parameters<typeof currencyFormatter>[0]): ColumnDef[] {
+  // Higher-is-better sub-fields: positive change reads green.
   const pctSub = (field: string) => [
     { field: `${field}PoP`, label: 'PoP', formatter: percentFormatter, cellStyle: percentCellStyle },
     { field: `${field}DiffLY`, label: 'LY', formatter: percentFormatter, cellStyle: percentCellStyle },
   ];
-
   const ppSub = (field: string) => [
     { field: `${field}PoP`, label: 'PoP', formatter: ppFormatter, cellStyle: percentCellStyle },
     { field: `${field}DiffLY`, label: 'LY', formatter: ppFormatter, cellStyle: percentCellStyle },
   ];
 
+  // Lower-is-better sub-fields (cost / efficiency metrics): positive
+  // change reads red, negative reads green. Use for ACOS, TACOS, Ad Spend,
+  // Discounts, Ad CPC, Total CPA, Ad Reliance.
+  const pctSubCost = (field: string) => [
+    { field: `${field}PoP`, label: 'PoP', formatter: percentFormatter, cellStyle: costPercentCellStyle },
+    { field: `${field}DiffLY`, label: 'LY', formatter: percentFormatter, cellStyle: costPercentCellStyle },
+  ];
+  const ppSubCost = (field: string) => [
+    { field: `${field}PoP`, label: 'PoP', formatter: ppFormatter, cellStyle: costPercentCellStyle },
+    { field: `${field}DiffLY`, label: 'LY', formatter: ppFormatter, cellStyle: costPercentCellStyle },
+  ];
+
   const fmtCurrency = currencyFormatter(currency);
 
-  // Column order follows business narrative:
-  //   1) Volume & revenue
-  //   2) Customer mix (NTB / S&S)
-  //   3) Demand funnel (traffic & conversion)
-  //   4) Ads activity (spend → efficiency)
-  //   5) Margin cascade (Product → Channel → Growth → Net Profit/Unit)
-  // `hide: true` keeps the column in the ColumnToggle but off by default.
-  // `group` drives the visual band header above the column row.
-  const VOL = 'Volume & revenue';
-  const MIX = 'Customer mix';
-  const FUNNEL = 'Demand funnel';
-  const ADS = 'Marketing & promo';
-  const MARGIN = 'Margin cascade';
+  // Bands rephrased as troubleshooting questions (Rule 7 in the spec).
+  // The DeepDiveTable band header uses these as group labels.
+  const VOL = 'What sold?';
+  const MIX = 'Who bought?';
+  const FUNNEL = 'Where is demand leaking?';
+  const ADS = 'Is advertising efficient?';
+  const MARGIN = 'Is margin healthy?';
 
   return [
-    // ─── 1) Volume & revenue ─────────────────────────────────────────
-    { field: 'sales',       headerName: 'Sales',        valueFormatter: fmtCurrency,      width: 140, group: VOL, subFields: pctSub('sales') },
+    // What sold?
+    { field: 'sales',       headerName: 'Sales',        valueFormatter: fmtCurrency,       width: 140, group: VOL, subFields: pctSub('sales') },
     { field: 'salesShare',  headerName: 'Sales Share',  valueFormatter: pctShareFormatter, width: 140, group: VOL, subFields: ppSub('salesShare') },
     { field: 'orders',      headerName: 'Orders',       valueFormatter: numberFormatter,   width: 120, group: VOL, subFields: pctSub('orders') },
     { field: 'units',       headerName: 'Units',        valueFormatter: numberFormatter,   width: 120, group: VOL, subFields: pctSub('units') },
     { field: 'avgPrice',    headerName: 'Avg Price',    valueFormatter: fmtCurrency,       width: 130, group: VOL, subFields: pctSub('avgPrice') },
 
-    // ─── 2) Customer mix (S&S, NTB) ──────────────────────────────────
+    // Who bought?
     { field: 'ntbOrders',   headerName: 'NTB Orders',   valueFormatter: numberFormatter,   width: 130, group: MIX,             subFields: pctSub('ntbOrders') },
     { field: 'ntbPct',      headerName: 'NTB %',        valueFormatter: pctShareFormatter, width: 110, group: MIX, hide: true, subFields: ppSub('ntbPct') },
     { field: 'ssOrders',    headerName: 'S&S Orders',   valueFormatter: numberFormatter,   width: 130, group: MIX,             subFields: pctSub('ssOrders') },
     { field: 'ssPct',       headerName: 'S&S %',        valueFormatter: pctShareFormatter, width: 110, group: MIX, hide: true, subFields: ppSub('ssPct') },
 
-    // ─── 3) Demand funnel (traffic & conversion) ─────────────────────
+    // Where is demand leaking?
     { field: 'pageViews',   headerName: 'Page Views',   valueFormatter: numberFormatter,   width: 130, group: FUNNEL,             subFields: pctSub('pageViews') },
     { field: 'sessions',    headerName: 'Sessions',     valueFormatter: numberFormatter,   width: 120, group: FUNNEL,             subFields: pctSub('sessions') },
     { field: 'cvr',         headerName: 'CVR',          valueFormatter: pctShareFormatter, width: 110, group: FUNNEL,             subFields: ppSub('cvr') },
     { field: 'bboxWinRate', headerName: 'BBox Win',     valueFormatter: pctShareFormatter, width: 120, group: FUNNEL, hide: true, subFields: ppSub('bboxWinRate') },
     { field: 'organicPct',  headerName: 'Organic %',    valueFormatter: pctShareFormatter, width: 120, group: FUNNEL, hide: true, subFields: ppSub('organicPct') },
 
-    // ─── 4) Marketing & promo (acquisition spend → efficiency) ───────
-    { field: 'discounts',   headerName: 'Discounts',    valueFormatter: fmtCurrency,       width: 130, group: ADS, hide: true, subFields: pctSub('discounts') },
-    { field: 'adSpend',     headerName: 'Ad Spend',     valueFormatter: fmtCurrency,       width: 130, group: ADS,             subFields: pctSub('adSpend') },
+    // Is advertising efficient?  (cost metrics use inverted colour polarity)
+    { field: 'discounts',   headerName: 'Discounts',    valueFormatter: fmtCurrency,       width: 130, group: ADS, hide: true, subFields: pctSubCost('discounts') },
+    { field: 'adSpend',     headerName: 'Ad Spend',     valueFormatter: fmtCurrency,       width: 130, group: ADS,             subFields: pctSubCost('adSpend') },
     { field: 'adSales',     headerName: 'Ad Sales',     valueFormatter: fmtCurrency,       width: 130, group: ADS, hide: true, subFields: pctSub('adSales') },
-    { field: 'adCpc',       headerName: 'Ad CPC',       valueFormatter: fmtCurrency,       width: 110, group: ADS, hide: true, subFields: pctSub('adCpc') },
+    { field: 'adCpc',       headerName: 'Ad CPC',       valueFormatter: fmtCurrency,       width: 110, group: ADS, hide: true, subFields: pctSubCost('adCpc') },
     { field: 'ctr',         headerName: 'CTR',          valueFormatter: pctShareFormatter, width: 100, group: ADS, hide: true, subFields: ppSub('ctr') },
     { field: 'adCvr',       headerName: 'Ad CVR',       valueFormatter: pctShareFormatter, width: 110, group: ADS, hide: true, subFields: ppSub('adCvr') },
     { field: 'roas',        headerName: 'ROAS',         valueFormatter: roasFormatter,     width: 110, group: ADS,             subFields: pctSub('roas') },
-    { field: 'acos',        headerName: 'ACOS',         valueFormatter: pctShareFormatter, width: 110, group: ADS,             subFields: ppSub('acos') },
-    { field: 'tacos',       headerName: 'TACOS',        valueFormatter: pctShareFormatter, width: 110, group: ADS,             subFields: ppSub('tacos') },
-    { field: 'totalCpa',    headerName: 'Total CPA',    valueFormatter: fmtCurrency,       width: 120, group: ADS, hide: true, subFields: pctSub('totalCpa') },
-    { field: 'adReliance',  headerName: 'Ad Reliance',  valueFormatter: pctShareFormatter, width: 130, group: ADS, hide: true, subFields: ppSub('adReliance') },
+    { field: 'acos',        headerName: 'ACOS',         valueFormatter: pctShareFormatter, width: 110, group: ADS,             subFields: ppSubCost('acos') },
+    { field: 'tacos',       headerName: 'TACOS',        valueFormatter: pctShareFormatter, width: 110, group: ADS,             subFields: ppSubCost('tacos') },
+    { field: 'totalCpa',    headerName: 'Total CPA',    valueFormatter: fmtCurrency,       width: 120, group: ADS, hide: true, subFields: pctSubCost('totalCpa') },
+    { field: 'adReliance',  headerName: 'Ad Reliance',  valueFormatter: pctShareFormatter, width: 130, group: ADS, hide: true, subFields: ppSubCost('adReliance') },
 
-    // ─── 5) Margin cascade ───────────────────────────────────────────
+    // Is margin healthy?
     { field: 'productMargin',    headerName: 'Product Margin',    valueFormatter: pctShareFormatter, width: 150, group: MARGIN,             subFields: ppSub('productMargin') },
     { field: 'channelMargin',    headerName: 'Channel Margin',    valueFormatter: pctShareFormatter, width: 150, group: MARGIN,             subFields: ppSub('channelMargin') },
     { field: 'growthMargin',     headerName: 'Growth Margin',     valueFormatter: pctShareFormatter, width: 150, group: MARGIN,             subFields: ppSub('growthMargin') },
@@ -156,78 +180,113 @@ export default function DeepDive() {
   const { currency } = useCurrency();
   const metrics = useMemo(() => metricColumns(currency), [currency]);
 
+  // Defaults per the spec:
+  //   - All entities together (Marketplace + Category + ASIN)
+  //   - Decision mode: Profit risks
+  //   - Rank by: Profit impact
+  const [mode, setMode] = useState<ModeTabId>('profit-risk');
+  const [entityFilter, setEntityFilter] = useState<EntityFilter>('all');
+  const [rank, setRank] = useState<RankKey>('profit');
+  const [selected, setSelected] = useState<Diagnostic | null>(null);
+  const [showFullMetrics, setShowFullMetrics] = useState(false);
+
+  // ── Full-metrics column / data wiring (existing DeepDiveTable) ─────────
   const marketplaceCols = useMemo<ColumnDef[]>(
-    () => [
-      { field: 'marketplace', headerName: 'Marketplace', pinned: 'left', width: 150 },
-      ...metrics,
-    ],
-    [metrics]
+    () => [{ field: 'marketplace', headerName: 'Marketplace', pinned: 'left', width: 150 }, ...metrics],
+    [metrics],
   );
-
-  const marketplaceTotals = useMemo(
-    () => [buildTotals(marketplaceData as unknown as Row[], 'marketplace', 'Total')],
-    []
-  );
-
   const categoryCols = useMemo<ColumnDef[]>(
-    () => [
-      { field: 'category', headerName: 'Category', pinned: 'left', width: 160 },
-      ...metrics,
-    ],
-    [metrics]
+    () => [{ field: 'category', headerName: 'Category', pinned: 'left', width: 160 }, ...metrics],
+    [metrics],
   );
-
-  const categoryTotals = useMemo(
-    () => [buildTotals(categoryData as unknown as Row[], 'category', 'Total')],
-    []
-  );
-
   const asinCols = useMemo<ColumnDef[]>(
     () => [
       { field: 'asin', headerName: 'ASIN', pinned: 'left', width: 130 },
       { field: 'title', headerName: 'Title', width: 280 },
       ...metrics,
     ],
-    [metrics]
+    [metrics],
   );
 
-  const asinTotals = useMemo(
-    () => [buildTotals(asinData as unknown as Row[], 'asin', 'Total')],
-    []
-  );
+  const marketplaceTotals = useMemo(() => [buildTotals(marketplaceData as unknown as Row[], 'marketplace', 'Total')], []);
+  const categoryTotals    = useMemo(() => [buildTotals(categoryData    as unknown as Row[], 'category',    'Total')], []);
+  const asinTotals        = useMemo(() => [buildTotals(asinData        as unknown as Row[], 'asin',        'Total')], []);
 
   return (
-    <div className="space-y-6">
-      <DeepDiveTable
-        title="Best Selling Marketplaces"
-        tooltip="Sales and advertising metrics aggregated by Amazon marketplace. PoP = period-over-period; LY = vs. last year."
-        subtitle="Columns read left to right: what I sold → who bought it → how they got there → what I paid → what's left."
-        rowData={marketplaceData}
-        columnDefs={marketplaceCols}
-        pinnedBottomRowData={marketplaceTotals}
-      />
-      <DeepDiveTable
-        title="Best Selling Categories"
-        tooltip="Sales and advertising metrics aggregated by product category. PoP = period-over-period; LY = vs. last year."
-        subtitle="Columns read left to right: what I sold → who bought it → how they got there → what I paid → what's left."
-        rowData={categoryData}
-        columnDefs={categoryCols}
-        pinnedBottomRowData={categoryTotals}
-      />
-      <DeepDiveTable
-        title="Best Selling ASINs"
-        tooltip="Sales and advertising metrics per ASIN. Expand a row to see SKU-level breakdown. PoP = period-over-period; LY = vs. last year."
-        subtitle="Columns read left to right: what I sold → who bought it → how they got there → what I paid → what's left."
-        rowData={asinData}
-        columnDefs={asinCols}
-        pinnedBottomRowData={asinTotals}
-        childRowsMap={skuDataByAsin}
-        rowKeyField="asin"
-        childLabelField="sku"
-        copyablePinnedCell
-      />
-      <div className="flex justify-end">
+    <div className="space-y-4 min-w-0">
+      {/* 1 — Issues detected (cross-entity, severity-ranked) */}
+      <IssuesPanel onIssueClick={setSelected} />
+
+      {/* Refresh row */}
+      <div className="flex items-center justify-end">
         <LastRefreshed offsetMinutes={9} />
+      </div>
+
+      {/* 2 — Troubleshooting table with decision-mode tabs + Rank-by + entity filter */}
+      <TroubleshootingTable
+        diagnostics={allDiagnostics}
+        mode={mode}
+        onModeChange={setMode}
+        entityFilter={entityFilter}
+        onEntityFilterChange={setEntityFilter}
+        rank={rank}
+        onRankChange={setRank}
+        onRowClick={setSelected}
+      />
+
+      {/* 3 — Detail drawer */}
+      <EntityDetailDrawer
+        d={selected}
+        onClose={() => setSelected(null)}
+        onCta={(_route) => {
+          // Hook into App-level navigation when this lifts up.
+        }}
+      />
+
+      {/* 4 — Full metric tables (collapsed; all three entities stacked when open) */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <button
+          onClick={() => setShowFullMetrics((v) => !v)}
+          className="w-full px-5 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-gray-900">Full metric tables</span>
+            <span className="text-[11px] text-gray-500">Marketplace · Category · ASIN — every metric, no diagnostic filter</span>
+          </div>
+          {showFullMetrics ? <ChevronUp className="w-4 h-4 text-gray-500" /> : <ChevronDown className="w-4 h-4 text-gray-500" />}
+        </button>
+        {showFullMetrics && (
+          <div className="border-t border-gray-100 p-4 space-y-6">
+            <DeepDiveTable
+              title="Best Selling Marketplaces"
+              tooltip="Sales and advertising metrics aggregated by Amazon marketplace. PoP = period-over-period; LY = vs. last year."
+              subtitle="Columns read left to right: what I sold → who bought it → how they got there → what I paid → what's left."
+              rowData={marketplaceData}
+              columnDefs={marketplaceCols}
+              pinnedBottomRowData={marketplaceTotals}
+            />
+            <DeepDiveTable
+              title="Best Selling Categories"
+              tooltip="Sales and advertising metrics aggregated by product category. PoP = period-over-period; LY = vs. last year."
+              subtitle="Columns read left to right: what I sold → who bought it → how they got there → what I paid → what's left."
+              rowData={categoryData}
+              columnDefs={categoryCols}
+              pinnedBottomRowData={categoryTotals}
+            />
+            <DeepDiveTable
+              title="Best Selling ASINs"
+              tooltip="Sales and advertising metrics per ASIN. Expand a row to see SKU-level breakdown. PoP = period-over-period; LY = vs. last year."
+              subtitle="Columns read left to right: what I sold → who bought it → how they got there → what I paid → what's left."
+              rowData={asinData}
+              columnDefs={asinCols}
+              pinnedBottomRowData={asinTotals}
+              childRowsMap={skuDataByAsin}
+              rowKeyField="asin"
+              childLabelField="sku"
+              copyablePinnedCell
+            />
+          </div>
+        )}
       </div>
     </div>
   );

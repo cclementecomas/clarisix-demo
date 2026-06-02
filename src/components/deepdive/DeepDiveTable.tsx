@@ -58,10 +58,22 @@ interface DeepDiveTableProps {
   copyablePinnedCell?: boolean;
 }
 
+// Higher-is-better cell style. Positive change = green, negative = red.
+// Use for revenue, units, conversion, share, margin, ROAS, etc.
 const percentCellStyle = (params: { value: unknown; row?: any }): Record<string, string> => {
   const v = params.value as number | null | undefined;
   if (v != null && v > 0) return { color: '#166534' };
   if (v != null && v < 0) return { color: '#991B1B' };
+  return {};
+};
+
+// Lower-is-better (cost) cell style. Inverted colors: positive change
+// (cost up) = red, negative change (cost down) = green.
+// Use for ACOS, TACOS, Ad Spend, Discounts, Ad CPC, Total CPA, Ad Reliance.
+const costPercentCellStyle = (params: { value: unknown; row?: any }): Record<string, string> => {
+  const v = params.value as number | null | undefined;
+  if (v != null && v > 0) return { color: '#991B1B' };
+  if (v != null && v < 0) return { color: '#166534' };
   return {};
 };
 
@@ -97,7 +109,7 @@ const pctShareFormatter = (params: { value: unknown; row?: any }) => {
   return `${(v as number).toFixed(2)}%`;
 };
 
-export { percentCellStyle, percentFormatter, ppFormatter, currencyFormatter, numberFormatter, pctShareFormatter };
+export { percentCellStyle, costPercentCellStyle, percentFormatter, ppFormatter, currencyFormatter, numberFormatter, pctShareFormatter };
 export type { Currency };
 
 type SortDir = 'asc' | 'desc' | null;
