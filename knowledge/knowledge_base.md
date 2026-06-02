@@ -921,3 +921,118 @@ Page structure (App.tsx OverviewPage)
 
 Data-source honesty (deferred to follow-up)
 - The SQP keyword detail drawer's "synthetic market" share-gap bars and "main gap vs synthetic market" line are flagged as not API-grounded — there's no Amazon-published per-query market-share benchmark. Real options: (a) drop the comparison, (b) relabel as "vs your portfolio average" (which is derivable), (c) gate behind a category-benchmarks feature once a real source is wired. Same goes for the paid/organic split estimated from ACoS. Not changed in this batch; tracked.
+
+
+Sales → Deepdive — diagnostic + troubleshooting tool (Jun 1 2026)
+
+Rationale (first pass)
+- Old page was three dense, identical tables (Marketplace · Category · ASIN). Sellers had to assemble the story themselves — "what's the biggest issue, where is it, what's driving it, what to do" required reading 30 columns × 3 tables and inferring.
+- Restructured into an issue-detection-and-troubleshooting tool: top-of-page issues panel, simplified troubleshooting table with derived issue type + drivers + next step, row drill-down drawer, dense tables collapsed as supporting evidence.
+
+Diagnostic engine (data/deepdiveDiagnostics.ts)
+- Per-row classifier returns `{ issueType, primary, secondary, impactEur, severity, row }`.
+- Issue taxonomy (first pass): Traffic drop, Conversion drop, Ad efficiency issue, Margin risk, Price/mix issue, Acquisition weakness, Retention weakness, Low-quality traffic, Inefficient spend, Sales drop, Healthy.
+- Deterministic rules ordered by precedence: sales-down branches into Traffic vs Conversion vs Price/mix vs Ad efficiency based on which signals fire; sales-up branches into Margin risk; etc.
+- Drivers: per-issue candidate list of `*PoP` fields; top 2 by absolute magnitude become primary + secondary, displayed as "Sessions -20.4%".
+- Severity = impact × anomaly strength multiplier; healthy rows force-sorted to the bottom.
+- `topIssues` = cross-entity top-5 by severity (drives the IssuesPanel).
+- View-tab filters: All / Issues only (default) / Sales drops / Traffic / Conversion / Ads / Margin.
+
+Components (sub-pass 1)
+- IssuesPanel — top 5 issue cards with rank, severity icon, kind tag, issue chip, name, drivers, impact, CTA.
+- TroubleshootingTable — view tabs + simplified columns (Entity · Sales · Sales Δ · Issue · Primary · Secondary · Impact · Next step). Severity-sorted; healthy last.
+- EntityDetailDrawer — slide-in side panel (max-w 520) with diagnosis sentence, metric bridge (top 6 movers), issue-specific recommended checks, bottom CTA.
+- DeepDive.tsx restructured: IssuesPanel → entity pills (Marketplace / Category / ASIN) → TroubleshootingTable → drawer → collapsed "Full metric table" wrapping the existing dense DeepDiveTable.
+- ColumnToggle grouped columns by `group` field with section headers (combined with the band rename from "Volume & revenue" → "What sold?", "Customer mix" → "Who bought?", "Demand funnel" → "Where is demand leaking?", "Ads activity" → "Is advertising efficient?", "Margin cascade" → "Is margin healthy?").
+
+
+Sales → Deepdive — gap-to-last-period impact (Jun 1 2026)
+
+Rationale
+- First-pass impact used a linear approximation: `sales × |salesPoP|/100`. Underestimates large drops — a -46% drop with €109k current implies €203k prior, not €159k (which the linear formula would yield).
+
+Fix (data/deepdiveDiagnostics.ts)
+- `computeImpactEur` now uses `gapToPrev(current, popPct)` where `previousValue = current / (1 + popPct/100)` and `gap = |previous - current|`. Robust to popPct ≈ 0 and the asymptote near -100% (clamps to |current|).
+- Sales / Traffic / Conversion / Price/mix / Low-quality drops → `gapToPrev(sales, salesPoP)`.
+- Margin risk → `sales × |channelMarginPoP|/100` (direct margin € lost; sales held by definition).
+- Ad efficiency / Inefficient spend → `gapToPrev(adSpend, adSpendPoP)` (extra spend ≈ profit loss).
+- Acquisition / Retention weakness → `gapToPrev(orders, ordersPoP) × avgPrice`.
+- France impact moves from ~€51k to ~€95k, ranking it more clearly as #1.
+
+
+Sales → Deepdive — colour polarity fix on dense table + drawer (Jun 1 2026)
+
+Bug
+- `percentCellStyle` (used by the dense DeepDiveTable subFields) coloured every positive delta green and negative red. Wrong for cost / lower-is-better metrics: TACOS, ACOS, Ad Spend, Discounts, Ad CPC, Total CPA, Ad Reliance going up is bad, not good. Belgium TACOS +120% was rendering green; Germany ACOS -10.8% rendering red.
+- Same bug in the drawer's metric bridge (sign-based BridgeBar coloring).
+- Bonus: the unit label said "pp" but the underlying data is stored as % change (verified: Netherlands tacosPoP=73.80 implies prior 2.48% → current 4.31% = +73.8% growth, mathematically can't be pp).
+
+Fix
+- DeepDiveTable.tsx: added `costPercentCellStyle` — inverted colours (positive change = red, negative = green). Exported alongside `percentCellStyle`.
+- DeepDive.tsx: added `pctSubCost` / `ppSubCost` helpers; applied to discounts, adSpend, adCpc, acos, tacos, totalCpa, adReliance. Ad Sales kept on higher-better (more attributed revenue is good in isolation; the inefficiency lives in ACOS/ROAS).
+- EntityDetailDrawer: every bridge field now carries `polarity: 'higher' | 'lower'`. BridgeBar colours by `good = polarity === 'higher' ? value > 0 : value < 0`. Unit standardized to '%' everywhere.
+- Driver labels in deepdiveDiagnostics: dropped the `unit` field; all driver strings now read "Sessions -20.4%" / "TACOS +73.8%".
+
+
+Sales → Deepdive — profit-led decision tool (Jun 1 2026)
+
+Rationale
+- First-pass diagnostic was too sales-revenue-focused. A small revenue issue with big margin impact may be more urgent than a bigger low-margin sales drop. The page should rank by profit at risk, expose confidence in the diagnosis, and steer users via decision modes ("Profit risks" / "Growth risks" / "Protect winners"), not just "issues only".
+- Also: NTB % / S&S % aren't unambiguously "higher better" (high NTB % can mean strong acquisition OR weak retention). Polarity for those was downgraded to neutral / context-dependent in the drawer.
+
+Diagnostic engine rewrite (data/deepdiveDiagnostics.ts)
+- New taxonomy (12 types + Healthy), profit-led:
+  - Profit risks: Profit dilution · Margin risk · Ad efficiency issue · Ad-led growth risk · Discount-led growth risk.
+  - Growth risks: Traffic-led / Conversion-led / Availability-led sales drop · Price/mix issue · Acquisition weakness · Retention weakness.
+  - Other: Protect winner · Healthy.
+- Replaced generic "Sales drop" with three drop-classified variants that name the lever (Traffic-led / Conversion-led / Availability-led). Sales-up paths now branch into Profit dilution (margin slipped), Ad-led growth risk (TACOS surge), or Discount-led growth risk (discounts surge) before falling through.
+- Each diagnostic carries both `revenueImpact` and `profitImpact`:
+  - revenue = `gapToPrev(sales, salesPoP)` (or NTB/S&S × avg price for those issues).
+  - profit = margin pp × sales for margin issues; revenue × current channelMargin% for sales-drop issues; gap on ad spend for efficiency issues; max(gainedSales × marginShift, TACOS proxy) for the growth-risks.
+- Confidence (`High` / `Medium` / `Low`) = count of supporting signals per issue. 3+ aligned = High, 2 = Medium, ≤1 = Low. Multipliers 1.0 / 0.7 / 0.4.
+- Severity (sort key) = `|profitImpact| × confidenceMultiplier`; falls back to `|revenueImpact| × 0.2 × conf` if profit is zero.
+- Severity LEVEL bucket from |profit|: Critical ≥ €20k, High ≥ €5k, Medium ≥ €1k, Watch > 0, None for Healthy. Drives the chip on cards and rows.
+- Decision mode per issue (`profit-risk` / `growth-risk` / `winner` / `healthy`) — drives the mode tabs.
+- Protect winner gate: salesShare ≥ 8% AND channelMargin ≥ 25% AND channelMarginPoP ≥ 0 AND not in decline.
+- `topIssues` excludes both Healthy and Protect winner so the panel surfaces problems only.
+- `RANK_OPTIONS` exported: Profit impact (default) · Revenue impact · Severity · Sales change.
+- `sortByRank()` pushes Healthy rows to the bottom regardless of direction.
+- Issue-specific CTAs replace the generic "Open detailed diagnostic" — "Review margin bridge", "Check ad dependency", "Review discount strategy", "Open inventory diagnostic", "Monitor and defend share", etc. Each maps to a `ctaRoute` for App-level navigation.
+
+IssuesPanel rewrite (components/deepdive/IssuesPanel.tsx)
+- Cards now lead with the severity-LEVEL chip (Critical / High / Medium / Watch) + entity-kind tag.
+- Issue chip + Confidence chip on the second row.
+- Drivers row ("Main: X · Then: Y").
+- Profit impact + Revenue impact shown side-by-side (profit in rose if positive, revenue in gray).
+- Specific CTA at the bottom of each card.
+- Empty state retained for the no-issues case.
+
+TroubleshootingTable rewrite (components/deepdive/TroubleshootingTable.tsx)
+- Decision-mode tabs replace the old view tabs: Profit risks (default) · Growth risks · Protect winners · All issues. Each shows live count.
+- Controls row beneath: Filter dropdown (All entities / Marketplaces / Categories / ASINs) + Rank by dropdown (Profit impact default).
+- Columns: Entity · Type · Issue · Severity · Confidence · Profit impact · Revenue impact · Primary driver · Secondary driver · Next step.
+- Each row's Entity cell carries the sales PoP chip + optional ASIN title. Type cell shows entity kind (Marketplace / Category / ASIN) so the all-entities view stays readable.
+- All-entities feed = marketplace + category + ASIN diagnostics combined, severity-ranked.
+
+EntityDetailDrawer rewrite (components/deepdive/EntityDetailDrawer.tsx)
+- Sticky header: severity chip + kind + issue chip + confidence chip; sales current + PoP; profit + revenue impact inline.
+- Diagnosis sentence now references confidence ("Confidence is high — multiple signals align" / "medium" / "low") and is tailored per issue type.
+- Metric bridge organised by LEVER, each group a sub-card: Traffic · Conversion · Price/mix · Advertising · Margin. Polarity-aware coloured bars per row.
+- Supporting metrics tile grid (Orders, Units, Avg price, Sessions, CVR, ROAS, ACOS, TACOS, Product margin, Channel margin) — current value + PoP with polarity-correct colour.
+- Recommended checks: issue-specific 3-4 item lists (different for each of the 12 issue types).
+- Bottom CTA: specific to issue type via `ctaRoute`.
+
+DeepDive.tsx restructure
+- Defaults: All entities · Profit risks mode · Rank by Profit impact.
+- Removed the old entity-pill selector (Marketplace / Category / ASIN). Entity scoping now lives inside the TroubleshootingTable's controls row.
+- Removed the old view-tabs state; replaced by decision-mode tabs.
+- Full metric tables now ALL THREE stacked inside the collapsible "Full metric tables" section — no longer entity-tied, since the troubleshooting table is the entity-aware surface.
+
+Demo data calibration check
+- France: classified Conversion-led sales drop (cvrPoP=-1.40 doesn't actually pass the -3% threshold; falls through). With salesDown + sessionsDown → Traffic-led sales drop. profitImpact ≈ €94.9k × 41% channel margin ≈ €38.9k → Critical severity, High confidence.
+- Germany: sessionsDown -20.4 + cvrDown -2.1 (under threshold), no avgPriceDown, no adSpendUp+roasDown — falls to Traffic-led sales drop. ~€18k profit impact → High severity.
+- UK: sessionsDown -10.2 + cvrUp +1.8 → Traffic-led sales drop, High confidence. Smaller impact.
+- Netherlands: sessionsDown + bboxDown -3.6 → Availability-led sales drop. Small absolute impact (Medium / Watch level).
+- Belgium: tacosPoP +120% but salesDown → Price/mix or Sales drop branch (no salesUp gate). Small numbers, low severity.
+- Categories ranking by Profit impact will surface Personal Care (largest absolute) and Home & Kitchen as top profit-risks if margin slipped.
+- Protect winners: any category/marketplace with salesShare ≥ 8% AND channelMargin ≥ 25% AND margin stable (Personal Care is a candidate at 28.4% share if its margin held).
