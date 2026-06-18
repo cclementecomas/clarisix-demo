@@ -193,7 +193,7 @@ export default function MetricMatrix({ periods }: { periods: string[] }) {
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
         <div className="flex items-center gap-2">
           <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Metrics over time</h3>
-          <InfoTooltip content="All Sales Deepdive metrics shown for each period. Each column is independently heatmap-shaded — green = above the period average, red = below. Polarity is reversed for cost metrics (Ad Spend, ACOS, TACOS, Ad Reliance) where lower is better. Click and drag cells to see stats; Ctrl/Cmd-click to add cells to the selection." />
+          <InfoTooltip content="All Sales Diagnostics metrics shown for each period. Each column is independently heatmap-shaded — green = above the period average, red = below. Polarity is reversed for cost metrics (Ad Spend, ACOS, TACOS, Ad Reliance) where lower is better. Click and drag cells to see stats; Ctrl/Cmd-click to add cells to the selection." />
         </div>
       </div>
 

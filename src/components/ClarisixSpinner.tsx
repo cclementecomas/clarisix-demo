@@ -47,7 +47,7 @@ function useSpinnerVerb(): string {
   const [verb, setVerb] = useState(() => SPINNER_VERBS[Math.floor(Math.random() * SPINNER_VERBS.length)]);
 
   useEffect(() => {
-    const userName = localStorage.getItem('cx_user_name') || 'Alex';
+    const userName = localStorage.getItem('cx_user_name') || 'Claudiu';
     const personVerb = nameToVerb(userName);
 
     const interval = setInterval(() => {

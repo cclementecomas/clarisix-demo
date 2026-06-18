@@ -1,6 +1,7 @@
-import { useState, useCallback } from 'react';
-import { ChevronDown, Calendar, Menu, Check, X, Building2, Search } from 'lucide-react';
-import { filterOptions } from '../data/dashboardData';
+import { useState, useCallback, useEffect } from 'react';
+import { ChevronDown, Calendar, Menu, Check, X, Building2, Search, CheckCircle2 } from 'lucide-react';
+import { filterOptions, accountFilterOptions } from '../data/dashboardData';
+import { onOpenFilter } from '../utils/filterBus';
 import DateFilterModal from './datefilter/DateFilterModal';
 import UserDropdown from './UserDropdown';
 import {
@@ -13,12 +14,33 @@ import { useOnboarding } from '../contexts/OnboardingContext';
 import { useDateFilter } from '../contexts/DateFilterContext';
 import { useAccountSpecifics } from '../contexts/AccountSpecificsContext';
 
+// Keyboard-hint footer shown at the bottom of filter dropdowns.
+function FilterHints() {
+  const hint = (k: string, label: string) => (
+    <span className="flex items-center gap-1">
+      <kbd className="inline-flex items-center justify-center min-w-[16px] h-4 px-1 text-[9px] font-semibold text-gray-500 bg-gray-50 border border-gray-200 rounded">{k}</kbd>
+      <span>{label}</span>
+    </span>
+  );
+  return (
+    <div className="flex items-center gap-2.5 px-3 py-1.5 border-t border-gray-100 text-[10px] text-gray-400 flex-wrap">
+      {hint('↑↓', 'navigate')}
+      {hint('␣', 'toggle')}
+      {hint('↵', 'apply')}
+      {hint('esc', 'close')}
+    </div>
+  );
+}
+
 function MultiSelectFilter({ label, options }: { label: string; options: string[] }) {
   const allOption = options[0];
   const selectableOptions = options.slice(1);
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
+
+  // Open this dropdown when its matching "f then <key>" shortcut fires.
+  useEffect(() => onOpenFilter((l) => { if (l === label) setOpen(true); }), [label]);
 
   const isAll = selected.size === 0;
 
@@ -86,6 +108,7 @@ function MultiSelectFilter({ label, options }: { label: string; options: string[
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Escape' || e.key === 'Enter') closeDropdown(); }}
                   placeholder={`Search ${label.toLowerCase()}...`}
                   className="w-full pl-7 pr-2 py-1.5 text-sm bg-gray-50 border border-gray-200 rounded-md focus:outline-none focus:border-cx-300 focus:ring-1 focus:ring-cx-200 placeholder-gray-400"
                 />
@@ -135,6 +158,7 @@ function MultiSelectFilter({ label, options }: { label: string; options: string[
                 })
               )}
             </div>
+            <FilterHints />
           </div>
         </>
       )}
@@ -220,6 +244,143 @@ function AccountSwitcher() {
   );
 }
 
+// Account filter — richer than the generic MultiSelectFilter: searches by name
+// or account ID and shows each account's org subtitle + "Ads connected" badge.
+function AccountFilter() {
+  const accounts = accountFilterOptions;
+  const [open, setOpen] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(() => new Set(accounts.map((a) => a.id)));
+  const [search, setSearch] = useState('');
+
+  useEffect(() => onOpenFilter((l) => { if (l === 'Account') setOpen(true); }), []);
+
+  const isAll = selected.size === accounts.length;
+
+  const toggle = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const selectAll = () => setSelected(isAll ? new Set() : new Set(accounts.map((a) => a.id)));
+  const closeDropdown = () => { setOpen(false); setSearch(''); };
+
+  const q = search.toLowerCase();
+  const filtered = q
+    ? accounts.filter((a) => a.name.toLowerCase().includes(q) || a.id.toLowerCase().includes(q) || a.org.toLowerCase().includes(q))
+    : accounts;
+
+  const displayLabel = isAll
+    ? 'All'
+    : selected.size === 0
+      ? 'None'
+      : selected.size === 1
+        ? accounts.find((a) => a.id === [...selected][0])?.name ?? '1 selected'
+        : `${selected.size} selected`;
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen(!open)}
+        className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-white border rounded-lg hover:border-cx-300 hover:text-cx-700 transition-all duration-200 ${
+          !isAll ? 'border-cx-300 text-cx-700' : 'border-gray-200 text-gray-600'
+        }`}
+      >
+        <span className="text-gray-400 text-xs uppercase tracking-wide">Account</span>
+        <span className="text-gray-800 ml-1 max-w-[160px] truncate">{displayLabel}</span>
+        {!isAll && (
+          <button
+            onClick={(e) => { e.stopPropagation(); selectAll(); }}
+            className="ml-0.5 p-0.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            <X className="w-3 h-3" />
+          </button>
+        )}
+        <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={closeDropdown} />
+          <div className="absolute top-full left-0 mt-1 z-20 bg-white border border-gray-200 rounded-lg shadow-lg w-[340px] max-h-[360px] flex flex-col">
+            <div className="sticky top-0 bg-white px-2.5 py-2 border-b border-gray-100">
+              <div className="relative">
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                <input
+                  autoFocus
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Escape' || e.key === 'Enter') closeDropdown(); }}
+                  placeholder="Search by name or account ID..."
+                  className="w-full pl-7 pr-2 py-1.5 text-sm bg-gray-50 border border-gray-200 rounded-md focus:outline-none focus:border-cx-300 focus:ring-1 focus:ring-cx-200 placeholder-gray-400"
+                />
+              </div>
+            </div>
+
+            <div className="overflow-y-auto py-1">
+              {!search && (
+                <>
+                  <button
+                    onClick={selectAll}
+                    className={`flex items-center gap-2.5 w-full text-left px-3 py-2 text-sm hover:bg-cx-50 transition-colors ${
+                      isAll ? 'bg-cx-50' : ''
+                    }`}
+                  >
+                    <span className={`w-4 h-4 flex items-center justify-center rounded border transition-colors ${
+                      isAll ? 'bg-cx-500 border-cx-500' : 'border-gray-300'
+                    }`}>
+                      {isAll && <Check className="w-3 h-3 text-white" />}
+                    </span>
+                    <span className={`font-semibold ${isAll ? 'text-cx-700' : 'text-gray-800'}`}>All Accounts</span>
+                  </button>
+                  <div className="border-t border-gray-100 my-1" />
+                </>
+              )}
+
+              {filtered.length === 0 ? (
+                <p className="px-3 py-2 text-sm text-gray-400">No results</p>
+              ) : (
+                filtered.map((a) => {
+                  const isChecked = selected.has(a.id);
+                  return (
+                    <button
+                      key={a.id}
+                      onClick={() => toggle(a.id)}
+                      className="flex items-center gap-2.5 w-full text-left px-3 py-2 hover:bg-cx-50 transition-colors"
+                    >
+                      <span className={`w-4 h-4 flex-shrink-0 flex items-center justify-center rounded border transition-colors ${
+                        isChecked ? 'bg-cx-500 border-cx-500' : 'border-gray-300'
+                      }`}>
+                        {isChecked && <Check className="w-3 h-3 text-white" />}
+                      </span>
+                      <span className="flex flex-col min-w-0">
+                        <span className={`text-sm leading-tight truncate ${isChecked ? 'text-cx-700 font-semibold' : 'text-gray-800 font-medium'}`}>{a.name}</span>
+                        <span className="text-[11px] text-gray-400 leading-tight truncate">{a.org}</span>
+                      </span>
+                      {a.adsConnected ? (
+                        <span className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-50 border border-green-200 text-[10px] font-semibold text-green-700 flex-shrink-0">
+                          <CheckCircle2 className="w-3 h-3" />
+                          Ads connected
+                        </span>
+                      ) : (
+                        <span className="ml-auto px-2 py-0.5 rounded-full bg-gray-50 border border-gray-200 text-[10px] font-medium text-gray-400 flex-shrink-0">
+                          Ads not connected
+                        </span>
+                      )}
+                    </button>
+                  );
+                })
+              )}
+            </div>
+            <FilterHints />
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 interface NavigationProps {
   activeSection: string;
   activeSub: string;
@@ -237,6 +398,9 @@ export default function Navigation({ activeSection, activeSub, sidebarCollapsed,
   const { dateResult, setDateResult } = useDateFilter();
   const { campaignNamingEnabled } = useAccountSpecifics();
   const closeDateFilter = useCallback(() => setDateFilterOpen(false), []);
+
+  // "f then d" opens the date picker.
+  useEffect(() => onOpenFilter((l) => { if (l === 'Date') setDateFilterOpen(true); }), []);
 
   function handleDateApply(result: DateFilterResult) {
     setDateResult(result);
@@ -322,6 +486,7 @@ export default function Navigation({ activeSection, activeSub, sidebarCollapsed,
         const isAds = activeSection === 'Advertising';
         return (
           <div className={`flex items-center px-3 md:px-6 py-1.5 bg-gray-50/50 gap-2 flex-wrap ${isEmbed ? 'hidden md:flex' : ''}`}>
+            <AccountFilter />
             <MultiSelectFilter label="Marketplace" options={filterOptions.marketplace} />
             {(!isAds || campaignNamingEnabled) && <MultiSelectFilter label="Brand" options={filterOptions.brand} />}
             {(!isAds || campaignNamingEnabled) && <MultiSelectFilter label="Category" options={filterOptions.category} />}

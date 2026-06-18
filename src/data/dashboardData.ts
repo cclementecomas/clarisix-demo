@@ -390,20 +390,54 @@ export const filterOptions = {
 
 };
 
+// Account filter options (anonymized demo data) — searchable by name or account ID.
+export interface AccountOption {
+  id: string;
+  name: string;
+  org: string;
+  adsConnected: boolean;
+}
+
+export const accountFilterOptions: AccountOption[] = [
+  { id: 'ACC-4827-EU', name: 'Acme Retail (EU)', org: 'Acme Group | DemoCo', adsConnected: true },
+  { id: 'ACC-5193-UK', name: 'Northwind UK (EU)', org: 'Northwind Trading', adsConnected: true },
+  { id: 'ACC-6210-DE', name: 'Globex DE (EU)', org: 'Globex Commerce', adsConnected: false },
+  { id: 'ACC-7044-US', name: 'Initech US (NA)', org: 'Initech LLC', adsConnected: true },
+  { id: 'ACC-8351-FR', name: 'Umbrella FR (EU)', org: 'Umbrella Brands', adsConnected: false },
+];
+
 export const menuItems = [
   {
     label: 'Sales',
     icon: 'BarChart3',
-    subItems: ['Overview', 'Deepdive', 'Traffic', 'SQP', 'Targets', 'Trends'],
+    subItems: ['Overview', 'Diagnostics', 'Traffic', 'SQP', 'Targets', 'Trends'],
     defaultSub: 'Overview',
     comingSoonSubs: ['Targets'],
   },
   {
     label: 'Advertising',
     icon: 'Megaphone',
-    subItems: ['Overview', 'Deepdive', 'Budgets', 'DSP', 'AMC', 'Promotions'],
+    subItems: [
+      'Overview',
+      'Diagnostics',
+      'Budget & Pacing',
+      'Keywords & Search Terms',
+      'Attribution & Halo',
+      'Dayparting / Intraday',
+      'DSP',
+      'AMC',
+      'Promotions',
+      'Experiments & Change Log',
+    ],
     defaultSub: 'Overview',
-    comingSoonSubs: ['DSP', 'AMC', 'Promotions'],
+    // Only the four newly introduced pages ship as Coming Soon in Batch 1.
+    // DSP, AMC and Promotions already have real pages.
+    comingSoonSubs: [
+      'Keywords & Search Terms',
+      'Attribution & Halo',
+      'Dayparting / Intraday',
+      'Experiments & Change Log',
+    ],
   },
   {
     label: 'Inventory',

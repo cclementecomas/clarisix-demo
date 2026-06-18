@@ -147,8 +147,10 @@ const giftWrapRevenue = scl(unitsSold, 0.4);
 const shippingRefunds = scl(shippingRevenue, 0.065);
 const netRevenue = sub(add(netProductRevenue, shippingRevenue, giftWrapRevenue), shippingRefunds);
 
+// Net selling price on the SAME basis as gross (product revenue, per unit sold) so
+// net is always below the gross list price — never the reverse.
 const netASP: PV = {};
-for (const k of KS) netASP[k] = (netUnits[k] ?? 0) !== 0 ? rd((netRevenue[k] ?? 0) / (netUnits[k] ?? 0)) : 0;
+for (const k of KS) netASP[k] = (unitsSold[k] ?? 0) !== 0 ? rd((netProductRevenue[k] ?? 0) / (unitsSold[k] ?? 0)) : 0;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // COGS
@@ -435,6 +437,74 @@ export {
   grossMarginPct, channelMarginPct, growthMarginPct, netOperatingMarginPct,
 };
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// VAT / TAX MEMO — pass-through, NOT part of the P&L (Spec §18.2 Option A)
+// ═══════════════════════════════════════════════════════════════════════════════
+// Buyer-collected (output) VAT never hits a revenue or expense account — it is a
+// pass-through liability (account 2010) remitted by Amazon as marketplace
+// facilitator across the EU/UK. Revenue above is stored net of VAT. This memo
+// surfaces the VAT flows for visibility WITHOUT affecting Net Operating Profit:
+//   • Output VAT collected at checkout, then remitted by Amazon → net payable ≈ 0
+//   • Input VAT on Amazon fees & advertising is recoverable for VAT-registered
+//     sellers → the seller is left in a net reclaim position.
+// Standard-rate proxy; real engine would key VAT off marketplace + product rate.
+
+const VAT_RATE = 0.20;
+export const VAT_RATE_PCT = VAT_RATE * 100;
+
+const vatOutputOnSales = scl(netRevenue, VAT_RATE);
+const vatRemittedByAmazon = neg(vatOutputOnSales);
+const vatNetOutputPayable = add(vatOutputOnSales, vatRemittedByAmazon); // ≈ 0
+const vatInputRecoverable = scl(add(totalAmazonFees, totalAdvertising), VAT_RATE);
+const vatNetPosition = sub(vatNetOutputPayable, vatInputRecoverable); // negative = reclaim
+
+export interface VatMemoRow {
+  label: string;
+  pv: PV;
+  style?: 'subtotal' | 'total';
+  indent?: number;
+  tooltip?: string;
+}
+
+export const vatMemoData: VatMemoRow[] = [
+  {
+    label: 'VAT charged to buyers',
+    pv: vatOutputOnSales,
+    tooltip:
+      `The VAT your buyers pay on top of the item price at checkout.\nThis is never your money — you only collect it for the tax authority, so it stays out of your sales and profit.\nEstimated at ${VAT_RATE_PCT}% of your net sales.`,
+  },
+  {
+    label: '(−) Paid to the tax authority by Amazon',
+    pv: vatRemittedByAmazon,
+    indent: 1,
+    tooltip:
+      'For sales in the EU and UK, Amazon collects this VAT at checkout and pays it to the tax authority for you. So you don’t have to pay it again.',
+  },
+  {
+    label: '= VAT still owed by you on sales',
+    pv: vatNetOutputPayable,
+    style: 'subtotal',
+    tooltip:
+      'What’s left for you to pay on sales VAT after Amazon has handled it. Normally zero, because Amazon pays it for you.',
+  },
+  {
+    label: '(−) VAT you can reclaim on Amazon fees & ads',
+    pv: neg(vatInputRecoverable),
+    indent: 1,
+    tooltip:
+      `The VAT Amazon charges you on its fees and advertising. If you’re VAT-registered, you can usually claim this back from the tax authority.\nEstimated at ${VAT_RATE_PCT}% of your Amazon fees and ad spend.`,
+  },
+  {
+    label: '= Net VAT: owed / (refund due)',
+    pv: vatNetPosition,
+    style: 'total',
+    tooltip:
+      'The bottom line: VAT you owe, minus VAT you can claim back.\nA green number in brackets means the tax authority owes you a refund.\nThis is a tax/cash item — it does not change your profit above.',
+  },
+];
+
+export { vatOutputOnSales, vatInputRecoverable, vatNetPosition };
+
 // ─── P&L Tooltips — traceability for every line ───────────────────────────────
 export const PL_TOOLTIPS: Record<string, string> = {
   // Unit metrics
@@ -449,11 +519,11 @@ export const PL_TOOLTIPS: Record<string, string> = {
   'Gross avg selling price':
     'Average revenue per unit before deductions.\nFormula: Gross Ordered Revenue ÷ Units sold.',
   'Net avg selling price':
-    'Average revenue per unit after all contra-revenue deductions.\nFormula: Net Revenue ÷ Net units.',
+    'Average product price you actually keep per unit sold, after cancellations, refunds, A-to-Z claims and chargebacks. Always below the gross price.\nFormula: Net Product Revenue ÷ Units sold. Excludes VAT, shipping and gift-wrap.',
 
   // Revenue
   'Gross Ordered Revenue':
-    'Account 4010. Total product revenue from orders placed, before cancellations or refunds.\nCalc: Principal component from SALE_SHIPMENT events (ordered basis).\nSource: Finances API (ShipmentEventList, RELEASED status); Settlement Report V2.',
+    'Total product sales from orders placed, before cancellations or refunds.\nShown without VAT: the VAT buyers pay on top of the price is not your income, so it is excluded from every revenue line here and tracked separately in the VAT / Tax Memo below.\nSource: Amazon Finances API; Settlement Report.',
   '(-) Cancelled Orders':
     'Revenue reversed for buyer-cancelled orders before shipment.\nCalc: Units cancelled × sale price. Reduces Gross Ordered Revenue to the shipped amount.',
   '= Gross Shipped Revenue':

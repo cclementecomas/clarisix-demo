@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import { ChevronRight, TrendingUp, Download, Sheet, Calendar, X, CheckCircle2, AlertTriangle, ChevronDown, ArrowRight } from 'lucide-react';
+import { ChevronRight, TrendingUp, Download, Sheet, Calendar, X, AlertTriangle, ChevronDown, ArrowRight } from 'lucide-react';
 import {
   profitabilityData, ProfitabilityMetric, PL_TOOLTIPS,
   grossOrderedRevenue as gorPV, netRevenue as nrPV, netCogs as cogsPV,
@@ -7,11 +7,13 @@ import {
   allocatedOverheads as ohPV, netOperatingProfit as nopPV,
   grossMarginPct as gmPctPV, channelMarginPct as cmPctPV,
   growthMarginPct as grPctPV, netOperatingMarginPct as noPctPV,
+  vatMemoData, VAT_RATE_PCT,
 } from '../data/profitabilityData';
 import InfoTooltip from './InfoTooltip';
 import LastRefreshed from './LastRefreshed';
+import SettlementPostingBridge from './SettlementPostingBridge';
 import { useCurrency, CURRENCY_SYMBOLS } from '../contexts/CurrencyContext';
-import { convert, fc } from '../utils/currency';
+import { convert } from '../utils/currency';
 import * as XLSX from 'xlsx';
 import { exportToGoogleSheets } from '../utils/exportSheets';
 import { buildSkuCostProfiles, computeCoverage, demoCostRecords, demoInboundEvents } from '../data/cogsData';
@@ -53,21 +55,6 @@ const SETTLEMENT_PERIODS = [
   { key: 'stl_2026_03a', label: 'Mar 1–14', closeDate: '2026-03-14' },
   { key: 'stl_2026_03b', label: 'Mar 15–31', closeDate: '2026-03-31' },
 ];
-
-// Mock reconciliation data for Cash view
-const MOCK_RECONCILIATION = {
-  settlementNet: 18420.5,
-  plNetOperating: 18416.2,
-  variance: 4.3,
-};
-
-// Mock reserve data for Cash view
-const MOCK_RESERVES = {
-  openingBalance: 3250.0,
-  withheld: 1840.5,
-  released: 1620.0,
-  closingBalance: 3470.5,
-};
 
 interface PeriodColumn {
   key: string;
@@ -123,8 +110,8 @@ export default function Profitability({ onNavigate }: { onNavigate?: (section: s
   const hasHighlights = highlightedColumns.size > 0;
   const [showComparison, setShowComparison] = useState(false);
   const [comparisonPolicy, setComparisonPolicy] = useState<AccountingPolicy>('cash');
-  const [showReserves, setShowReserves] = useState(false);
   const [showBreakdownBar, setShowBreakdownBar] = useState(false);
+  const [showVat, setShowVat] = useState(false);
 
   // When switching policy, reset settlement granularity if leaving cash
   const handlePolicyChange = (p: AccountingPolicy) => {
@@ -397,6 +384,9 @@ export default function Profitability({ onNavigate }: { onNavigate?: (section: s
                 · {POLICY_SUBTITLES[policy]}
               </span>
             </div>
+            <div className="text-[10px] text-gray-400 mt-0.5">
+              All revenue figures exclude VAT — buyer VAT is collected and remitted by Amazon, not income. See the VAT / Tax Memo below.
+            </div>
           </div>
           <div className="flex items-center gap-1.5">
             <button
@@ -474,6 +464,8 @@ export default function Profitability({ onNavigate }: { onNavigate?: (section: s
             })}
           </div>
 
+          {/* P&L view controls — hidden in the Payout view, which is a settlement reconciliation, not a time-series P&L */}
+          {policy !== 'cash' && <>
           <div className="w-px h-5 bg-gray-300" />
 
           {/* Granularity segmented control */}
@@ -566,11 +558,12 @@ export default function Profitability({ onNavigate }: { onNavigate?: (section: s
               Clear ({highlightedColumns.size})
             </button>
           )}
+          </>}
 
           <div className="ml-auto flex items-center gap-1 text-xs text-gray-400">
             <Calendar className="w-3.5 h-3.5" />
             <span>
-              {granularity === 'settlement' ? `Settlement · ${selectedYear}`
+              {policy === 'cash' ? 'Settlement reconciliation · 2026'
                 : granularity === 'monthly' ? `Monthly · ${selectedYear}`
                 : granularity === 'quarterly' ? `Quarterly · ${selectedYear}`
                 : 'Yearly · FY2023–FY2026'}
@@ -580,7 +573,7 @@ export default function Profitability({ onNavigate }: { onNavigate?: (section: s
       </div>
 
       {/* ── Cost Breakdown Strip (cascade chips always visible, breakdown bar collapsible) ── */}
-      {breakdownSegments.length > 0 && (
+      {policy !== 'cash' && breakdownSegments.length > 0 && (
         <div className="px-5 py-1.5 border-b border-gray-100 bg-white">
           <div className="flex items-center justify-between gap-3">
             {/* Cascade margin chips — always visible */}
@@ -684,6 +677,9 @@ export default function Profitability({ onNavigate }: { onNavigate?: (section: s
         </div>
       )}
 
+      {policy === 'cash' ? (
+        <SettlementPostingBridge />
+      ) : (
       <div className="overflow-x-auto">
         <table className="w-full border-collapse">
           <thead className="bg-slate-700 text-white border-b-2 border-slate-800">
@@ -803,8 +799,7 @@ export default function Profitability({ onNavigate }: { onNavigate?: (section: s
                     }
                     // Simulate timing difference: cash lags accrual by ~2-5%
                     const offset = policy === 'accrual' && comparisonPolicy === 'cash'
-                      ? 0.97 : policy === 'cash' && comparisonPolicy === 'accrual'
-                      ? 1.03 : policy === 'management' ? 1.01 : 0.99;
+                      ? 0.97 : policy === 'management' ? 1.01 : 0.99;
                     const cmpValue = metric.type === 'percentage' || metric.type === 'growth'
                       ? baseValue + (Math.random() * 2 - 1) * 0.3
                       : Math.round(baseValue * offset * 10) / 10;
@@ -843,81 +838,85 @@ export default function Profitability({ onNavigate }: { onNavigate?: (section: s
           </tbody>
         </table>
       </div>
+      )}
 
-      {/* ── Cash Reconciliation Section (Cash policy only) ──────────── */}
-      {policy === 'cash' && (
-        <div className="px-5 py-2.5 border-t border-gray-200 bg-gradient-to-r from-blue-50/50 to-white">
-          <h3 className="text-[10px] font-bold text-gray-700 uppercase tracking-wider mb-1.5">Settlement Reconciliation</h3>
-          <div className="grid grid-cols-3 gap-2">
-            {/* Settlement Net */}
-            <div className="bg-white rounded-md border border-gray-200 px-3 py-1.5">
-              <div className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider">Settlement Net Amount</div>
-              <div className="text-sm font-bold text-gray-900 tabular-nums">
-                {fc(convert(MOCK_RECONCILIATION.settlementNet, currency), currency, { compact: false })}
-              </div>
-              <div className="text-[9px] text-gray-400">Source: Settlement Report V2</div>
-            </div>
-            {/* P&L Net Operating */}
-            <div className="bg-white rounded-md border border-gray-200 px-3 py-1.5">
-              <div className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider">P&L Net Operating Profit</div>
-              <div className="text-sm font-bold text-gray-900 tabular-nums">
-                {fc(convert(MOCK_RECONCILIATION.plNetOperating, currency), currency, { compact: false })}
-              </div>
-              <div className="text-[9px] text-gray-400">Source: Journal entries</div>
-            </div>
-            {/* Variance */}
-            <div className={`rounded-md border px-3 py-1.5 ${
-              Math.abs(MOCK_RECONCILIATION.variance) < 10
-                ? 'bg-green-50 border-green-200'
-                : 'bg-red-50 border-red-200'
-            }`}>
-              <div className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider">Variance</div>
-              <div className="flex items-center gap-1.5">
-                <div className={`text-sm font-bold tabular-nums ${
-                  Math.abs(MOCK_RECONCILIATION.variance) < 10 ? 'text-green-700' : 'text-red-700'
-                }`}>
-                  {fc(convert(MOCK_RECONCILIATION.variance, currency), currency, { compact: false })}
-                </div>
-                {Math.abs(MOCK_RECONCILIATION.variance) < 10 ? (
-                  <CheckCircle2 className="w-3.5 h-3.5 text-green-600" />
-                ) : (
-                  <AlertTriangle className="w-3.5 h-3.5 text-red-600" />
-                )}
-              </div>
-              <div className="text-[9px] text-gray-400">
-                {Math.abs(MOCK_RECONCILIATION.variance) < 10 ? 'Reconciled within tolerance' : 'Requires investigation'}
-              </div>
-            </div>
-          </div>
+      {/* ── VAT / Tax Memo (pass-through — excluded from Net Operating Profit) — accrual P&L only; the Payout view posts VAT in its journal instead ── */}
+      {policy !== 'cash' && (
+      <div className="px-5 py-2.5 border-t border-gray-200 bg-gradient-to-r from-violet-50/40 to-white">
+        <button
+          onClick={() => setShowVat(!showVat)}
+          className="flex items-center gap-2 w-full text-left"
+        >
+          <ChevronDown className={`w-3.5 h-3.5 text-gray-500 transition-transform flex-shrink-0 ${showVat ? 'rotate-180' : ''}`} />
+          <h3 className="text-[11px] font-bold text-gray-700 uppercase tracking-wider">VAT / Tax Memo</h3>
+          <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded-full bg-violet-100 text-violet-700 border border-violet-200">
+            Doesn’t affect your profit
+          </span>
+          <span className="text-[10px] text-gray-400 font-normal normal-case">Estimated at {VAT_RATE_PCT}%</span>
+        </button>
 
-          {/* Amazon Reserves — expandable */}
+        {showVat && (
           <div className="mt-2">
-            <button
-              onClick={() => setShowReserves(!showReserves)}
-              className="flex items-center gap-1 text-[11px] font-semibold text-gray-600 hover:text-gray-900 transition-colors"
-            >
-              <ChevronDown className={`w-3 h-3 transition-transform ${showReserves ? 'rotate-180' : ''}`} />
-              Amazon Reserves
-            </button>
-            {showReserves && (
-              <div className="mt-1.5 grid grid-cols-4 gap-2">
-                {[
-                  { label: 'Opening Balance', value: MOCK_RESERVES.openingBalance, color: 'text-gray-700' },
-                  { label: 'Withheld This Period', value: MOCK_RESERVES.withheld, color: 'text-red-700' },
-                  { label: 'Released This Period', value: MOCK_RESERVES.released, color: 'text-green-700' },
-                  { label: 'Closing Balance', value: MOCK_RESERVES.closingBalance, color: 'text-gray-900' },
-                ].map((item) => (
-                  <div key={item.label} className="bg-white rounded-md border border-gray-200 px-2.5 py-1.5">
-                    <div className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider">{item.label}</div>
-                    <div className={`text-xs font-bold tabular-nums ${item.color}`}>
-                      {fc(convert(item.value, currency), currency, { compact: false })}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="border-b border-gray-200">
+                    <th className="sticky left-0 z-10 bg-white px-3 py-1 text-left text-[10px] font-bold uppercase tracking-wider text-gray-500 min-w-[260px]">
+                      VAT Line
+                    </th>
+                    {columns.map((col) => (
+                      <th key={col.key} className="px-3 py-1 text-right text-[10px] font-bold uppercase tracking-wider text-gray-500 whitespace-nowrap">
+                        <div>{col.label}</div>
+                        {col.sublabel && <div className="text-[9px] font-normal text-gray-400">{col.sublabel}</div>}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {vatMemoData.map((row) => {
+                    const rowClass = row.style === 'total'
+                      ? 'bg-violet-50 border-t-2 border-violet-200'
+                      : row.style === 'subtotal'
+                        ? 'bg-gray-50 border-t border-gray-200'
+                        : 'bg-white';
+                    const labelClass = row.style ? 'font-semibold text-gray-900' : 'font-normal text-gray-700';
+                    return (
+                      <tr key={row.label} className={rowClass}>
+                        <td className={`sticky left-0 z-10 px-3 py-0.5 text-xs ${labelClass} ${rowClass}`}>
+                          <div className="flex items-center gap-1" style={{ paddingLeft: `${(row.indent || 0) * 14}px` }}>
+                            <span>{row.label}</span>
+                            {row.tooltip && <InfoTooltip content={row.tooltip} wide />}
+                          </div>
+                        </td>
+                        {columns.map((col) => {
+                          const v = row.pv[col.key];
+                          if (typeof v !== 'number') return <td key={col.key} className="px-3 py-0.5" />;
+                          // In a VAT memo a negative is favourable (remittance clearing / reclaim), so colour it green not red.
+                          const isReclaim = convert(v, currency) < 0;
+                          return (
+                            <td
+                              key={col.key}
+                              className={`px-3 py-0.5 text-xs tabular-nums text-right whitespace-nowrap ${row.style ? 'font-semibold' : 'font-normal'} ${isReclaim ? 'text-emerald-700' : 'text-gray-800'}`}
+                            >
+                              {formatValue(v, 'currency')}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-1.5 text-[10px] text-gray-500 leading-relaxed max-w-4xl">
+              The VAT your buyers pay is collected and sent to the tax authority by Amazon (EU &amp; UK) — it’s not your money, so it never counts as sales or profit.
+              The VAT Amazon charges on its fees and ads is usually something you can claim back if you’re VAT-registered, which normally leaves the tax authority owing{' '}
+              <span className="font-semibold text-emerald-700">you a refund</span> (shown in green). <span className="font-medium text-gray-600">Your profit above doesn’t change.</span>{' '}
+              These are estimates at the {VAT_RATE_PCT}% standard rate — your real figures depend on whether you’re VAT-registered and where you sell.
+            </p>
           </div>
-        </div>
+        )}
+      </div>
       )}
 
       <div className="px-4 py-1.5 bg-slate-50 border-t border-slate-200">

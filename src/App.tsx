@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Sidebar from './components/Sidebar';
 import Navigation from './components/Navigation';
 import KPICards from './components/KPICards';
@@ -31,11 +31,13 @@ import PeriodSnapshot from './components/PeriodSnapshot';
 import OnboardingGateway from './components/OnboardingGateway';
 import OnboardingWizard from './components/onboarding/OnboardingWizard';
 import CommandPalette from './components/CommandPalette';
+import KeyboardShortcutsModal from './components/KeyboardShortcutsModal';
 import Greeting from './components/Greeting';
 import Traffic from './components/Traffic';
 import { useOnboarding } from './contexts/OnboardingContext';
 import { OnboardingWizardProvider } from './contexts/OnboardingWizardContext';
 import { menuItems } from './data/dashboardData';
+import { useKeyboardShortcuts, type NavTarget } from './hooks/useKeyboardShortcuts';
 
 function HomePage({
   onCardClick, onNavigateToSettings, isEmbed,
@@ -111,6 +113,7 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState('home');
   const [settingsTab, setSettingsTab] = useState<SettingsTabId | undefined>(undefined);
   const [sectionLoading, setSectionLoading] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
   const prevKey = useRef('');
 
   const contentKey = `${currentPage}-${activeSection}-${activeSub}`;
@@ -129,6 +132,26 @@ export default function App() {
     const menu = menuItems.find((m) => m.label === section);
     setActiveSub(menu?.defaultSub ?? menu?.subItems[0] ?? '');
   };
+
+  // Keyboard-shortcut navigation ("g then <key>"): jump to Home or a section.
+  const handleShortcutNav = useCallback((target: NavTarget) => {
+    if (isEmbed) return;
+    if (target === 'home') { setCurrentPage('home'); return; }
+    setCurrentPage('dashboard');
+    setActiveSection(target);
+    const menu = menuItems.find((m) => m.label === target);
+    setActiveSub(menu?.defaultSub ?? menu?.subItems[0] ?? '');
+  }, [isEmbed]);
+
+  const handleHelp = useCallback(() => setShowShortcuts(true), []);
+  const handleToggleSidebar = useCallback(() => setCollapsed((c) => !c), []);
+
+  useKeyboardShortcuts({
+    onHelp: handleHelp,
+    onToggleSidebar: handleToggleSidebar,
+    onNavigate: handleShortcutNav,
+    enabled: !isEmbed && !isOnboarding && !isWizard,
+  });
 
   const handleKPIClick = (section: string, sub: string) => {
     if (isEmbed) return;
@@ -195,7 +218,7 @@ export default function App() {
     if (activeSection === 'Sales' && activeSub === 'Overview') {
       return <OverviewPage onNavigate={(section, sub) => { setActiveSection(section); setActiveSub(sub); }} />;
     }
-    if (activeSection === 'Sales' && activeSub === 'Deepdive') {
+    if (activeSection === 'Sales' && activeSub === 'Diagnostics') {
       return <DeepDive />;
     }
     if (activeSection === 'Sales' && activeSub === 'Traffic') {
@@ -210,11 +233,44 @@ export default function App() {
     if (activeSection === 'Advertising' && activeSub === 'Overview') {
       return <AdvertisingOverview />;
     }
-    if (activeSection === 'Advertising' && activeSub === 'Deepdive') {
+    if (activeSection === 'Advertising' && activeSub === 'Diagnostics') {
       return <AdvertisingDeepDive />;
     }
-    if (activeSection === 'Advertising' && activeSub === 'Budgets') {
+    if (activeSection === 'Advertising' && activeSub === 'Budget & Pacing') {
       return <Budgets />;
+    }
+    // Batch 1 stubs — real pages land in subsequent batches.
+    if (activeSection === 'Advertising' && activeSub === 'Keywords & Search Terms') {
+      return (
+        <ComingSoon
+          title="Keywords & Search Terms"
+          description="A dedicated workspace to scale, reduce, exact-match or negate managed keywords and customer search terms — with waste-spend detection and scale candidates."
+        />
+      );
+    }
+    if (activeSection === 'Advertising' && activeSub === 'Attribution & Halo') {
+      return (
+        <ComingSoon
+          title="Attribution & Halo"
+          description="Advertised-ASIN to purchased-ASIN matrix, halo ratios, and an honest read on whether campaigns are profitable once cross-catalog sales are counted."
+        />
+      );
+    }
+    if (activeSection === 'Advertising' && activeSub === 'Dayparting / Intraday') {
+      return (
+        <ComingSoon
+          title="Dayparting / Intraday"
+          description="Hour-of-day and day-of-week efficiency, budget depletion timing, and bid recommendations for the hours and days that actually convert."
+        />
+      );
+    }
+    if (activeSection === 'Advertising' && activeSub === 'Experiments & Change Log') {
+      return (
+        <ComingSoon
+          title="Experiments & Change Log"
+          description="Track bid, budget, placement-multiplier, creative and PDP changes, with a before/after read on whether each change actually improved performance."
+        />
+      );
     }
     if (activeSection === 'Inventory' && activeSub === 'Planner') {
       return <InventoryOverview />;
@@ -313,6 +369,8 @@ export default function App() {
           }}
         />
       )}
+
+      <KeyboardShortcutsModal open={showShortcuts} onClose={() => setShowShortcuts(false)} />
     </div>
   );
 }

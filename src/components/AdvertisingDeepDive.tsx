@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  LayoutGrid, List, Download, ChevronDown, Search, MousePointer2, Lock,
+  LayoutGrid, List, Download, ChevronDown, ChevronUp, Search, MousePointer2, Lock,
 } from 'lucide-react';
 
 import DeepDiveTable, {
@@ -24,6 +24,14 @@ import {
   campaignData,
 } from '../data/advertisingDeepdiveData';
 import * as XLSX from 'xlsx';
+import AdvertisingDiagnosticsTable from './advertising/AdvertisingDiagnosticsTable';
+import AdvertisingDecisionDrawer from './advertising/AdvertisingDecisionDrawer';
+import {
+  diagnosticsForEntity,
+  type Diagnostic as AdDiag,
+  type EntityKind as AdEntityKind,
+  type DecisionTab as AdDecisionTab,
+} from '../data/advertisingDiagnostics';
 
 // suppress unused import warnings for formatters imported for potential column use
 void numberFormatter;
@@ -367,7 +375,7 @@ function useSectionControls(initCols: ColumnDef[], hiddenByDefault: string[] = [
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function AdvertisingDeepDive() {
+function AdvertisingAnalystTables() {
   const { currency } = useCurrency();
   const { audienceLabelingEnabled } = useAccountSpecifics();
 
@@ -664,6 +672,56 @@ export default function AdvertisingDeepDive() {
       }
 
       <LastRefreshed offsetMinutes={12} />
+    </div>
+  );
+}
+
+// ─── Diagnostics page (Batch 1 decision-first surface) ──────────────────
+// Default export. Wraps the new decision-first AdvertisingDiagnosticsTable
+// + drawer on top of the legacy dense analyst tables (collapsed by default).
+
+export default function AdvertisingDeepDive() {
+  const [entity, setEntity] = useState<AdEntityKind>('campaign');
+  const [tab, setTab] = useState<AdDecisionTab>('all');
+  const [selected, setSelected] = useState<AdDiag | null>(null);
+  const [showAnalyst, setShowAnalyst] = useState(false);
+
+  const diagnostics = diagnosticsForEntity(entity);
+
+  return (
+    <div className="space-y-4 min-w-0">
+      <AdvertisingDiagnosticsTable
+        diagnostics={diagnostics}
+        entity={entity}
+        onEntityChange={setEntity}
+        tab={tab}
+        onTabChange={setTab}
+        onRowClick={setSelected}
+      />
+
+      <AdvertisingDecisionDrawer
+        d={selected}
+        onClose={() => setSelected(null)}
+      />
+
+      {/* Analyst tables — original dense surfaces, collapsed by default */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <button
+          onClick={() => setShowAnalyst((v) => !v)}
+          className="w-full px-5 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-gray-900">Analyst tables</span>
+            <span className="text-[11px] text-gray-500">Placement · Ad type · Campaign · Search term · Audience — chart + table, column selector, PoP/LY toggle, export</span>
+          </div>
+          {showAnalyst ? <ChevronUp className="w-4 h-4 text-gray-500" /> : <ChevronDown className="w-4 h-4 text-gray-500" />}
+        </button>
+        {showAnalyst && (
+          <div className="border-t border-gray-100 p-4">
+            <AdvertisingAnalystTables />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -160,7 +160,7 @@ export interface GreetingResult {
 
 export function resolveGreeting(): GreetingResult {
   const now = new Date();
-  const name = localStorage.getItem(LS_USER_NAME) || 'Alex';
+  const name = localStorage.getItem(LS_USER_NAME) || 'Claudiu';
   const lastGreetingId = localStorage.getItem(LS_LAST_GREETING) ?? '';
   const timeBlock = getTimeBlock(now);
   const { context, streakCount } = determineContext(now);

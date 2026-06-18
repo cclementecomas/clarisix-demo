@@ -216,7 +216,7 @@ export default function SecuritySection() {
               </div>
               <div className="text-left">
                 <p className="text-sm font-medium text-gray-900">Email Address</p>
-                <p className="text-xs text-gray-500">alex.morgan@company.com</p>
+                <p className="text-xs text-gray-500">claudiu@clarisix.com</p>
               </div>
             </div>
             <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-gray-500 transition-colors" />

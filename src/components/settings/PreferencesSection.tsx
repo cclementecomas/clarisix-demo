@@ -10,8 +10,8 @@ const themes: { id: Theme; label: string; icon: React.FC<{ className?: string }>
 ];
 
 export default function PreferencesSection() {
-  const [firstName, setFirstName] = useState('Alex');
-  const [lastName, setLastName] = useState('Morgan');
+  const [firstName, setFirstName] = useState('Claudiu');
+  const [lastName, setLastName] = useState('Clement');
   const [theme, setTheme] = useState<Theme>('light');
   const [saved, setSaved] = useState(false);
 
