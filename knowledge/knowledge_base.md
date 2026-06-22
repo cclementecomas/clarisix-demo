@@ -1167,3 +1167,82 @@ All three hero metrics live in sqpSummary (sqpData.ts); the card is sqp/SQPHeroC
 - "Indexed" is the marketing sense: index 100 = your portfolio average, under-indexed = below your own baseline. It is measured vs YOUR portfolio average, NOT vs the whole market — that's deliberate: Amazon doesn't publish a per-query market-share benchmark, so the portfolio average is the honest, derivable reference.
 
 Cross-reference: the per-keyword detail drawer reuses the SAME half-gap funnel model as Traffic (buildKeywordFunnel in funnelDiagnosticData.ts) with €18 ASP instead of €35 and synthetic per-stage market shares (keywordMarketStageShares). Those synthetic market shares are flagged elsewhere in this doc as not API-grounded — relabel as "vs your portfolio average" when productionizing.
+
+
+---
+
+Developer Reference — Advertising Performance Scorecard automation (Jun 22 2026)
+
+How the Advertising → Overview "Performance scorecard" (Status · main readout · driver · watchout, all PoP) is generated, and how it goes live on real Amazon data. The whole surface is a DETERMINISTIC RULE ENGINE (AdvertisingScorecard.tsx) — no insight is hand-authored and no LLM is involved. Only the demo numbers are synthetic; the logic is production-shippable as-is. This note is the spec for wiring it to real data and for hardening the thresholds.
+
+Why deterministic, not an LLM: the scorecard prints status calls ("At risk") next to money. It must be reproducible, auditable, and explainable to a CFO. Keep status / driver / watchout selection as code-level rules. If you want prose narration later, run an LLM ON TOP of the already-decided facts (status + numbers) — never let it decide the status.
+
+1. Inputs & where the data comes from
+Each metric is one object: { label, value, popChange }, where popChange = % change vs the prior comparison period (the same comparison window the page's date filter already defines, so the scorecard agrees with the rest of the page).
+Metric catalog — label · polarity · source:
+
+    Ad Sales             higher    Advertising API (attributed sales, SP+SB+SD)
+    Orders               higher    Advertising API (attributed orders / conversions)
+    Clicks               higher    Advertising API
+    Impressions          higher    Advertising API
+    CTR                  higher    Advertising API (clicks ÷ impressions)
+    CPC                  lower     Advertising API (spend ÷ clicks)
+    Ads Conversion Rate  higher    Advertising API (orders ÷ clicks)
+    ACOS                 lower     Advertising API (spend ÷ ad sales)
+    CPA                  lower     Advertising API (spend ÷ orders)
+    Ad Spend             neutral   Advertising API (D+3 hot window; reconciled to settlement ad deduction, check R2)
+    TACOS                lower     JOIN: ad spend (Advertising API) ÷ total net revenue (GL journal 40xx)
+    TCPA                 lower     JOIN: ad spend ÷ total orders (GL / order counts)
+
+Key point: most of the scorecard is pure Advertising API, but TACOS and TCPA are JOIN metrics — they need TOTAL revenue/orders from the P&L journal, not ad-attributed numbers. That join is what makes the scorecard "account-level" rather than "ad-only", and it's why Efficiency can be At risk (TACOS worsening) while the ad-only ACOS is improving.
+Polarity is config (KPI_POLARITY): higher-is-better / lower-is-better / neutral. Ad Spend is neutral — spend rising or falling isn't inherently good or bad, so it never raises a flag by itself.
+
+2. The pipeline — five deterministic steps (AdvertisingScorecard.tsx)
+Step 1 — direction. good = (higher && Δ>0) || (lower && Δ<0). Neutral-polarity metrics return null (never judged).
+Step 2 — per-KPI status (kpiStatus), from direction + magnitude |Δ|:
+
+    |Δ| < 1%             → Stable      (noise floor — too small to mention)
+    good direction       → Healthy
+    bad direction, 1–5%  → Watch
+    bad direction, ≥ 5%  → At risk
+
+Step 3 — group status (groupStatusFor) = the WORST status among the group's main KPI + its watch KPIs (precedence risk > watch > good > neutral). Group config (GROUPS):
+
+    Growth           main Ad Sales             · driver Orders · watch [Impressions, Clicks]
+    Spend            main Ad Spend (neutral)   · no driver     · no watch
+    Efficiency       main ACOS                 · driver CPA    · watch [TACOS, TCPA]
+    Traffic quality  main Ads Conversion Rate  · driver CTR    · watch [CPC]
+
+Step 4 — watchout (findWatchout) = the biggest ADVERSE mover among the watch KPIs (status risk/watch, ranked by |Δ|). Null if every watch KPI is healthy.
+Step 5 — sentence (statusReason), a template keyed by status:
+
+    Healthy        → "{main} {+Δ}% PoP"
+    Stable         → "{main} stable"
+    Watch/At risk  → "{watchout or main} {improved|declined} {Δ}% PoP"   (uses the watchout if present, else the main)
+
+3. Worked examples (the live screenshot)
+- Growth: Ad Sales +3.2% (Healthy) BUT Impressions −18.4% (bad, ≥5 → At risk) → group At risk; watchout = Impressions → "Impressions declined −18.4% PoP". This is the core behaviour: status follows the WORST signal in the group, and the sentence names the metric driving the concern — which can be a watch metric even when the headline number is up.
+- Efficiency: ACOS −9.0% (lower=better → Healthy) BUT TACOS +11.5% (lower=better, + is bad, ≥5 → At risk) → group At risk; watchout = TACOS → "TACOS declined +11.5% PoP". "declined" means "got worse" for an inverse-polarity metric.
+- Traffic quality: Ads Conversion Rate −9.6% (higher=better → bad, ≥5 → At risk) is the MAIN; the CPC watch is healthy this period → no watchout, sentence falls back to the main → "Ads Conversion Rate declined −9.6% PoP".
+- Spend: Ad Spend is neutral polarity → never At risk on its own → "Ad Spend stable".
+
+4. The comparison window
+popChange is PoP against whatever the date filter sets as the comparison range (Navigation already exposes primary vs compare ranges). Productionise: compute each metric for [primary] and [compare] from the SAME aggregated table, then Δ = (primary − compare) / |compare| × 100. Bind the scorecard to that single source so it never disagrees with the KPI tiles on the same page.
+
+5. Productionising — the data pipeline
+  a. Ingest Advertising API SP/SB/SD campaign reports daily; re-pull the last 3 days (D+3 hot window) — spend/attribution settle late.
+  b. Aggregate to ACCOUNT level per day, then roll up to the selected primary/compare windows.
+  c. Join total net revenue + total orders from the GL journal (40xx / order counts) for TACOS and TCPA.
+  d. Reconcile ad spend to the settlement ad-deduction line (check R2, 2% tolerance) so the spend figure is financial-grade.
+  e. Compute popChange per metric and feed the { label, value, popChange } objects into the existing rule engine. Nothing in steps 1–5 changes — only the inputs become real.
+The config a human maintains is tiny and static: the polarity map, the thresholds, and the group definitions. Everything on screen is derived — that IS the automation, and it scales to any account with zero per-insight authoring.
+
+6. Hardening before this is trustworthy at scale
+  1. Per-metric thresholds. Flat 1% / 5% is wrong across metrics — a 5% Impressions swing is normal noise; a 5% ACOS swing is large. Move the Watch / At-risk cutoffs into the per-metric config next to polarity.
+  2. Significance / volume gate. A 30% move on a €40-spend campaign is noise. Require a minimum absolute base (spend or clicks) before a % move can raise a flag, so thin-data metrics can't trip "At risk".
+  3. Seasonality-aware baseline. Pure PoP misfires around Prime Day / Q4 / launches. Compare against EXPECTED (same period last year, or a moving / z-score baseline) and flag deviation-from-expected, not raw PoP.
+  4. Impact-ranked watchout. Rank the watchout by € impact, not by % move, so the flagged metric is the one actually costing money (a small % on huge spend beats a big % on tiny spend).
+  5. Wording. "TACOS declined +11.5%" reads oddly because the sign and the verb disagree. Use "worsened / improved" for inverse-polarity metrics.
+  6. Confidence surfacing. Carry the volume / base through to a confidence tag (High / Med / Low), like the decision drawer does, so a flag built on thin data is visibly low-confidence.
+
+Net: the engine architecture is correct and already automated. Going live is (a) feeding real Advertising-API + GL aggregates into the same { label, value, popChange } objects, and (b) replacing the flat thresholds with per-metric, volume-gated, seasonality-aware ones.
