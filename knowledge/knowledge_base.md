@@ -1036,3 +1036,134 @@ Demo data calibration check
 - Belgium: tacosPoP +120% but salesDown → Price/mix or Sales drop branch (no salesUp gate). Small numbers, low severity.
 - Categories ranking by Profit impact will surface Personal Care (largest absolute) and Home & Kitchen as top profit-risks if margin slipped.
 - Protect winners: any category/marketplace with salesShare ≥ 8% AND channelMargin ≥ 25% AND margin stable (Personal Care is a candidate at 28.4% share if its margin held).
+
+
+---
+
+Developer Reference — Traffic & SQP Calculations (Jun 22 2026)
+
+Explainer for implementing the Sales → Traffic and Sales → SQP pages. Every formula below is what the wireframe actually computes, with file + function references so the numbers can be reproduced against real Amazon data (Business Reports for Traffic, Brand Analytics SQP for SQP). Two recurring conventions to know up front: (1) we only ever assume HALF of any gap is recoverable — a deliberately conservative default, keep it; (2) ASP (average selling price) is a flat constant — €35 on Traffic, €18 on SQP — replace with real per-ASIN/category price when product metadata is wired.
+
+The brand funnel everywhere is Impressions → Clicks → Cart Adds → Purchases. Each stage stores marketCount (whole market) + brandCount (you); share = brandCount / marketCount × 100.
+
+=== 1. Sales → Traffic ===
+
+1a. CVR (the per-ASIN "CVR" column) — trafficData.ts, ProductTrafficTable.tsx
+- Definition: session→order conversion = Orders ÷ Sessions × 100. In the demo data orders is literally derived as `orders = round(sessions × cvr/100)`, so cvr IS orders/sessions. Against real data, CVR = Ordered Units (or order items) ÷ Sessions × 100 from Business Reports (Detail Page Sales & Traffic).
+- Sibling rates the page uses:
+    addToCartRate = Cart Adds ÷ Sessions × 100   (demo models it as cvr × 1.3–1.9, since more shoppers add-to-cart than buy)
+    pvPerSession  = Page Views ÷ Sessions
+- CVR cell color: green if cvr ≥ 12.5 (PORTFOLIO_CVR_BENCHMARK), else red. (This 12.5 is a fixed benchmark, separate from the funnel-dot quartiles in 1d.)
+
+1b. "Main leak" hero — Impact/wk and Units/wk — HeroInsightCard.tsx + funnelDiagnosticData.ts
+- The "leak" stage = the funnel transition with the worst conversion gap vs market. For the brand demo it is hardcoded to Cart Adds (biggestOpportunityIdx = 2), so the leaking transition is Click → Cart Add (conversions[1]). (The per-keyword version in 3 computes this dynamically.)
+- Step by step (funnelDiagnosticData.ts):
+
+        yourRate   = brandCartAdds.brand  / brandClicks.brand  × 100      // 1068 / 4580  = 23.3%
+        marketRate = brandCartAdds.market / brandClicks.market × 100      // 12180/38440 = 31.7%
+        gapPp      = |yourRate − marketRate|                              // 8.4 pp
+        halfGap    = gapPp / 2                                            // 4.2 pp   ← only half is "recoverable"
+        recoverableUnits = round(yourClicks × halfGap/100)               // round(4580 × 0.042) = 192
+        impactEur        = round(recoverableUnits × €35 ASP)             // €6,720
+
+- What the three tiles show:
+    "Gap vs market" = conversions[leak].delta  (yourRate − marketRate, signed, pp; negative = you trail)
+    "Impact / wk"   = impactEur                                          // €6,720
+    "Units / wk"    = round(impactEur ÷ €35 ASP)                         // 192 — the recoverable units, re-derived from impact
+- Plain English: "If you closed half your Click→Cart gap you'd win ~192 more units/week ≈ €6,720/week."
+
+1c. Per-ASIN "Lost revenue / wk" column — ProductTrafficTable.tsx, estimateLostRevenue()
+- Same half-gap idea, applied per ASIN, measured against the brand's leak stage (Click → Cart Add):
+
+        marketRate = brand market click→cart rate (≈ 31.7%, = conversions[leakIdx−1].marketRate)
+        productRate = row.addToCartRate
+        gapPp = max(0, marketRate − productRate)                 // ASINs already ≥ market score 0 → shown as "—"
+        potentialExtraATCs   = sessions × gapPp/100 × 0.5        // 0.5 = half-recovery (same assumption as the hero)
+        potentialExtraOrders = potentialExtraATCs × 0.5          // 0.5 = ATC→purchase downstream ≈ Amazon avg buy rate
+        lostRevenue/wk = round(potentialExtraOrders × €35 ASP)
+
+- Two 0.5 factors stack on purpose: recover half the gap, then half of those cart-adds convert to orders.
+- Gotcha: the per-ASIN calc uses row.sessions as the click base (Business Reports gives sessions, not query-level clicks per ASIN), whereas the brand calc in 1b uses real clicks. Keep the bases consistent once query→ASIN click data is joined in.
+- Table footer "Total estimated weekly leak" = Σ lostRevenue over all rows. The "So what" line = top-3 ASINs' share of that total = round(top3Sum / totalLost × 100).
+
+1d. Funnel colors — in extenso
+There are FIVE colored surfaces on this page and they use DIFFERENT rules. Do not conflate them.
+
+(i) Stage cards (the four big Impressions/Clicks/Cart Adds/Purchases cards) — FunnelDiagnostic.tsx StageCard
+    delta = yourStageShare − marketStageShare (pp); marketStageShare = diagnostic.marketShares[stage] (a fixed reference lookup).
+    Card BACKGROUND, by precedence:
+      1. isBiggest (stage index == biggestOpportunityIdx) → AMBER + "Biggest opportunity" badge. Amber WINS even if the stage also beats market.
+      2. else delta ≥ 0 → GREEN (beats market).
+      3. else            → RED  (trails market).
+    The small delta chip inside the card always colors green/red by (delta ≥ 0), independent of the amber background.
+
+(ii) Conversion chips between the cards (CTR, Click→Cart, Cart→Purchase) — ConversionChip
+    delta = yourRate − marketRate (pp). Green if delta ≥ 0, else red. No amber.
+
+(iii) Stage trend mini-charts (the four small SVG lines) — StageMiniChart
+    "Your" line = GREEN if the LATEST week's yourShare ≥ marketShare, else RED. Color reflects the latest point vs market, NOT trend direction (funnel share is always higher=better).
+    Market line = always slate-gray dashed (#94A3B8).
+    The leak stage's chart additionally gets an amber border (highlight = biggestOpportunityIdx); the line itself stays green/red by the latest point.
+
+(iv) Per-ASIN "Funnel" health dots (4 dots: Sess · PV/S · ATC · CVR) — ProductTrafficTable FunnelDots
+    Self-referential QUARTILE coloring vs YOUR OWN portfolio (not vs market):
+      green (#10B981) if value ≥ portfolio P75 (top 25% of your ASINs at that metric)
+      red   (#EF4444) if value <  portfolio P25 (bottom 25%)
+      gray  (#CBD5E1) otherwise (middle 50%)
+    P25/P75 are computed live from the visible product set (buildBenchmarks/quartile), so they move as the portfolio/filters change.
+    Separate from the dots, the inline ATC and CVR cell colors use fixed rules: ATC cell green if addToCartRate ≥ market ATC rate else red; CVR cell green if ≥ 12.5 else red; BBox gray if ≥ 88 else orange.
+
+(v) Source-mix stacked bars ("Funnel contribution by source") — colored by SOURCE category, not performance: Organic emerald #10B981, Sponsored Products #0E5A8A, Sponsored Brands indigo #6366F1, Sponsored Display amber #F59E0B. Fixed palette; bars sum to 100% per stage.
+
+Rule of thumb: market-relative surfaces (i, ii, iii) → green beats market / red trails market / amber = the chosen leak stage. Portfolio-relative surface (iv) → green top-quartile / red bottom-quartile. Categorical surface (v) → fixed per-source colors, no judgement.
+
+=== 2. Binning weekly SQP into a month (recommendation) ===
+
+Problem: Brand Analytics SQP publishes WEEKLY snapshots (Sun–Sat). When the user selects a full calendar month we need one monthly set. Calendar months don't align to SQP weeks, and shares/rates cannot be averaged.
+
+Recommendation, in priority order:
+
+1. Prefer Amazon's native MONTHLY SQP report for whole-month selections. Amazon publishes SQP weekly, monthly AND quarterly. The monthly file is exact and already de-duplicated — use it directly and skip aggregation. Only fall back to summing weeks when the monthly file isn't available (very recent months, or a custom non-month range).
+
+2. When you must aggregate weeks: SUM counts, RECOMPUTE rates.
+   - Additive — SUM across the weeks in the month: marketVolume, and every stage's marketCount and brandCount (impressions, clicks, cart adds, purchases).
+   - NOT additive — recompute from the summed counts, never average the weekly %:
+
+         monthly share       = Σ brandCount ÷ Σ marketCount × 100
+         monthly CTR/ATC/CVR = Σ countAtToStage ÷ Σ countAtFromStage × 100
+
+   - Averaging weekly percentages is the classic bug: it over-weights low-volume weeks. Always volume-weight by recomputing from totals.
+
+3. Recompute derived/portfolio metrics on the monthly rows — don't sum weekly. portfolioAvgClick, opportunity = max(0, portfolioAvgClick − clickShare), opportunityScore, opportunityEur, under-indexed count and concentration must all be recomputed from the monthly-aggregated shares. (Summing weekly opportunityEur double-counts and bakes in stale weekly portfolio averages.)
+
+4. Week→month assignment: assign each weekly snapshot WHOLLY to one month — do not split a week's counts across two months. Per-keyword weekly rows are pre-aggregated; you only have the week total, not daily counts, so any day-split is fabricated. Assign by the week's END date (Saturday) — equivalently, the month that holds the majority of the week's days. A "month" is therefore the 4–5 weekly snapshots whose Saturday falls in it.
+   - Surface the contributing week range in the UI ("4 weeks · May 4 – May 31") so the operator understands a month = whole weeks, not exact calendar days.
+
+5. Flag partial months: if the month is in progress or fewer weeks landed than expected, label it "partial (N of ~M weeks)". Never show an under-counted month as if it were complete.
+
+=== 3. Sales → SQP ===
+
+All three hero metrics live in sqpSummary (sqpData.ts); the card is sqp/SQPHeroCard.tsx.
+
+3a. "Opportunity / wk" (€)
+- Per keyword (sqpData.ts):
+
+        portfolioAvgClick = mean(clickShare) over all tracked keywords
+        opportunity (pp)  = max(0, portfolioAvgClick − thisKeyword.clickShare)   // 0 if you're already above your own average
+        opportunityEur    = round( marketVolume × (opportunity / 200) × 0.5 × €18 )
+
+  Unpacking the constants: opportunity/200 = (opportunity/100) ÷ 2 = HALF the share-gap as a fraction; × 0.5 = market cart-add→purchase downstream factor; × €18 = category ASP. In words: recoverable purchases × €18, where recoverable purchases ≈ marketVolume × half-gap-fraction × 0.5.
+- Hero "Opportunity / wk" = totalOpportunityEur = Σ opportunityEur across all keywords.
+- Don't confuse with opportunityScore = round(marketVolume × opportunity), which is unitless and used only to RANK/sort keywords. The € figure is opportunityEur.
+
+3b. "Concentration" (%)
+- top5ConcentrationPct = round( Σ(opportunityEur of the 5 keywords with the highest opportunityEur) ÷ Σ(opportunityEur of all keywords) × 100 ).
+- Reads as "X% of all recoverable € sits in just 5 keywords." High = a short to-do list; low = scattered work.
+- Not to be confused with top14Share, a different stat = % of market VOLUME contributed by the top-14 keywords by volume.
+
+3c. "Under-indexed" (count)
+- underIndexedCount = number of keywords where clickShare < portfolio average clickShare (avgClickShare).
+- Meaning: on these queries you capture a SMALLER slice of clicks than you do on average across your own tracked keywords — you punch below your own weight there. These are exactly the keywords with opportunity > 0 that feed Opportunity/wk.
+- "Indexed" is the marketing sense: index 100 = your portfolio average, under-indexed = below your own baseline. It is measured vs YOUR portfolio average, NOT vs the whole market — that's deliberate: Amazon doesn't publish a per-query market-share benchmark, so the portfolio average is the honest, derivable reference.
+
+Cross-reference: the per-keyword detail drawer reuses the SAME half-gap funnel model as Traffic (buildKeywordFunnel in funnelDiagnosticData.ts) with €18 ASP instead of €35 and synthetic per-stage market shares (keywordMarketStageShares). Those synthetic market shares are flagged elsewhere in this doc as not API-grounded — relabel as "vs your portfolio average" when productionizing.
