@@ -3,7 +3,7 @@
 // recommended checks, and a specific CTA.
 
 import { useEffect } from 'react';
-import { ArrowRight, Lightbulb, X } from 'lucide-react';
+import { ArrowRight, Lightbulb, X, Check, Clock, Ban } from 'lucide-react';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import { fc } from '../../utils/currency';
 import {
@@ -11,6 +11,18 @@ import {
   ISSUE_CTA, ENTITY_KIND_LABEL,
   type Diagnostic, type Decision, type IssueType,
 } from '../../data/advertisingDiagnostics';
+import {
+  useAdDecisionLog, recordDecision, clearDecision, ACTION_LABEL,
+  type DecisionAction,
+} from '../../utils/adDecisionLog';
+
+const fmtDate = (ms: number) => new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+const ACTION_CHIP: Record<DecisionAction, string> = {
+  accepted: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  snoozed: 'bg-amber-50 text-amber-700 border-amber-200',
+  dismissed: 'bg-gray-100 text-gray-500 border-gray-200',
+};
 
 const DIAGNOSIS: Record<Decision, (d: Diagnostic) => string> = {
   Scale:   (d) => `${d.row.name} is classified as Scale because ACOS (${d.row.acos.toFixed(1)}%) is at or below target and conversion has held. Confidence is ${d.confidence.toLowerCase()} — push budget or bids while efficiency holds.`,
@@ -76,6 +88,13 @@ function DrawerContent({ d, onClose, onCta }: { d: Diagnostic; onClose: () => vo
   const issueCls = ISSUE_STYLE[d.issue];
   const cta = ISSUE_CTA[d.issue];
   const checks = CHECKLIST[d.issue];
+
+  const log = useAdDecisionLog();
+  const entry = log[d.row.key];
+  const decide = (action: DecisionAction) => recordDecision({
+    key: d.row.key, name: d.row.name, kindLabel: ENTITY_KIND_LABEL[d.row.kind],
+    decision: d.decision, issue: d.issue, recommendation: cta.nextStep, action,
+  });
 
   return (
     <>
@@ -164,14 +183,49 @@ function DrawerContent({ d, onClose, onCta }: { d: Diagnostic; onClose: () => vo
           </ul>
         </Section>
 
-        {/* CTA */}
-        {cta.ctaLabel && (
+        {/* Your decision — logged so the outcome can be measured next period */}
+        <Section title="Your decision" subtitle="Logged so we can measure the before/after next period">
+          <div className="rounded-lg border border-gray-200 bg-gray-50/40 p-3">
+            <p className="text-[12px] text-gray-800">
+              <span className="font-semibold">Recommended:</span> {cta.nextStep}
+            </p>
+            {entry ? (
+              <div className="flex items-center justify-between gap-2 mt-2.5">
+                <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-semibold border ${ACTION_CHIP[entry.action]}`}>
+                  {entry.action === 'accepted' ? <Check className="w-3 h-3" /> : entry.action === 'snoozed' ? <Clock className="w-3 h-3" /> : <Ban className="w-3 h-3" />}
+                  {ACTION_LABEL[entry.action]} · {fmtDate(entry.at)}
+                </span>
+                <button onClick={() => clearDecision(d.row.key)} className="text-[11px] text-gray-500 hover:text-gray-800 underline">
+                  Undo
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-2 mt-2.5">
+                <button onClick={() => decide('accepted')} className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-[12px] font-semibold border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors">
+                  <Check className="w-3.5 h-3.5" /> Accept
+                </button>
+                <button onClick={() => decide('snoozed')} className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-[12px] font-semibold border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors">
+                  <Clock className="w-3.5 h-3.5" /> Snooze
+                </button>
+                <button onClick={() => decide('dismissed')} className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-[12px] font-semibold border border-gray-300 bg-white text-gray-600 hover:bg-gray-100 transition-colors">
+                  <Ban className="w-3.5 h-3.5" /> Dismiss
+                </button>
+              </div>
+            )}
+            <p className="text-[10px] text-gray-400 mt-2 leading-snug">
+              Clarisix doesn't change your campaigns — apply the change in Amazon Ads, then we track the before/after here.
+            </p>
+          </div>
+        </Section>
+
+        {/* Internal drill CTA — only when a navigation handler is wired (e.g. the Diagnostics page) */}
+        {cta.ctaLabel && onCta && (
           <button
-            onClick={() => onCta?.(cta.ctaRoute)}
+            onClick={() => onCta(cta.ctaRoute)}
             className="w-full inline-flex items-center justify-between gap-2 px-4 py-3 rounded-lg bg-gray-900 hover:bg-gray-800 text-white text-[13px] font-semibold transition-colors group"
           >
             <div className="text-left">
-              <div className="text-[9px] font-bold uppercase tracking-wider text-gray-400">Next step</div>
+              <div className="text-[9px] font-bold uppercase tracking-wider text-gray-400">Investigate</div>
               <div>{cta.ctaLabel}</div>
             </div>
             <ArrowRight className="w-4 h-4 text-gray-300 group-hover:translate-x-0.5 transition-transform" />

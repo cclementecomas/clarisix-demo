@@ -8,9 +8,10 @@
 // "Opportunity / Risk / Waste" amount, action.
 
 import { useState } from 'react';
-import { AlertTriangle, ArrowRight, ChevronDown, ChevronUp, Sparkles, TrendingUp, Wrench, Eye } from 'lucide-react';
+import { AlertTriangle, ArrowRight, ChevronDown, ChevronUp, Sparkles, TrendingUp, Wrench, Eye, Check, Clock, Ban } from 'lucide-react';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import { fc } from '../../utils/currency';
+import { useAdDecisionLog, clearAllDecisions, type DecisionAction } from '../../utils/adDecisionLog';
 import {
   topThreeDecisions, topScaleOpportunities, topRiskDecisions,
   DECISION_STYLE, CONFIDENCE_STYLE, ISSUE_CTA, ENTITY_KIND_LABEL,
@@ -35,13 +36,38 @@ const SLOT_META: { key: 'bestScale' | 'biggestWaste' | 'biggestFix'; label: stri
   { key: 'biggestFix',  label: 'Biggest diagnostic issue', icon: Wrench },
 ];
 
+function DecisionStateChip({ action, at }: { action: DecisionAction; at: number }) {
+  const cls = action === 'accepted'
+    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+    : action === 'snoozed'
+      ? 'bg-amber-50 text-amber-700 border-amber-200'
+      : 'bg-gray-100 text-gray-500 border-gray-200';
+  const Icon = action === 'accepted' ? Check : action === 'snoozed' ? Clock : Ban;
+  const label = action === 'accepted' ? 'Accepted' : action === 'snoozed' ? 'Snoozed' : 'Dismissed';
+  const date = new Date(at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return (
+    <span className={`inline-flex items-center gap-1 px-1.5 py-0 rounded text-[10px] font-semibold border ${cls}`}>
+      <Icon className="w-2.5 h-2.5" />
+      {label} · {date}
+    </span>
+  );
+}
+
 export default function AdvertisingDecisionsPanel({ onCardClick }: {
   onCardClick?: (d: Diagnostic) => void;
 }) {
   const [showAll, setShowAll] = useState(false);
+  const log = useAdDecisionLog();
 
   const hasAny = topScaleOpportunities.length > 0 || topRiskDecisions.length > 0;
   if (!hasAny) return null;
+
+  const decided = Object.values(log);
+  const counts = {
+    accepted: decided.filter((e) => e.action === 'accepted').length,
+    snoozed: decided.filter((e) => e.action === 'snoozed').length,
+    dismissed: decided.filter((e) => e.action === 'dismissed').length,
+  };
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
@@ -59,6 +85,21 @@ export default function AdvertisingDecisionsPanel({ onCardClick }: {
           {showAll ? 'Hide expanded view' : 'View all decisions'}
         </button>
       </div>
+
+      {decided.length > 0 && (
+        <div className="px-5 py-1.5 bg-gray-50/60 border-b border-gray-100 flex items-center gap-2 text-[11px] flex-wrap">
+          <span className="font-semibold text-gray-700">Decision log:</span>
+          <span className="text-emerald-700 font-medium">{counts.accepted} accepted</span>
+          <span className="text-gray-300">·</span>
+          <span className="text-amber-700 font-medium">{counts.snoozed} snoozed</span>
+          <span className="text-gray-300">·</span>
+          <span className="text-gray-500 font-medium">{counts.dismissed} dismissed</span>
+          <span className="text-gray-400">— outcomes measured next period</span>
+          <button onClick={clearAllDecisions} className="ml-auto text-[10px] text-gray-400 hover:text-gray-700 underline">
+            Clear log
+          </button>
+        </div>
+      )}
 
       {!showAll ? (
         // Default — top 3 slotted cards (best scale, biggest waste, biggest fix)
@@ -158,6 +199,8 @@ function DecisionCard({ d, slotLabel, slotIcon, rank, onClick }: {
   onClick: () => void;
 }) {
   const { currency } = useCurrency();
+  const log = useAdDecisionLog();
+  const entry = log[d.row.key];
   const dec = DECISION_STYLE[d.decision];
   const cta = ISSUE_CTA[d.issue];
   const kind = kindOf(d.decision);
@@ -173,7 +216,7 @@ function DecisionCard({ d, slotLabel, slotIcon, rank, onClick }: {
   return (
     <button
       onClick={onClick}
-      className={`group text-left flex items-start gap-2.5 p-3 rounded-lg border ${accent} transition-colors`}
+      className={`group text-left flex items-start gap-2.5 p-3 rounded-lg border ${accent} transition-colors ${entry?.action === 'dismissed' ? 'opacity-60' : ''}`}
     >
       <div className="flex flex-col items-center gap-1 flex-shrink-0 pt-0.5">
         {rank !== undefined && <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">#{rank}</span>}
@@ -194,6 +237,7 @@ function DecisionCard({ d, slotLabel, slotIcon, rank, onClick }: {
           <span className={`inline-flex items-center px-1.5 py-0 rounded text-[10px] font-semibold border ${CONFIDENCE_STYLE[d.confidence]}`}>
             {d.confidence}
           </span>
+          {entry && <DecisionStateChip action={entry.action} at={entry.at} />}
         </div>
 
         {/* Entity name */}

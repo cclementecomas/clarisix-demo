@@ -18,6 +18,8 @@ import DeepDiveTable, {
 } from './deepdive/DeepDiveTable';
 import AdvertisingExecutiveInsightCard from './advertising/AdvertisingExecutiveInsightCard';
 import AdvertisingDecisionsPanel from './advertising/AdvertisingDecisionsPanel';
+import AdvertisingDecisionDrawer from './advertising/AdvertisingDecisionDrawer';
+import type { Diagnostic } from '../data/advertisingDiagnostics';
 import AdvertisingScorecard from './advertising/AdvertisingScorecard';
 import WhereIsItHappening from './advertising/WhereIsItHappening';
 import LastRefreshed from './LastRefreshed';
@@ -137,6 +139,7 @@ export default function AdvertisingOverview() {
   const totalsRow = [adPerfTotals];
   const { campaignNamingEnabled } = useAccountSpecifics();
   const [showAnalyst, setShowAnalyst] = useState(false);
+  const [selectedDecision, setSelectedDecision] = useState<Diagnostic | null>(null);
 
   return (
     <div className="space-y-4">
@@ -144,7 +147,8 @@ export default function AdvertisingOverview() {
       <AdvertisingExecutiveInsightCard />
 
       {/* 2 — Top advertising decisions (above the scorecard per the new hierarchy) */}
-      <AdvertisingDecisionsPanel />
+      <AdvertisingDecisionsPanel onCardClick={setSelectedDecision} />
+      <AdvertisingDecisionDrawer d={selectedDecision} onClose={() => setSelectedDecision(null)} />
 
       {/* 3 — Compact performance scorecard ("Show all metrics" expands rich KPI grid) */}
       <AdvertisingScorecard />

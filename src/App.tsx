@@ -14,6 +14,7 @@ import InventoryPerformance from './components/InventoryPerformance';
 import ContentTracker from './components/ContentTracker';
 import Profitability from './components/Profitability';
 import ProfitabilityDeepdive from './components/ProfitabilityDeepdive';
+import PrimeDayRecap from './components/PrimeDayRecap';
 import Retention from './components/Retention';
 import Subscriptions from './components/Subscriptions';
 import Settings, { type SettingsTabId } from './components/settings/Settings';
@@ -32,6 +33,7 @@ import OnboardingGateway from './components/OnboardingGateway';
 import OnboardingWizard from './components/onboarding/OnboardingWizard';
 import CommandPalette from './components/CommandPalette';
 import KeyboardShortcutsModal from './components/KeyboardShortcutsModal';
+import HomeCelebration from './components/HomeCelebration';
 import Greeting from './components/Greeting';
 import Traffic from './components/Traffic';
 import { useOnboarding } from './contexts/OnboardingContext';
@@ -49,6 +51,7 @@ function HomePage({
   return (
     <>
       {!isEmbed && <Greeting />}
+      {!isEmbed && <HomeCelebration />}
       <KPICards onCardClick={onCardClick} />
       <PeriodSnapshot onCardClick={onCardClick} />
       {isEmbed ? (
@@ -214,6 +217,9 @@ export default function App() {
     if (currentPage === 'connectors') {
       // Legacy route — Connectors now lives inside Admin → Data → Connections.
       return <Settings initialTab="connections" mode="data" />;
+    }
+    if (activeSection === 'Prime Day Recap') {
+      return <PrimeDayRecap />;
     }
     if (activeSection === 'Sales' && activeSub === 'Overview') {
       return <OverviewPage onNavigate={(section, sub) => { setActiveSection(section); setActiveSub(sub); }} />;

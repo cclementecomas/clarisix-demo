@@ -408,6 +408,16 @@ export const accountFilterOptions: AccountOption[] = [
 
 export const menuItems = [
   {
+    label: 'Prime Day Recap',
+    icon: 'Zap',
+    subItems: ['2026'],
+    defaultSub: '2026',
+    comingSoonSubs: [] as string[],
+    // Seasonal live event — blinks in the sidebar to draw attention while live.
+    blink: true,
+    badge: 'Live',
+  },
+  {
     label: 'Sales',
     icon: 'BarChart3',
     subItems: ['Overview', 'Diagnostics', 'Traffic', 'SQP', 'Targets', 'Trends'],

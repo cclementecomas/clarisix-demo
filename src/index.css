@@ -136,6 +136,15 @@
   animation: cellGlow 2s ease-in-out infinite;
 }
 
+/* Sidebar "live" item — gentle attention glow on the dark nav. */
+@keyframes menuAttention {
+  0%, 100% { background-color: rgba(75, 157, 204, 0.06); }
+  50% { background-color: rgba(75, 157, 204, 0.16); }
+}
+.animate-menu-attention {
+  animation: menuAttention 1.8s ease-in-out infinite;
+}
+
 @keyframes wizardSlideLeft {
   from { opacity: 0; transform: translateX(40px); }
   to   { opacity: 1; transform: translateX(0); }

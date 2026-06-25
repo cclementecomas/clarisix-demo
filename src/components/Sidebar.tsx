@@ -15,6 +15,7 @@ import {
   House,
   Clock,
   Database,
+  Zap,
 } from 'lucide-react';
 import { menuItems, adminItems, filterOptions } from '../data/dashboardData';
 import { useOnboarding } from '../contexts/OnboardingContext';
@@ -27,6 +28,7 @@ const iconMap: Record<string, React.FC<{ className?: string }>> = {
   FileText,
   Star,
   Database,
+  Zap,
 };
 
 interface SidebarProps {
@@ -153,6 +155,7 @@ export default function Sidebar({
             const Icon = iconMap[item.icon];
             const isActive = currentPage === 'dashboard' && activeSection === item.label;
             const hasSubItems = item.subItems.length > 1;
+            const { blink, badge } = item as { blink?: boolean; badge?: string };
 
             return (
               <div key={item.label}>
@@ -164,20 +167,28 @@ export default function Sidebar({
                   className={`w-full flex items-center gap-3 px-5 py-2.5 text-sm font-medium transition-all duration-200 group relative ${
                     isActive
                       ? 'text-white bg-white/[0.08]'
-                      : 'text-gray-400 hover:text-gray-200 hover:bg-white/[0.04]'
+                      : blink && !isActive
+                        ? 'text-cx-200 hover:text-white animate-menu-attention'
+                        : 'text-gray-400 hover:text-gray-200 hover:bg-white/[0.04]'
                   }`}
                 >
-                  {isActive && (
-                    <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-cx-300 rounded-r-full" />
+                  {(isActive || (blink && !isActive)) && (
+                    <span className={`absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-cx-300 rounded-r-full ${blink && !isActive ? 'animate-gentle-pulse' : ''}`} />
                   )}
                   {Icon && (
                     <Icon
                       className={`w-[18px] h-[18px] flex-shrink-0 ${
-                        isActive ? 'text-cx-300' : 'text-gray-500 group-hover:text-gray-400'
+                        isActive ? 'text-cx-300' : blink ? 'text-cx-300' : 'text-gray-500 group-hover:text-gray-400'
                       }`}
                     />
                   )}
                   <span className="flex-1 text-left">{item.label}</span>
+                  {badge && !hasSubItems && (
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-400/30">
+                      <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-gentle-pulse" />
+                      {badge}
+                    </span>
+                  )}
                   {hasSubItems && (
                     <ChevronRight
                       className={`w-3.5 h-3.5 transition-transform duration-200 ${
