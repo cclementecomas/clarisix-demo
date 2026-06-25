@@ -413,9 +413,9 @@ export const menuItems = [
     subItems: ['2026'],
     defaultSub: '2026',
     comingSoonSubs: [] as string[],
-    // Seasonal live event — blinks in the sidebar to draw attention while live.
-    blink: true,
-    badge: 'Live',
+    // Newly-shipped page — soft amber "New" pill in the sidebar (no blink).
+    blink: false,
+    badge: 'New',
   },
   {
     label: 'Sales',

@@ -183,12 +183,24 @@ export default function Sidebar({
                     />
                   )}
                   <span className="flex-1 text-left">{item.label}</span>
-                  {badge && !hasSubItems && (
-                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-400/30">
-                      <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-gentle-pulse" />
-                      {badge}
-                    </span>
-                  )}
+                  {badge && !hasSubItems && (() => {
+                    // Color the pill by badge keyword. 'Live' = pulsing rose
+                    // (urgent live event); anything else (e.g. 'New', 'Beta')
+                    // = static amber (announcement / freshness).
+                    const isLive = badge.toLowerCase() === 'live';
+                    const pill = isLive
+                      ? 'bg-rose-500/20 text-rose-300 border-rose-400/30'
+                      : 'bg-amber-500/20 text-amber-200 border-amber-400/30';
+                    const dot = isLive
+                      ? 'bg-rose-400 animate-gentle-pulse'
+                      : 'bg-amber-300';
+                    return (
+                      <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider border ${pill}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />
+                        {badge}
+                      </span>
+                    );
+                  })()}
                   {hasSubItems && (
                     <ChevronRight
                       className={`w-3.5 h-3.5 transition-transform duration-200 ${
