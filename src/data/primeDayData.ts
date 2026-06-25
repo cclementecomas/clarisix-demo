@@ -7,8 +7,8 @@
 export const primeDayMeta = {
   thisYearLabel: 'Prime Day 2026',
   lastYearLabel: 'Prime Day 2025',
-  thisYearDates: '8–9 July 2026',
-  lastYearDates: '16–17 July 2025',
+  thisYearDates: '23–26 June 2026',
+  lastYearDates: '8–11 July 2025',
   // Ads are credited back to the event over a settling window — surfaced as a caveat.
   attributionNote:
     'Ad attribution is still settling (D+14 window). Ad Sales, ROAS and ACOS will keep moving as conversions are credited back to the event — treat advertising figures as provisional.',
@@ -110,11 +110,16 @@ export const primeDayMovers: MoverDimension[] = [
 
 // Per-event-day label format: "Day N · {2026 date} / {2025 date}" so the
 // X-axis is unambiguous about which calendar day each pair maps to. The
-// two events don't fall on the same dates (Prime Day 2026 = 8–9 Jul,
-// Prime Day 2025 = 16–17 Jul).
+// two events don't fall on the same dates (Prime Day 2026 = 23–26 Jun,
+// Prime Day 2025 = 8–11 Jul). Both events were 4 days.
+// Daily revenue follows a declining pattern (kickoff spike, taper into
+// later days). Totals sum to revenue.thisYear / revenue.lastYear above
+// (486,200 / 392,800).
 export const primeDayDays = [
-  { label: 'Day 1 · 8 Jul \'26 / 16 Jul \'25', thisYear: 268_400, lastYear: 214_600 },
-  { label: 'Day 2 · 9 Jul \'26 / 17 Jul \'25', thisYear: 217_800, lastYear: 178_200 },
+  { label: 'Day 1 · 23 Jun \'26 / 8 Jul \'25',  thisYear: 175_000, lastYear: 140_000 },
+  { label: 'Day 2 · 24 Jun \'26 / 9 Jul \'25',  thisYear: 140_000, lastYear: 115_000 },
+  { label: 'Day 3 · 25 Jun \'26 / 10 Jul \'25', thisYear: 100_000, lastYear:  80_000 },
+  { label: 'Day 4 · 26 Jun \'26 / 11 Jul \'25', thisYear:  71_200, lastYear:  57_800 },
 ];
 
 export const primeDayPeak = { window: '20:00–21:00 CET, Day 1', revenue: 38_200 };
