@@ -1246,3 +1246,635 @@ The config a human maintains is tiny and static: the polarity map, the threshold
   6. Confidence surfacing. Carry the volume / base through to a confidence tag (High / Med / Low), like the decision drawer does, so a flag built on thin data is visibly low-confidence.
 
 Net: the engine architecture is correct and already automated. Going live is (a) feeding real Advertising-API + GL aggregates into the same { label, value, popChange } objects, and (b) replacing the flat thresholds with per-metric, volume-gated, seasonality-aware ones.
+
+Biggest opportunity & main leak — exact formulas (Jun 2026, for handover)
+
+This section documents how the brand-level "biggest opportunity" / "main leak" surface on Sales → Traffic is computed, and how "opportunity" is computed at keyword and portfolio level on Sales → SQP. Code references at the end.
+
+=========================================================
+Traffic page — main leak / biggest opportunity / impact
+=========================================================
+
+Inputs (brand-level, per period, from Brand Analytics SQP rolled up to the whole brand)
+
+  For each funnel stage S ∈ { Impressions, Clicks, Cart Adds, Purchases }
+  we have:
+    marketCount[S]   = total searches/clicks/etc. in the category
+    brandCount[S]    = same metric, but only on units attributed to the brand
+    share[S]         = brandCount[S] / marketCount[S] × 100         (a %)
+    marketShare[S]   = a reference market share % for that stage
+                       (in the wireframe this is anchored to the brand's
+                        synthetic market shares; in production it's the
+                        category benchmark or your portfolio average)
+
+Reference values used in the demo (see funnelDiagnosticData.ts line 154–164,
+178, 216):
+
+    brandImpressions = { market: 854,200, brand: 95,300 }   → share = 11.16 %
+    brandClicks      = { market:  38,440, brand:  4,580 }   → share = 11.91 %
+    brandCartAdds    = { market:  12,180, brand:  1,068 }   → share =  8.77 %
+    brandPurchases   = { market:   6,540, brand:    612 }   → share =  9.36 %
+
+    marketShares     = { impressions: 11.0, clicks: 11.5,
+                         cartAdds:    13.8, purchases:   9.0 }
+
+Step 1 — pick the leak stage (= "biggest opportunity")
+
+  For every stage S, compute the share gap:
+
+    gap[S] = marketShare[S] − share[S]              // positive = you under-index
+
+  biggestOpportunityIdx = arg max over S of gap[S]
+
+  In the demo this resolves to Cart Adds:
+    gap_impressions = 11.0 − 11.16 =  −0.16   (you beat market)
+    gap_clicks      = 11.5 − 11.91 =  −0.41   (you beat market)
+    gap_cartAdds    = 13.8 −  8.77 =  +5.03   ← largest positive → THE LEAK
+    gap_purchases   =  9.0 −  9.36 =  −0.36   (you beat market)
+
+  → biggestOpportunityIdx = 2   (Cart Adds)
+
+  This is what the page labels "Main leak" and the table headers "biggest
+  opportunity". The leak transition (e.g. "Click → Cart Add") is identified as
+  `conversions[biggestOpportunityIdx − 1]`.
+
+  Wireframe shortcut: in the demo we explicitly hardcode
+  biggestOpportunityIdx = 2 because the synthetic data was tuned to leak at
+  Cart Adds (funnelDiagnosticData.ts line 172). In production this is the
+  arg-max above with no hardcoding.
+
+Step 2 — quantify the leak as a conversion-rate gap
+
+  buildConversions() walks the stages and for every adjacent pair (A → B)
+  computes the conversion rate yours vs market:
+
+    yourRate[A→B]   = brandCount[B] / brandCount[A] × 100
+    marketRate[A→B] = marketCount[B] / marketCount[A] × 100
+    delta[A→B]      = yourRate[A→B] − marketRate[A→B]                 // pp
+
+  For Click → Cart Add in the demo:
+    yourRate   = 1,068 / 4,580  × 100 = 23.32 %
+    marketRate = 12,180 / 38,440 × 100 = 31.69 %
+    delta      = 23.32 − 31.69        = −8.37 pp
+
+  Note: the page shows BOTH the share gap (Step 1, "−5.0 pp vs market share
+  at this stage") AND the conv-rate gap (Step 2, "−8.4 pp"). They measure the
+  same problem in two ways and both are correct.
+
+Step 3 — convert the gap into a € impact
+
+  We assume the seller closes HALF the gap (a deliberately conservative
+  recoverable estimate, not a target).
+
+    leakConv         = conversions[biggestOpportunityIdx − 1]
+    gapPp            = |leakConv.delta|                                // pp
+    halfGap          = gapPp / 2                                       // pp
+    yourClicks       = brandClicks.brand                               // top of leak
+    recoverableUnits = round(yourClicks × halfGap / 100)
+    insightImpactEur = round(recoverableUnits × ASP)
+
+  ASP is the brand's average selling price. The wireframe uses €35
+  (funnelDiagnosticData.ts line 188; HeroInsightCard.tsx uses the same
+  constant AVG_SELLING_PRICE = 35). In production this is sourced from the
+  account's actual ASP for the period.
+
+  Demo numbers:
+    gapPp            = 8.4
+    halfGap          = 4.2 pp
+    recoverableUnits = round(4,580 × 4.2 / 100) ≈ 192 units / wk
+    insightImpactEur = round(192 × 35) ≈ €6,720 / wk
+
+  This is the number shown on the hero card as "Impact / wk" and is also
+  what feeds the per-ASIN ranking on the Top ASINs Causing the Leak table:
+    estimateLostRevenue(row) =
+      round( sessions × max(0, marketATCRate − productATCRate)/100
+             × 0.5                       // half-recovery
+             × 0.5                       // downstream ATC → Purchase rate
+             × 35 )                      // ASP
+    (ProductTrafficTable.tsx line 95–101)
+
+  The 0.5 × 0.5 stack is: half-recovery on the ATC gap, then half again
+  for the typical Cart-Add → Purchase rate (~50 % market average).
+
+Honesty caveats to share with stakeholders
+  – `marketShare[S]` in the wireframe is anchored to a synthetic category
+    benchmark, NOT a value Amazon publishes per query at the brand-roll-up
+    level. Production needs (a) a category benchmark source, (b) a portfolio-
+    average fallback, or (c) drop the comparison entirely and only show the
+    funnel drop-off.
+  – ASP is currently a flat €35. Use the period-specific blended ASP per
+    marketplace in production.
+  – Sessions and ATC rate are real (Business Reports + Brand Analytics SCP);
+    the "market ATC rate" we compare against is the same synthetic benchmark
+    as above.
+
+Code refs
+  funnelDiagnosticData.ts                  154–224       (full builder)
+  funnelDiagnosticData.ts                  168–172       (biggestOpportunityIdx)
+  funnelDiagnosticData.ts                  181–189       (recoverable € math)
+  funnelDiagnosticData.ts                  130–149       (buildConversions)
+  components/funnel/HeroInsightCard.tsx                   (hero card consumer)
+  components/funnel/ProductTrafficTable.tsx 87–104        (per-ASIN lost rev)
+
+
+=========================================================
+SQP page — opportunity score & opportunity € per keyword
+=========================================================
+
+For every keyword row we receive from Brand Analytics SQP:
+
+    marketVol            = total weekly market searches for the query
+    clickShare           = your % of clicks on that query                 (%)
+    purchaseShare        = your % of purchases on that query              (%)
+    portfolioAvgClick    = mean clickShare across your tracked portfolio  (%)
+
+Step 1 — the per-keyword opportunity "gap"
+
+    opportunity = max(0, portfolioAvgClick − clickShare)                  (pp)
+
+  Keywords where you already match or beat your portfolio average score
+  zero opportunity. This is the WHY behind the rule "Top by Opportunity hides
+  Defend keywords" — by definition, hero keywords with above-average share
+  have opportunity = 0 and disappear from a profit-first ranking.
+
+Step 2 — opportunityScore (the sort key on the map and table)
+
+    opportunityScore = round(marketVol × opportunity)
+
+  Plain English: how big is the addressable gap in absolute search volume?
+  A 5-pp gap on a 50,000-vol keyword scores higher than a 30-pp gap on a
+  500-vol keyword. The portfolio map's "Rank by Opportunity" dropdown sorts
+  on this column (PortfolioMap.tsx — rankBy = 'opportunity').
+
+Step 3 — opportunityEur (the € impact label on cards and tables)
+
+    opportunityEur = round( marketVol × (opportunity / 200) × 0.5 × 18 )
+
+  Decompose:
+    opportunity / 200    = (opportunity / 100) / 2   = half-recovery of the gap
+                           expressed as a fraction
+    marketVol × (…)      = recoverable clicks/wk if you close half the gap
+    × 0.5                = market avg click → purchase conversion (~50 %)
+    × 18                 = category ASP used for SQP only (€/unit)
+
+  Why €18 and not €35? Two different views. Traffic uses €35 because the
+  brand's blended ASP at the funnel level is higher (mixed-product basket).
+  SQP keyword-level uses €18 as a conservative SKU-level ASP because most
+  keywords map to a single hero ASIN whose ASP is lower than the blended
+  basket. Both numbers are wireframe constants and should be replaced by the
+  actual ASP per scope in production (sqpData.ts line 192–194).
+
+Step 4 — portfolio summary (drives the hero card on the SQP page)
+
+    totalOpportunityEur   = Σ over all keywords of opportunityEur
+    top5ConcentrationPct  = round( (sum of top-5 opportunityEur)
+                                   / totalOpportunityEur × 100 )
+    volumeMedian          = median(marketVol over all keywords)
+    avgClickShare         = mean(clickShare over all keywords)
+    underIndexedCount     = count of keywords with clickShare < avgClickShare
+
+  Each keyword is then bucketed into a BCG quadrant:
+
+    keywordQuadrant(k, volumeMedian, avgClickShare) =
+      highVol   = marketVol  >= volumeMedian
+      highShare = clickShare >= avgClickShare
+      if (highVol && highShare)   → 'defend'
+      if (highVol && !highShare)  → 'invest'      // ← where opportunity lives
+      if (!highVol && highShare)  → 'harvest'
+      else                        → 'tail'
+
+    oppByQuadrant[q] = Σ opportunityEur over keywords assigned to q
+    dominantOppQuadrant = arg max over q of oppByQuadrant[q]
+
+  The hero card text branches off `dominantOppQuadrant`:
+    'invest'  → "Under-indexed on high-volume search terms"
+    'defend'  → "Share erosion on hero keywords"
+    'harvest' → "Concentrated wins on low-volume terms"
+    'tail'    → "Opportunity scattered across the long tail"
+
+Step 5 — per-keyword "main gap" (the column on the table + drawer)
+
+  For each keyword we synthesize a stage-by-stage market benchmark (because
+  per-query Amazon-published market shares per stage don't exist):
+
+    marketStageShares = {
+      impressions: max(15, clicks.share + 8),
+      clicks:      max(15, clicks.share + 8),
+      cartAdds:    max(12, clicks.share + 5),
+      purchases:   max(10, purchases.share + 6),
+    }
+
+  Then per stage:
+    gapPp[S] = marketStageShares[S] − share[S]
+
+  The "Main gap" column / drawer reads `arg max over S of gapPp[S]` — same
+  shape as the Traffic main-leak rule, but per keyword (sqpData.ts line
+  290–303).
+
+  Honesty caveat (already documented elsewhere in this file): these stage
+  benchmarks are SYNTHETIC. Production needs a real benchmark or this
+  comparison should be relabeled "vs your portfolio average".
+
+Code refs
+  data/sqpData.ts                   183–217   (opportunityScore + opportunityEur)
+  data/sqpData.ts                   270–303   (per-keyword main gap)
+  data/sqpData.ts                   305–340   (sqpSummary aggregate)
+  components/sqp/SQPHeroCard.tsx              (hero card consumer)
+  components/sqp/PortfolioMap.tsx             ("Rank by Opportunity" sort)
+
+
+Decision-tree rules in extenso — Sales Overview & Advertising Overview (Jun 2026, for handover)
+
+These are the complete, deterministic rules the front-end uses to produce every insight, headline, alert and CTA on the two Overview pages. No LLM. Each subsection lists the rule, the inputs, the code reference and the wireframe constants. Order of evaluation matters — read top-to-bottom inside each function.
+
+
+=========================================================
+Sales → Overview  (file: data/salesOverviewInsights.ts)
+=========================================================
+
+Inputs (per period, currently May 2026 demo constants; replace with real data in production)
+
+  MTD_ACTUAL              = 96,120
+  PROJECTED_EOM           = 141,887
+  TARGET_SALES            = 150,000        // nullable
+  LAST_MONTH_TOTAL        = 126,240
+  LAST_YEAR_SAME_PERIOD   = 120,000
+  AVG_DAILY_SALES         = 4,577
+  DAYS_REMAINING          = 10
+  DAYS_IN_MONTH           = 31
+
+  ORGANIC_SALES_CURRENT   = 51,120
+  AD_SALES_CURRENT        = 45,000
+  ORGANIC_SALES_PREVIOUS  = 50,000
+  AD_SALES_PREVIOUS       = 38,000
+
+  marketplaceDrivers, categoryDrivers, asinDrivers   // from dashboardData
+                                                     // each row: { name, value, previous, ... }
+
+
+Rule 1 — Pace status (computePaceStatus, lines 48–57)
+
+  if (TARGET_SALES != null && TARGET_SALES > 0):
+      if (PROJECTED_EOM >= TARGET_SALES)  → { label: 'On track',          tone: 'good' }
+      else                                 → { label: 'Behind target',     tone: 'bad'  }
+  else:
+      if (PROJECTED_EOM >= LAST_MONTH_TOTAL) → { label: 'Ahead of last period', tone: 'good' }
+      else                                    → { label: 'Behind last period',  tone: 'bad'  }
+
+  Derived numbers:
+    gapToTarget         = PROJECTED_EOM − TARGET_SALES                         // signed
+    requiredDailyToTarget = max(0, ceil((TARGET_SALES − MTD_ACTUAL) / DAYS_REMAINING))
+    popChangePct        = ((PROJECTED_EOM − LAST_MONTH_TOTAL)      / LAST_MONTH_TOTAL)      × 100
+    yoyChangePct        = ((PROJECTED_EOM − LAST_YEAR_SAME_PERIOD) / LAST_YEAR_SAME_PERIOD) × 100
+
+
+Rule 2 — Executive headline (lines 138–150)
+
+  if TARGET_SALES exists:
+    "{CURRENT_PERIOD_LABEL} is pacing {paceStatus.label.toLowerCase()}.
+     Projected sales are €{PROJECTED_EOM}k,
+     {sign}{|gapToTarget|}k {above|below} the €{TARGET_SALES}k target."
+  else:
+    "{CURRENT_PERIOD_LABEL} is pacing {paceStatus.label.toLowerCase()}.
+     Projected sales are €{PROJECTED_EOM}k,
+     {sign}{popChangePct}% vs {LAST_PERIOD_LABEL}."
+
+  Where:
+    CURRENT_PERIOD_LABEL = current month name (e.g. "May")
+    LAST_PERIOD_LABEL    = previous month name (e.g. "April")
+    sign / above|below   = derived from sign of gapToTarget or popChangePct
+
+
+Rule 3 — Growth drivers and watchouts (lines 80–136)
+
+  Per row (across marketplace, category, ASIN feeds):
+    change          = row.value − row.previous
+    changePct       = change / row.previous × 100
+    contributionPct = change > 0 ? (change / Σ positive change) × 100 : 0
+
+  topPositive(rows)  = rows with change > 0, sorted by change desc, take [0]
+  topNegative(rows)  = rows with (change < −€1,000 OR changePct < −10 %),
+                       sorted by change asc, take [0]
+                       // the OR is intentional: a 12% drop on a small market
+                       // counts even if absolute € is < €1k
+
+  mainDriver   = pick topPositive across { marketplace, category, asin } feeds,
+                 ranked by absolute change €
+  mainWatchout = pick topNegative across the same feeds, same ranking
+
+
+Rule 5 — Organic vs ad insight (lines 152–167)
+
+  organicGrowthPct = (ORGANIC_SALES_CURRENT − ORGANIC_SALES_PREVIOUS)
+                     / ORGANIC_SALES_PREVIOUS × 100
+  adGrowthPct      = (AD_SALES_CURRENT      − AD_SALES_PREVIOUS)
+                     / AD_SALES_PREVIOUS × 100
+  adDependencyPct  = AD_SALES_CURRENT / (ORGANIC_SALES_CURRENT + AD_SALES_CURRENT) × 100
+
+  diff = adGrowthPct − organicGrowthPct
+
+  Decision tree (first match wins):
+    diff > +10 pp                  → "Growth is increasingly ad-driven. Check profitability / TACOS."
+    diff < −10 pp                  → "Growth is supported by stronger organic sales."
+    adDependencyPct > 50 %         → "High ad dependency. Check margin quality."
+    otherwise                      → "Organic and paid are growing in step — no immediate quality concern."
+
+
+Rule 6 — Needs Attention alerts (buildAlerts, lines 186–250)
+
+  Priority-ordered list; cap at 3 alerts (the last `.slice(0, 3)`).
+
+  Priority 1 — Target gap
+    if (TARGET_SALES != null && PROJECTED_EOM < TARGET_SALES):
+      severity 'critical'
+      title  "Projected sales are €{|gapToTarget|}k below target."
+      detail "Current pace lands {CURRENT_PERIOD_LABEL} at €{PROJECTED_EOM}k vs the €{TARGET_SALES}k target."
+      cta    'View growth drivers'  →  breakdown-marketplace
+
+  Priority 2 — Required daily pace gap
+    if (requiredDailyToTarget > AVG_DAILY_SALES):
+      severity 'warning'
+      title  "Required daily sales are €{required}k/day vs current €{avg}k/day."
+      detail "Closing the gap needs the average daily to rise by {liftPct}%
+              across the remaining {DAYS_REMAINING} days."
+      cta    'Open run rate'  →  run-rate
+
+  Priority 3 — Largest marketplace / category / ASIN decline
+    if (mainWatchout != null):
+      severity 'warning'
+      title  "{mainWatchout.name} is the largest {kind} drag: €{change/1000}k."
+      detail "{changePct}% vs the prior period."
+      cta    'Open marketplace breakdown' / 'Open category breakdown' /
+             'Open ASIN diagnostic'  →  breakdown-{kind}
+
+  Priority 4 — Ad dependency risk (mutually exclusive with the next rule)
+    if (adGrowthPct − organicGrowthPct > +10 pp):
+      severity 'warning'
+      title  'Growth is increasingly ad-driven. Check profitability.'
+      detail "Ad sales +{adGrowthPct}% vs organic +{organicGrowthPct}%
+              (gap {diff}pp). Ad dependency now {adDependencyPct}%."
+      cta    'Check profitability'  →  profitability
+
+    else if (adDependencyPct > 50 %):
+      severity 'info'
+      title  'High ad dependency. Check margin quality.'
+      detail "Ads contribute {adDependencyPct}% of total sales this period."
+      cta    'Check profitability'  →  profitability
+
+
+Rule 7 — Headline CTA routing (headlineCta, lines 255–272)
+
+  First match wins.
+
+    if (TARGET_SALES != null && PROJECTED_EOM < TARGET_SALES)
+                                        → 'View growth drivers'  →  breakdown-marketplace
+    else if (mainWatchout?.kind === 'asin')
+                                        → 'Review declining ASINs'  →  breakdown-asin
+    else if (mainWatchout?.kind === 'marketplace')
+                                        → 'Open marketplace breakdown'  →  breakdown-marketplace
+    else if (mainWatchout?.kind === 'category')
+                                        → 'Open category breakdown'  →  breakdown-category
+    else if (adGrowthPct − organicGrowthPct > +10 pp)
+                                        → 'Check profitability'  →  profitability
+    else                                → 'Open sales trend'  →  sales-trend
+
+
+=========================================================
+Advertising → Overview  (file: data/advertisingDiagnostics.ts)
+=========================================================
+
+The Advertising decision engine classifies EVERY entity (Campaign, Ad group,
+Placement, Campaign type, Product / ASIN, Search term, Keyword) into a
+{ decision, issue, confidence, severity, revenueImpact, drivers, because,
+  watch, severityLabel } record. The Overview surfaces the top-3 plus a
+deterministic executive insight. Diagnostics and Where-is-it-happening reuse
+the same engine.
+
+Targets / thresholds (single source of truth, lines 24–35)
+
+  TARGETS = {
+    acos:               30,    // %
+    breakEvenAcos:      45,    // %
+    tacos:              15,    // %
+    significantPpDelta:  5,    // % — material PoP for CPC / CVR / CTR
+    highSpend:        5,000,   // € on a single entity
+    noSalesSpend:     1,000,   // € with 0 orders → waste
+    highShare:           8,    // % of total spend
+  }
+
+
+Derived signals on each row (deriveSignals, lines 199–240)
+
+  highSpend           = r.spend  >= 5,000
+  noOrders            = r.orders === 0
+  acosAboveTarget     = r.acos   > 30
+  acosAboveBreakEven  = r.acos   > 45
+  acosUnderTarget     = r.acos   > 0 && r.acos <= 30
+  tacosHigh           = r.tacos  > 15
+  cpcUp               = r.cpcPoP >= +5
+  ctrDown             = r.ctrPoP <= −5
+  cvrDown             = r.cvrPoP <= −5
+  cvrUp               = r.cvrPoP >= +5
+  cvrStable           = |r.cvrPoP| < 5
+  highShare           = r.spend / r.totalSales × 100 >= 8
+  productReadiness    = (r.kind === 'product') && (
+                          r.buyBoxPct < 85 ||
+                          r.rating    < 4.0 ||
+                          r.inventoryDays < 14
+                        )
+
+
+Rule A — Decision classifier (classify, lines 242–282)
+First match wins; ORDER MATTERS.
+
+  if (highSpend && noOrders)
+      → { decision: 'Pause', issue: 'Spend without sales' }
+
+  if (kind === 'product' && productReadiness)
+      → { decision: 'Fix', issue: 'Product readiness issue' }
+
+  if (highSpend && acosAboveBreakEven)
+      → { decision: 'Waste', issue: 'High ACOS' }
+
+  if (highSpend && acosAboveTarget && !noOrders):
+      // sub-classify the Fix issue by which signal fires
+      if (cpcUp)      → { decision: 'Fix', issue: 'CPC inflation'  }
+      if (cvrDown)    → { decision: 'Fix', issue: 'CVR decline'    }
+      if (ctrDown)    → { decision: 'Fix', issue: 'CTR decline'    }
+      if (tacosHigh)  → { decision: 'Fix', issue: 'High TACOS'     }
+      else            → { decision: 'Fix', issue: 'High ACOS'      }
+
+  if (acosUnderTarget && (cvrStable || cvrUp)):
+      if (highShare)  → { decision: 'Protect', issue: 'Healthy' }
+      else            → { decision: 'Scale',   issue: 'Profitable scaling opportunity' }
+
+  if (highShare && r.acos > 0 && r.acos <= 30)
+      → { decision: 'Protect', issue: 'Healthy' }
+
+  if (r.spend < highSpend / 5)        // i.e. < €1,000
+      → { decision: 'Monitor', issue: 'Low impressions' }
+  if (cvrDown)
+      → { decision: 'Monitor', issue: 'CVR decline' }
+  if (ctrDown)
+      → { decision: 'Monitor', issue: 'CTR decline' }
+
+  default
+      → { decision: 'Monitor', issue: 'Healthy' }
+
+
+Rule B — Confidence (countSupporting + computeConfidence, lines 286–333)
+
+  For the assigned decision, count how many supporting signals fire:
+
+    Scale:    acosUnderTarget · (cvrStable||cvrUp) · roas>=3 · salesPoP>0
+    Fix:      highSpend · acosAboveTarget · cpcUp · cvrDown · ctrDown
+    Pause:    noOrders · highSpend · spendPoP>0
+    Waste:    acosAboveBreakEven · highSpend · cpcUp · cvrDown
+    Protect:  highShare · acosUnderTarget · !cvrDown · salesPoP>0
+    Monitor:  baseline = 1 (no extra signals required)
+    Healthy:  baseline = 1
+
+  Then:
+    if (n >= 3) → 'High'
+    if (n === 2) → 'Medium'
+    else         → 'Low'
+
+  Multipliers in scoring:
+    High = 1.0   Medium = 0.7   Low = 0.4
+
+
+Rule C — Revenue impact (computeRevenueImpact, lines 339–364)
+
+  Pause / Waste   → round(r.spend)                      // full spend is at risk
+  Fix             → if r.acos <= 30 → 0
+                    else            → round( r.spend
+                                             × (r.acos − 30) / r.acos )
+                                      // the share of spend ABOVE target ACOS
+  Scale / Protect → round(r.sales × 0.2)
+                    // conservative proxy: 20 % of current sales is the
+                    // upside if scaled / defended
+  Monitor         → 0
+
+
+Rule D — Severity score & severity level (lines 368–381)
+
+  severity = round( |revenueImpact| × confidenceMultiplier )
+
+  severityLevel from |revenueImpact|, per decision:
+    decision === 'Monitor'             → 'Watch'
+    decision === 'Protect'             → 'Watch'
+    else if abs >= €20,000             → 'Critical'
+    else if abs >= €5,000              → 'High'
+    else if abs >= €1,000              → 'Medium'
+    else if abs >  0                   → 'Watch'
+    else                                → 'None'
+
+  Display label is wrapped by formatSeverityLabel(decision, sevLevel):
+    Scale / Protect (opportunity-side)
+      Critical → 'High opportunity'        // clamp; "Critical opportunity"
+                                           //  reads wrong
+      High     → 'High opportunity'
+      Medium   → 'Medium opportunity'
+      Watch    → 'Low opportunity'
+      None     → 'Low opportunity'
+    Fix / Pause / Waste (risk-side)
+      Critical → 'Critical risk'
+      High     → 'High risk'
+      Medium   → 'Medium risk'
+      Watch    → 'Watch'
+      None     → 'Watch'
+
+
+Rule E — Top-3 default for the Decisions panel (topThreeDecisions)
+
+  bestScale    = arg max(severity) over allDiagnostics
+                 where decision ∈ { Scale, Protect }
+  biggestWaste = arg max(severity) over allDiagnostics
+                 where decision ∈ { Pause, Waste }
+  biggestFix   = arg max(severity) over allDiagnostics
+                 where decision === Fix
+
+  The "View all decisions" expansion drops to:
+    topScaleOpportunities = top 3 by severity of Scale + Protect
+    topRiskDecisions      = top 3 by severity of Fix + Pause + Waste
+
+
+Rule F — Executive insight headline (buildExecutiveInsight, lines 970–1015)
+
+  Headline (first match wins, using brand-summary s):
+
+    salesPoP > 0 && acosPoP > 0   → "Ad sales are growing, but efficiency is weakening."
+    salesPoP > 0 && acosPoP <= 0  → "Ad sales are growing efficiently."
+    salesPoP <= 0 && spendPoP > 0 → "Spend increased while ad sales declined."
+    salesPoP <= 0 && spendPoP <=0 → "Both spend and ad sales are softening."
+    else                           → "Advertising performance is stable."
+
+  Issue label (first of the following that fires):
+
+    tacos > 15                       → "TACOS is above target"
+    cpcPoP > 0 && cvrPoP < 0         → "CPC increased while ad CVR declined"
+    acos > 30                        → "ACOS is above target"
+    else                              → "No material issue detected"
+
+  Driver line:
+    if (cpcPoP > 0 && cvrPoP < 0)
+        "CPC {±cpcPoP}% while CVR {±cvrPoP}%"
+    else
+        "Ad sales {±salesPoP}% · Spend {±spendPoP}%"
+
+  Confidence (count of signals firing):
+    n  = (acos > 30) + (tacos > 15)
+       + (cpcPoP > 0 && cvrPoP < 0)
+       + (salesPoP < 0 && spendPoP > 0)
+    if (n >= 3) → 'High'   else if (n === 2) → 'Medium'   else → 'Low'
+
+  CTA (concrete, not generic):
+    inefficientCampaignCount = count of campaignDiagnostics where
+                               (decision ∈ {Fix, Waste}) && spend >= €5,000
+    ctaLabel = inefficientCampaignCount > 0
+                 ? "Review {n} high-spend inefficient campaign{s}"
+                 : "Open Diagnostics"
+    ctaRoute = 'Advertising/Diagnostics'
+
+  Body always says:
+    "Ad sales are {totalSales}, spend is {totalSpend}, ACOS is {acos}%,
+     and TACOS is {tacos}%."
+
+
+Rule G — Marketplace / Brand / Campaign-type rollups (DecisionRollupTable)
+
+  Each marketplace / brand / ad-type row is fed through buildDiagnostic() as
+  a synthetic 'campaign' entity with totalSales set to Σ of all marketplaces
+  (so highShare is calculated against the brand total). The rollup table
+  then renders { name, decision, issue, evidence, spend, sales, acos,
+  salesPoP, nextStep }, sorted by severity desc.
+
+
+Rule H — "Because" + "Watch" sentences (becauseFor / watchFor, lines 437–490)
+
+  becauseFor() emits a natural-language sentence per decision, populated with
+  the row's actual numbers (ACOS %, CPC PoP, CVR PoP). Used on the simplified
+  decision cards in Overview and in the drawer.
+
+  watchFor() returns a counter-signal sentence only when one fires:
+    Scale / Protect:
+      cvrPoP <= −2  → "Watch: CVR declined X% PoP."
+      ctrPoP <= −2  → "Watch: CTR declined X% PoP."
+      acosPoP >= +5 → "Watch: ACOS up X% PoP."
+    Fix:
+      salesPoP >= +5 → "Watch: ad sales still +X% PoP despite the issue."
+    Pause / Waste:
+      spendPoP < 0  → "Watch: spend already trending down X% PoP."
+    Monitor: null
+
+
+Production migration notes
+  – TARGETS values are placeholders. Production should let each account set
+    target ACOS / break-even ACOS / target TACOS in Settings → Data.
+  – The brand-level summary (advertisingSummary) currently averages over
+    adByMarketplace seed rows. Replace with the real period totals.
+  – `confidence` could be tightened by gating on minimum spend / order base
+    (e.g. confidence 'Low' if r.spend < €500 regardless of how many signals
+    align) so thin-data classifications don't masquerade as 'High'.
+  – `severity` thresholds (€20k / €5k / €1k) are flat. Production should make
+    them either percentile-based or per-account configurable.
