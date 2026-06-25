@@ -10,13 +10,13 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, LabelList,
 } from 'recharts';
 import {
-  Zap, TrendingUp, AlertTriangle, Package, Clock, Coins, Users, Percent,
+  Zap, TrendingUp, AlertTriangle, Package, Clock, Coins, Megaphone, Target,
 } from 'lucide-react';
 import { useCurrency, type Currency } from '../contexts/CurrencyContext';
 import { fc, tickFmt } from '../utils/currency';
 import {
   primeDayMeta, primeDayMetrics, primeDayRevenue, primeDayMovers,
-  primeDayDays, primeDayPeak,
+  primeDayDays,
   metricChange, fmtMetricValue, pctDelta,
   type YoYMetric, type MoverRow,
 } from '../data/primeDayData';
@@ -122,8 +122,8 @@ export default function PrimeDayRecap() {
   const revAbs = rev.thisYear - rev.lastYear;
 
   const units = byKey.get('units')!;
-  const ntb = byKey.get('ntb')!;
-  const margin = byKey.get('margin')!;
+  const adSpend = byKey.get('adSpend')!;
+  const roas = byKey.get('roas')!;
 
   // Day split chart data + YoY total
   const dayData = useMemo(() => primeDayDays.map((d) => ({ label: d.label, [primeDayMeta.lastYearLabel]: d.lastYear, [primeDayMeta.thisYearLabel]: d.thisYear })), []);
@@ -187,8 +187,8 @@ export default function PrimeDayRecap() {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 flex-shrink-0">
               <HeroTile label="Revenue" value={fmtMetricValue('currency', rev.thisYear, currency)} m={byKey.get('revenue')!} icon={<Coins className="w-3.5 h-3.5 text-amber-600" />} lastYear={fmtMetricValue('currency', rev.lastYear, currency)} />
               <HeroTile label="Units" value={fmtMetricValue('number', units.thisYear, currency)} m={units} icon={<Package className="w-3.5 h-3.5 text-cx-600" />} lastYear={fmtMetricValue('number', units.lastYear, currency)} />
-              <HeroTile label="New-to-brand" value={`${ntb.thisYear}%`} m={ntb} icon={<Users className="w-3.5 h-3.5 text-emerald-600" />} lastYear={`${ntb.lastYear}%`} />
-              <HeroTile label="Gross margin" value={`${margin.thisYear}%`} m={margin} icon={<Percent className="w-3.5 h-3.5 text-rose-600" />} lastYear={`${margin.lastYear}%`} />
+              <HeroTile label="Ad spend" value={fmtMetricValue('currency', adSpend.thisYear, currency)} m={adSpend} icon={<Megaphone className="w-3.5 h-3.5 text-cx-600" />} lastYear={fmtMetricValue('currency', adSpend.lastYear, currency)} />
+              <HeroTile label="ROAS" value={`${roas.thisYear.toFixed(2)}x`} m={roas} icon={<Target className="w-3.5 h-3.5 text-emerald-600" />} lastYear={`${roas.lastYear.toFixed(2)}x`} />
             </div>
 
             <div className="flex-shrink-0 self-start">
@@ -217,9 +217,6 @@ export default function PrimeDayRecap() {
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
-            </div>
-            <div className="flex items-center gap-2 text-[11px] text-gray-500 mt-1">
-              <Clock className="w-3.5 h-3.5 text-amber-500" />Peak <span className="font-semibold text-gray-700">{primeDayPeak.window}</span> · {fc(primeDayPeak.revenue, currency, { compact: true })}
             </div>
           </div>
         </Card>
@@ -319,7 +316,6 @@ export default function PrimeDayRecap() {
 const GROUPS: { id: string; label: string; keys: string[]; caveat?: boolean }[] = [
   { id: 'demand', label: 'Demand & volume', keys: ['units', 'orders', 'aov', 'glance', 'cvr'] },
   { id: 'ad', label: 'Advertising', keys: ['adSpend', 'adSales', 'acos', 'roas', 'tacos'], caveat: true },
-  { id: 'profit', label: 'Customer & margin', keys: ['ntb', 'discount', 'margin'] },
 ];
 
 function HeroTile({ label, value, m, icon, lastYear }: { label: string; value: string; m: YoYMetric; icon: React.ReactNode; lastYear: string }) {
