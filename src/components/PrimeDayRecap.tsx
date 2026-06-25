@@ -158,19 +158,27 @@ export default function PrimeDayRecap() {
                 <Zap className="w-5 h-5 text-cx-600" />
               </div>
               <div className="min-w-0">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-cx-700">Prime Day Recap</span>
                   <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200">
                     <span className="w-1.5 h-1.5 rounded-full bg-amber-500" /> New
                   </span>
-                  <span className="text-[11px] text-gray-400">{primeDayMeta.thisYearDates} vs {primeDayMeta.lastYearDates}</span>
                 </div>
-                <div className="flex items-baseline gap-2.5 mt-1">
+                <div className="flex items-baseline gap-2.5 mt-1 flex-wrap">
                   <span className="text-[34px] font-extrabold text-gray-900 leading-none tabular-nums">{fmtMetricValue('currency', rev.thisYear, currency)}</span>
                   <span className="text-base font-bold text-emerald-700 inline-flex items-center gap-0.5"><TrendingUp className="w-4 h-4" />+{revPct.toFixed(1)}%</span>
+                  <span className="text-[11px] text-gray-500">vs {primeDayMeta.lastYearLabel}</span>
+                </div>
+                {/* Compared periods — explicit dates so users see exactly what each side is */}
+                <div className="mt-2 inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-white/70 border border-cx-100 text-[11px] tabular-nums">
+                  <span className="font-semibold text-gray-800">{primeDayMeta.thisYearLabel}</span>
+                  <span className="text-gray-500">{primeDayMeta.thisYearDates}</span>
+                  <span className="text-gray-300">vs</span>
+                  <span className="font-semibold text-gray-800">{primeDayMeta.lastYearLabel}</span>
+                  <span className="text-gray-500">{primeDayMeta.lastYearDates}</span>
                 </div>
                 <div className="text-[11px] text-gray-500 mt-1.5 tabular-nums">
-                  +{fc(revAbs, currency, { compact: true })} YoY · {primeDayMeta.thisYearLabel} vs {primeDayMeta.lastYearLabel}
+                  +{fc(revAbs, currency, { compact: true })} absolute lift YoY
                 </div>
               </div>
             </div>
@@ -192,7 +200,7 @@ export default function PrimeDayRecap() {
 
       {/* ── Revenue by day + contribution to growth ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <Card title="Revenue by event day" tooltip="Revenue per Prime Day, this year vs last year."
+        <Card title="Revenue by event day" tooltip={`Revenue per Prime Day, ${primeDayMeta.thisYearLabel} (${primeDayMeta.thisYearDates}) vs ${primeDayMeta.lastYearLabel} (${primeDayMeta.lastYearDates}).`}
           action={<span className="text-[11px] font-semibold text-emerald-700 tabular-nums">+{revPct.toFixed(1)}% YoY · +{fc(revAbs, currency, { compact: true })}</span>}>
           <div className="px-6 pb-3">
             <div className="h-[230px]">
@@ -216,8 +224,9 @@ export default function PrimeDayRecap() {
           </div>
         </Card>
 
-        <Card title="Where the growth came from" tooltip="Each category's € contribution to the YoY revenue gain.">
+        <Card title="Where the growth came from" tooltip={`Each category's € contribution to the YoY revenue gain (${primeDayMeta.thisYearDates} vs ${primeDayMeta.lastYearDates}).`}>
           <div className="px-6 pb-5">
+            <div className="text-[10px] text-gray-400 tabular-nums mt-3 -mb-1">{primeDayMeta.thisYearDates} vs {primeDayMeta.lastYearDates}</div>
             <div className="space-y-2.5 mt-3">
               {contrib.rows.map((r) => {
                 const share = (r.delta / contrib.total) * 100;
@@ -240,14 +249,22 @@ export default function PrimeDayRecap() {
       {/* ── YoY KPI comparison ── */}
       <Card title="This year vs last year"
         action={<ShareMenu build={() => buildSummaryCanvas(currency)} filename={shareFile('kpis')} />}>
-        <div className="px-6 pb-3 -mt-1 text-[11px] text-gray-400">{primeDayMeta.thisYearLabel} compared with {primeDayMeta.lastYearLabel}</div>
+        <div className="px-6 pb-3 -mt-1 text-[11px] text-gray-400 tabular-nums">
+          {primeDayMeta.thisYearLabel} ({primeDayMeta.thisYearDates}) compared with {primeDayMeta.lastYearLabel} ({primeDayMeta.lastYearDates})
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-[12px]">
             <thead>
               <tr className="bg-gray-50 border-y border-gray-100 text-[10px] font-bold uppercase tracking-wider text-gray-400">
                 <th className="px-6 py-2">Metric</th>
-                <th className="px-3 py-2 text-right">{primeDayMeta.thisYearLabel}</th>
-                <th className="px-3 py-2 text-right">{primeDayMeta.lastYearLabel}</th>
+                <th className="px-3 py-2 text-right">
+                  <div>{primeDayMeta.thisYearLabel}</div>
+                  <div className="text-[9px] font-medium text-gray-300 normal-case tracking-normal tabular-nums">{primeDayMeta.thisYearDates}</div>
+                </th>
+                <th className="px-3 py-2 text-right">
+                  <div>{primeDayMeta.lastYearLabel}</div>
+                  <div className="text-[9px] font-medium text-gray-300 normal-case tracking-normal tabular-nums">{primeDayMeta.lastYearDates}</div>
+                </th>
                 <th className="px-6 py-2 text-right">YoY</th>
               </tr>
             </thead>
@@ -262,7 +279,10 @@ export default function PrimeDayRecap() {
       <Card>
         <div className="flex items-center justify-between gap-3 px-6 pt-5 pb-3 flex-wrap">
           <div className="flex items-center gap-3 flex-wrap">
-            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Top movers · {dim.label}</h2>
+            <div>
+              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Top movers · {dim.label}</h2>
+              <p className="text-[10px] text-gray-400 tabular-nums mt-0.5">{primeDayMeta.thisYearDates} vs {primeDayMeta.lastYearDates}</p>
+            </div>
             <div className="flex items-center bg-gray-100 rounded-lg p-0.5 gap-0.5">
               {primeDayMovers.map((d, i) => (
                 <button key={d.key} onClick={() => setDimIdx(i)} className={`px-3 py-1 text-[11px] font-semibold rounded-md transition-all ${dimIdx === i ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>{d.label}</button>

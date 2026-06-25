@@ -108,9 +108,13 @@ export const primeDayMovers: MoverDimension[] = [
 
 // ── Event extras a brand manager needs ──
 
+// Per-event-day label format: "Day N · {2026 date} / {2025 date}" so the
+// X-axis is unambiguous about which calendar day each pair maps to. The
+// two events don't fall on the same dates (Prime Day 2026 = 8–9 Jul,
+// Prime Day 2025 = 16–17 Jul).
 export const primeDayDays = [
-  { label: 'Day 1 · 8 Jul', thisYear: 268_400, lastYear: 214_600 },
-  { label: 'Day 2 · 9 Jul', thisYear: 217_800, lastYear: 178_200 },
+  { label: 'Day 1 · 8 Jul \'26 / 16 Jul \'25', thisYear: 268_400, lastYear: 214_600 },
+  { label: 'Day 2 · 9 Jul \'26 / 17 Jul \'25', thisYear: 217_800, lastYear: 178_200 },
 ];
 
 export const primeDayPeak = { window: '20:00–21:00 CET, Day 1', revenue: 38_200 };
