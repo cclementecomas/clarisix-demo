@@ -1878,3 +1878,63 @@ Production migration notes
     align) so thin-data classifications don't masquerade as 'High'.
   – `severity` thresholds (€20k / €5k / €1k) are flat. Production should make
     them either percentile-based or per-account configurable.
+
+
+---
+
+Prime Day Recap (PrimeDayRecap.tsx)
+
+Year-over-year recap of this year's Prime Day vs last year's. Data in
+primeDayData.ts; branded PNG exports in primeDayShare.ts (on brandedShare.ts
+primitives). Event dates differ by year: Prime Day 2026 = 23–26 Jun, Prime Day
+2025 = 8–11 Jul — both 4 days; comparison dates are surfaced everywhere so the
+two sides are never ambiguous.
+
+Layout
+- Executive hero: headline revenue + YoY%, the explicit compared-date chip, four
+  metric tiles (Revenue / Units / Ad spend / ROAS). Flat design — plain white
+  card, thin gray border, no gradients / rainbow accent strip (deliberately
+  "not AI-looking", per client feedback).
+- Revenue by event day: recharts grouped bars (this year vs last year), with a
+  PNG export (buildRevenueByDayCanvas) where each day is paired against its LY
+  peer + per-day YoY %.
+- Where the growth came from: € contribution-to-growth bars in brand blue
+  (bg-cx-500), with a dimension picker (Countries / Categories / Products) that
+  reuses the primeDayMovers dimensions. Defaults to Categories.
+- This year vs last year: grouped YoY KPI table (demand + advertising), with its
+  own PNG export (buildKpiTableCanvas) — distinct from the hero summary PNG.
+- Top movers: bullet-bar board (this year vs last year), dimension toggle, PNG
+  export (buildMoversCanvas).
+
+Page chrome
+- Global filters AND the date-range selector are HIDDEN on this page (gated in
+  Navigation.tsx by activeSection !== 'Prime Day Recap'). The recap is a fixed
+  event view; arbitrary date/marketplace filtering doesn't apply.
+
+Branded PNG exports (primeDayShare.ts)
+- Three distinct canvases: buildSummaryCanvas (hero KPIs), buildKpiTableCanvas
+  (grouped YoY table), buildRevenueByDayCanvas (day-for-day), plus
+  buildMoversCanvas. Earlier the hero and the YoY-table both reused the summary
+  canvas — they now export different images.
+- Hero summary badge reads "ATTRIBUTION PENDING" (the older "LIVE ·" wording was
+  dropped). Event gross margin is NOT shown — not computed yet, so its tile was
+  removed from TILE_KEYS.
+
+First-open welcome (PrimeDayWelcome.tsx)
+- A one-time "wow" overlay on first open (tracked in localStorage key
+  clarisix_prime_day_welcome_seen; a "Replay" pill re-triggers it).
+- Built with Framer Motion (motion/react, v12): radial brand-glow bloom behind a
+  spring-in card, staggered content reveal, headline revenue counts up with a
+  pop, and a light sheen sweeps across the card. canvas-confetti fires a
+  choreographed sequence (center burst → side cannons → golden finale timed to
+  the number pop → ~1.8s sparkle fall). Copy: "One of the biggest promo events
+  is done … attribution still settling … congrats to everyone. Here's your
+  recap."
+
+Production notes
+- All figures are demo seeds in primeDayData.ts; production assembles them from
+  Sales + Advertising + Inventory marts. Advertising metrics are flagged
+  provisional (D+14 attribution window still settling).
+- Event gross margin is intentionally absent until the margin calc is wired.
+- Welcome dependency: motion (Framer Motion) was added for this; confetti reuses
+  the existing canvas-confetti dependency.
