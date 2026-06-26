@@ -105,9 +105,14 @@ export function downloadCanvas(canvas: HTMLCanvasElement, filename: string) {
 
 export async function copyCanvas(canvas: HTMLCanvasElement, filename: string): Promise<'clipboard' | 'download'> {
   try {
-    const blob = await new Promise<Blob | null>((res) => canvas.toBlob((b) => res(b), 'image/png'));
-    if (!blob) throw new Error('toBlob null');
-    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+    if (!navigator.clipboard || typeof ClipboardItem === 'undefined') throw new Error('no clipboard image support');
+    // Hand ClipboardItem a Blob *promise* synchronously so the async PNG encode
+    // happens inside the user-gesture window — awaiting toBlob first would void
+    // the gesture and Chromium/Safari reject the write (NotAllowedError).
+    const blobPromise = new Promise<Blob>((resolve, reject) =>
+      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('toBlob null'))), 'image/png'),
+    );
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blobPromise })]);
     return 'clipboard';
   } catch {
     downloadCanvas(canvas, filename);

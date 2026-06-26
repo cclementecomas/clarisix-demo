@@ -1920,21 +1920,48 @@ Branded PNG exports (primeDayShare.ts)
   dropped). Event gross margin is NOT shown — not computed yet, so its tile was
   removed from TILE_KEYS.
 
-First-open welcome (PrimeDayWelcome.tsx)
-- A one-time "wow" overlay on first open (tracked in localStorage key
-  clarisix_prime_day_welcome_seen; a "Replay" pill re-triggers it).
-- Built with Framer Motion (motion/react, v12): radial brand-glow bloom behind a
-  spring-in card, staggered content reveal, headline revenue counts up with a
-  pop, and a light sheen sweeps across the card. canvas-confetti fires a
-  choreographed sequence (center burst → side cannons → golden finale timed to
-  the number pop → ~1.8s sparkle fall). Copy: "One of the biggest promo events
-  is done … attribution still settling … congrats to everyone. Here's your
-  recap."
+First-open welcome — "Prime Day, Wrapped" (PrimeDayWelcome.tsx)
+- A one-time branded, Spotify-Wrapped-style reveal on first open (tracked in
+  localStorage key clarisix_prime_day_welcome_seen; a "Replay" pill re-triggers).
+- Gated on a POSITIVE event: only fires when headline revenue YoY > 0. On a
+  flat or negative event the component renders nothing (no auto-fire, no Replay
+  pill) — never celebrate a down year.
+- Design rationale (ICP = brand managers who want their success celebrated and
+  memorable): memorability comes from personal recognition + a screenshot-worthy
+  stat + an anticipation beat, NOT from particle effects. Confetti and shockwave
+  rings were deliberately removed as generic SaaS noise.
+- Copy is strictly YEAR-OVER-YEAR and grounded — no all-time / "best ever"
+  claims (we only compare PD2026 vs PD2025). The word "sealed" was dropped in
+  favor of the self-explanatory "Wrapped".
+- Built with Framer Motion (motion/react, v12), three beats on a dark immersive
+  card (bg-slate-900, white text):
+  1. Wrap — the orange Clarisix mark (/Untitled_design_(3).png) spins up and
+     decelerates to an aligned lock (spin motion value → 1080°, easeOut) while a
+     caption reads "Wrapping your Prime Day…" (honest: attribution still settling,
+     so the mark is literally still computing).
+  2. Ring — a single EMERALD (green) ring DRAWS once around the mark (SVG
+     stroke-dashoffset, the checkDraw technique) with a green glow bloom + a
+     lock-pop scale; label flips to "Prime Day 2026 · Wrapped". Green = positive
+     news (matches the YoY stat + the positive-event gating); amber was avoided
+     because it's this product's "provisional / attribution-pending" colour, so
+     it would read as a caution, not a win. One meaningful effect, not a dump.
+  3. Reveal — headline revenue rolls up odometer-style (per-digit vertical roll)
+     with an "in Prime Day revenue" label, the YoY stat line ("+X% vs Prime Day
+     2025 · +€Yk"), a "Top growth driver" accolade chip (biggest € contributor to
+     growth — not a "record"), and two CTAs: "See the full recap" (closes) and
+     "Share this win" (hands off to buildSummaryCanvas → copy/save the branded
+     PNG). Honors prefers-reduced-motion (skips the spin/anticipation).
 
 Production notes
 - All figures are demo seeds in primeDayData.ts; production assembles them from
   Sales + Advertising + Inventory marts. Advertising metrics are flagged
   provisional (D+14 attribution window still settling).
 - Event gross margin is intentionally absent until the margin calc is wired.
-- Welcome dependency: motion (Framer Motion) was added for this; confetti reuses
-  the existing canvas-confetti dependency.
+- Welcome dependency: motion (Framer Motion) drives the reveal. The welcome no
+  longer uses canvas-confetti (that dep is still used elsewhere — HomeCelebration,
+  onboarding). The "Share this win" CTA reuses primeDayShare + brandedShare.
+- Clipboard image copy (brandedShare.copyCanvas, used by ShareMenu + the welcome)
+  hands ClipboardItem a Blob *promise* synchronously so the PNG encode stays
+  inside the user-gesture window — awaiting toBlob first voided the gesture and
+  Chromium/Safari rejected the write. Falls back to a download if the browser has
+  no image-clipboard support (e.g. older Firefox).
