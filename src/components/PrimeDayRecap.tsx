@@ -21,7 +21,8 @@ import {
   type YoYMetric, type MoverRow,
 } from '../data/primeDayData';
 import ShareMenu from './ShareMenu';
-import { buildSummaryCanvas, buildMoversCanvas } from '../utils/primeDayShare';
+import PrimeDayWelcome from './PrimeDayWelcome';
+import { buildSummaryCanvas, buildMoversCanvas, buildKpiTableCanvas, buildRevenueByDayCanvas } from '../utils/primeDayShare';
 
 const byKey = new Map(primeDayMetrics.map((m) => [m.key, m]));
 const TY = '#0E5A8A';   // this year (brand)
@@ -116,6 +117,9 @@ export default function PrimeDayRecap() {
   const { currency } = useCurrency();
   const [dimIdx, setDimIdx] = useState(0);
   const dim = primeDayMovers[dimIdx];
+  // Contribution-to-growth dimension (default: categories)
+  const [contribIdx, setContribIdx] = useState(primeDayMovers.findIndex((d) => d.key === 'category'));
+  const contribDim = primeDayMovers[contribIdx];
 
   const rev = primeDayRevenue;
   const revPct = pctDelta(rev.thisYear, rev.lastYear);
@@ -129,15 +133,14 @@ export default function PrimeDayRecap() {
   const dayData = useMemo(() => primeDayDays.map((d) => ({ label: d.label, [primeDayMeta.lastYearLabel]: d.lastYear, [primeDayMeta.thisYearLabel]: d.thisYear })), []);
   const DayTip = dayTooltip(currency);
 
-  // Contribution-to-growth (by category, € delta)
-  const categories = primeDayMovers.find((d) => d.key === 'category')!.rows;
+  // Contribution-to-growth (by selected dimension, € delta)
   const contrib = useMemo(() => {
-    const rows = categories.map((r) => ({ name: r.name, delta: r.thisYearRev - r.lastYearRev }))
+    const rows = contribDim.rows.map((r) => ({ name: r.name, delta: r.thisYearRev - r.lastYearRev }))
       .filter((r) => r.delta > 0).sort((a, b) => b.delta - a.delta);
     const total = rows.reduce((s, r) => s + r.delta, 0) || 1;
     const max = Math.max(...rows.map((r) => r.delta), 1);
     return { rows, total, max };
-  }, [categories]);
+  }, [contribDim]);
 
   // Movers — sorted by growth, with shared max for bar scaling
   const moverRows = useMemo(() => [...dim.rows].sort((a, b) => pctDelta(b.thisYearRev, b.lastYearRev) - pctDelta(a.thisYearRev, a.lastYearRev)), [dim]);
@@ -147,9 +150,10 @@ export default function PrimeDayRecap() {
 
   return (
     <div className="space-y-5">
+      <PrimeDayWelcome />
+
       {/* ── Executive hero ── */}
-      <div className="relative bg-gradient-to-br from-cx-50 via-white to-amber-50/40 rounded-2xl border-2 border-cx-200 shadow-sm overflow-hidden">
-        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-cx-500 via-amber-500 to-cx-500" />
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="px-6 py-5">
           <div className="flex items-start gap-6 flex-wrap lg:flex-nowrap">
             {/* Headline */}
@@ -170,7 +174,7 @@ export default function PrimeDayRecap() {
                   <span className="text-[11px] text-gray-500">vs {primeDayMeta.lastYearLabel}</span>
                 </div>
                 {/* Compared periods — explicit dates so users see exactly what each side is */}
-                <div className="mt-2 inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-white/70 border border-cx-100 text-[11px] tabular-nums">
+                <div className="mt-2 inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-gray-50 border border-gray-100 text-[11px] tabular-nums">
                   <span className="font-semibold text-gray-800">{primeDayMeta.thisYearLabel}</span>
                   <span className="text-gray-500">{primeDayMeta.thisYearDates}</span>
                   <span className="text-gray-300">vs</span>
@@ -201,7 +205,12 @@ export default function PrimeDayRecap() {
       {/* ── Revenue by day + contribution to growth ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <Card title="Revenue by event day" tooltip={`Revenue per Prime Day, ${primeDayMeta.thisYearLabel} (${primeDayMeta.thisYearDates}) vs ${primeDayMeta.lastYearLabel} (${primeDayMeta.lastYearDates}).`}
-          action={<span className="text-[11px] font-semibold text-emerald-700 tabular-nums">+{revPct.toFixed(1)}% YoY · +{fc(revAbs, currency, { compact: true })}</span>}>
+          action={
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-semibold text-emerald-700 tabular-nums">+{revPct.toFixed(1)}% YoY · +{fc(revAbs, currency, { compact: true })}</span>
+              <ShareMenu build={() => buildRevenueByDayCanvas(currency)} filename={shareFile('revenue-by-day')} />
+            </div>
+          }>
           <div className="px-6 pb-3">
             <div className="h-[230px]">
               <ResponsiveContainer width="100%" height="100%">
@@ -221,7 +230,14 @@ export default function PrimeDayRecap() {
           </div>
         </Card>
 
-        <Card title="Where the growth came from" tooltip={`Each category's € contribution to the YoY revenue gain (${primeDayMeta.thisYearDates} vs ${primeDayMeta.lastYearDates}).`}>
+        <Card title="Where the growth came from" tooltip={`Each ${contribDim.label.toLowerCase().replace(/s$/, '')}'s € contribution to the YoY revenue gain (${primeDayMeta.thisYearDates} vs ${primeDayMeta.lastYearDates}).`}
+          action={
+            <div className="flex items-center bg-gray-100 rounded-lg p-0.5 gap-0.5">
+              {primeDayMovers.map((d, i) => (
+                <button key={d.key} onClick={() => setContribIdx(i)} className={`px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all ${contribIdx === i ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>{d.label}</button>
+              ))}
+            </div>
+          }>
           <div className="px-6 pb-5">
             <div className="text-[10px] text-gray-400 tabular-nums mt-3 -mb-1">{primeDayMeta.thisYearDates} vs {primeDayMeta.lastYearDates}</div>
             <div className="space-y-2.5 mt-3">
@@ -231,7 +247,7 @@ export default function PrimeDayRecap() {
                   <div key={r.name} className="flex items-center gap-2">
                     <span className="text-[11px] font-medium text-gray-600 w-[120px] truncate text-right shrink-0">{r.name}</span>
                     <div className="relative flex-1 h-[16px] bg-gray-50 rounded-sm min-w-0">
-                      <div className="absolute inset-y-0 left-0 rounded-sm bg-emerald-500/85" style={{ width: `${(r.delta / contrib.max) * 100}%` }} />
+                      <div className="absolute inset-y-0 left-0 rounded-sm bg-cx-500" style={{ width: `${(r.delta / contrib.max) * 100}%` }} />
                     </div>
                     <span className="text-[11px] font-semibold text-emerald-700 w-14 text-right shrink-0 tabular-nums">+{fc(r.delta, currency, { compact: true })}</span>
                     <span className="text-[10px] font-medium text-gray-400 w-10 text-right shrink-0 tabular-nums">{share.toFixed(0)}%</span>
@@ -245,7 +261,7 @@ export default function PrimeDayRecap() {
 
       {/* ── YoY KPI comparison ── */}
       <Card title="This year vs last year"
-        action={<ShareMenu build={() => buildSummaryCanvas(currency)} filename={shareFile('kpis')} />}>
+        action={<ShareMenu build={() => buildKpiTableCanvas(currency)} filename={shareFile('kpis')} />}>
         <div className="px-6 pb-3 -mt-1 text-[11px] text-gray-400 tabular-nums">
           {primeDayMeta.thisYearLabel} ({primeDayMeta.thisYearDates}) compared with {primeDayMeta.lastYearLabel} ({primeDayMeta.lastYearDates})
         </div>
@@ -320,7 +336,7 @@ const GROUPS: { id: string; label: string; keys: string[]; caveat?: boolean }[] 
 
 function HeroTile({ label, value, m, icon, lastYear }: { label: string; value: string; m: YoYMetric; icon: React.ReactNode; lastYear: string }) {
   return (
-    <div className="rounded-lg border border-cx-100 bg-white/80 px-3 py-2 min-w-[118px]">
+    <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 min-w-[118px]">
       <div className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-gray-500">{icon}{label}</div>
       <div className="text-lg font-bold text-gray-900 tabular-nums leading-tight mt-1">{value}</div>
       <div className="flex items-center gap-1.5 mt-0.5">
