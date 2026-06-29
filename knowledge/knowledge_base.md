@@ -2,6 +2,8 @@ Clarisix Knowledge Base
 
 Distilled insights from client and team conversations. Used to inform wireframe and development decisions.
 
+→ For the consolidated decision-tree engine — every automatic label, classification, status and recommendation Clarisix produces, with thresholds and code refs — see classifiers.md in this folder.
+
 
 Terminology conventions (product-wide)
 
@@ -1989,3 +1991,108 @@ Production notes
   inside the user-gesture window — awaiting toBlob first voided the gesture and
   Chromium/Safari rejected the write. Falls back to a download if the browser has
   no image-clipboard support (e.g. older Firefox).
+
+
+---
+
+SQP — Keyword detail pop-up (rule-based decision tree)
+
+Developer reference for the slide-in panel that opens when a keyword is selected
+(KeywordDetailDrawer.tsx). It explains exactly how every line in the pop-up is
+derived, so the same rules can be re-implemented against real Brand Analytics SQP
+data. Source of truth today: src/data/sqpData.ts (logic) + the drawer (render).
+
+INPUTS PER KEYWORD (from Brand Analytics — Search Query Performance, Brand View)
+  marketVolume          total weekly market searches for the query
+  Funnel stage shares   your brand's share (%) of the market at each stage:
+                        impressions.share, clicks.share, cartAdds.share, purchases.share
+  qss                   Amazon "Search Query Score" 1–10 (synthetic in the wireframe)
+  intent                branded | generic | competitor | longTail | category
+  ppc.spend, ppc.acos   weekly PPC spend and ACOS for the query
+  trend4w               4-week change in your purchase share (pp)
+
+PORTFOLIO CONSTANTS (computed once across all tracked keywords — sqpSummary)
+  volumeMedian          median marketVolume across the portfolio
+  avgClickShare         mean of clicks.share across the portfolio
+  portfolioAvgClick     mean of the raw myClickShare inputs (used by Opportunity
+                        + the action gap). In practice ≈ avgClickShare.
+
+────────────────────────────────────────────────────────────────────────────
+1. HEADER BADGE  (the "INVEST" chip) — keywordQuadrant()
+   Portfolio-RELATIVE 2×2 of volume × your click-share. Boundaries are
+   portfolio-stable so the badge doesn't move when map filters change.
+     highVol   = marketVolume >= volumeMedian
+     highShare = clicks.share >= avgClickShare
+     highVol & highShare   → DEFEND   (emerald)  "Protect share, avoid losing rank"
+     highVol & !highShare  → INVEST   (amber)    "Increase bid / content / rank"
+     !highVol & highShare  → HARVEST  (indigo)   "Maintain, optimize ACOS"
+     else                  → TAIL     (slate)    "Ignore or test cheaply"
+   Collagen example: volume 39,200 ≥ median AND click-share 4.8% < avg → INVEST.
+
+2. HEADER SUBLINE
+   "QSS {qss}"   — Amazon Search Query Score, one decimal.
+   "{intent}"    — the intent class, uppercased (e.g. GENERIC).
+   "Market volume {marketVolume}/wk · Opportunity €{opportunityEur}/wk".
+
+3. OPPORTUNITY € / wk  — opportunityEur
+     opportunity     = max(0, portfolioAvgClick − clicks.share)   // pp under the avg
+     opportunityEur  = round(marketVolume × (opportunity / 200) × 0.5 × 18)
+   Reads as: close HALF the click-share gap, convert recovered clicks to buyers,
+   value them at a ~€18 ASP. (opportunityScore = marketVolume × opportunity is the
+   same idea unscaled, and is what the table/map sort by.)
+
+4. RECOMMENDED ACTION  (the amber call-out) — classify() → actionFor()
+   NOTE: the action uses an ABSOLUTE-threshold status, NOT the relative badge
+   quadrant above. They usually agree but can diverge — see the caveat below.
+     status = classify(marketVolume, clicks.share, trend4w):
+       volHi   = marketVolume >= 8000          (absolute)
+       shareHi = clicks.share >= 15            (absolute)
+       volHi & shareHi   → trend4w < −3 ? 'optimize' : 'defend'
+       volHi & !shareHi  → 'invest'
+       !volHi & shareHi  → 'harvest'
+       else              → 'drop'
+     gap = portfolioAvgClick − clicks.share
+     action text (actionFor):
+       defend    → "Hold rank; protect bids"
+       invest    → gap > 15 ? "Aggressive bid + creative refresh"
+                            : "Increase bid 20% on top campaigns"
+       optimize  → "Audit listing & creative for funnel leak"
+       harvest   → "Lower bid; preserve margin"
+       drop      → "Pause bids; deprioritize"
+   Collagen example: vol 39,200 ≥ 8000 AND click-share 4.8% < 15 → 'invest';
+   gap ≈ 7pp (not > 15) → "Increase bid 20% on top campaigns".
+
+5. MAIN GAP  ("Main gap: Cart Adds · 11.6pp behind synthetic market")
+   keywordMainGap(): compare your share at each funnel stage to a SYNTHETIC
+   market share, then surface the stage with the largest positive gap.
+     synthetic market share (keywordMarketStageShares):
+       impressions = max(15, clicks.share + 8)
+       clicks      = max(15, clicks.share + 8)
+       cartAdds    = max(12, clicks.share + 5)
+       purchases   = max(10, purchases.share + 6)
+     gapPp(stage) = syntheticMarketShare(stage) − your share(stage)
+     mainGap      = stage with the highest gapPp
+       gapPp > 0 → "{stage} · {gapPp}pp behind synthetic market"
+       gapPp ≤ 0 → "beats market at every stage"
+   The matching stage row is highlighted amber in the "Share gap by stage" list.
+
+6. REST OF THE PANEL (supporting detail, not decisions)
+   - Weekly trend (12w): trendValues — your click share + purchase share lines.
+   - You vs market CTR/CVR: derived from your vs market counts at each transition.
+   - Top ASIN: topAsin (highest brand purchase share on the query).
+   - Paid vs organic: ESTIMATED from ACOS (paidWeight = clamp(acos/60, 0.15, 0.65));
+     Brand Analytics doesn't publish per-keyword paid attribution.
+
+────────────────────────────────────────────────────────────────────────────
+PRODUCTION NOTES / DECISIONS TO MAKE
+  - Badge vs action use two different classifiers (relative quadrant vs absolute
+    status). Pick ONE source of truth in production — either drive the action off
+    keywordQuadrant, or show the absolute status as the badge — so the chip and
+    the recommendation can never contradict each other.
+  - "Synthetic market" stage shares are heuristic placeholders (your share + a
+    fixed pad). Replace with the REAL market stage shares from Brand Analytics so
+    "Xpp behind market" is a true comparison, not a constructed one.
+  - QSS is randomised demo data; wire to Amazon's real Search Query Score.
+  - Absolute thresholds (volume 8000, share 15%, gap 15pp, trend −3pp) and the
+    Opportunity constants (½ gap, €18 ASP) are flat placeholders — make them
+    per-account configurable (category ASP, target share) in production.
