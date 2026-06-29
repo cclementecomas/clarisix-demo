@@ -186,7 +186,7 @@ const trafficFunnel: FunnelDiagnostic = (() => {
   const yourClicks = brandClicks.brand;
   const recoverableUnits = Math.round(yourClicks * (halfGap / 100));
   const insightImpactEur = Math.round(recoverableUnits * 35);
-  const insight = `Your funnel leaks ${gapPp.toFixed(1)}pp at the click-to-cart stage. Closing half this gap captures an estimated ${recoverableUnits.toLocaleString()} units per week worth €${insightImpactEur.toLocaleString()} in revenue at current ASPs.`;
+  const insight = `Your funnel leaks ${gapPp.toFixed(1)}pp at the click-to-cart stage. Closing half this gap captures an estimated ${recoverableUnits.toLocaleString()} units per week worth €${insightImpactEur.toLocaleString()} in sales at current ASPs.`;
 
   // Absolute counts per source per stage. Sums per stage match brand totals.
   // Pattern: paid sources lose share down the funnel (worse conversion);

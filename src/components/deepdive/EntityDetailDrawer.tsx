@@ -32,7 +32,7 @@ function diagnosisSentence(d: Diagnostic): string {
   const sec  = d.secondary?.label ?? '';
   switch (d.issue) {
     case 'Profit dilution':
-      return `${subject} sales grew but channel margin slipped (${prim.toLowerCase()}${sec ? `, ${sec.toLowerCase()}` : ''}). The new revenue is bringing less profit per €.${conf}`;
+      return `${subject} sales grew but channel margin slipped (${prim.toLowerCase()}${sec ? `, ${sec.toLowerCase()}` : ''}). The new sales bring less profit per €.${conf}`;
     case 'Margin risk':
       return `${subject} margin lines are degrading (${prim.toLowerCase()}${sec ? `, ${sec.toLowerCase()}` : ''}). Sales held, but every € sold is now worth less.${conf}`;
     case 'Ad efficiency issue':
@@ -242,7 +242,7 @@ function DrawerContent({ d, onClose, onCta }: { d: Diagnostic; onClose: () => vo
               <> · Profit impact <span className="font-bold text-rose-700">−{fc(d.profitImpact, currency, { compact: true })}</span></>
             )}
             {d.revenueImpact > 0 && (
-              <> · Revenue impact <span className="font-semibold text-gray-700">−{fc(d.revenueImpact, currency, { compact: true })}</span></>
+              <> · Sales impact <span className="font-semibold text-gray-700">−{fc(d.revenueImpact, currency, { compact: true })}</span></>
             )}
           </div>
         </div>

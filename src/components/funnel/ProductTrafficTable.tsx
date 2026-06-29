@@ -149,7 +149,7 @@ export default function ProductTrafficTable() {
           <p className="text-[12px] text-gray-700 leading-relaxed mt-1 max-w-3xl">
             <span className="font-semibold">So what:</span>{' '}
             <span className="text-gray-600">
-              Top {top3Lost.length} ASINs account for ~{top3Share}% of the lost revenue at {leakStageLabel}.
+              Top {top3Lost.length} ASINs account for ~{top3Share}% of the lost sales at {leakStageLabel}.
               Fixing these moves the brand-level number more than anything else.
             </span>
           </p>
@@ -169,7 +169,7 @@ export default function ProductTrafficTable() {
             <tr className="bg-gray-50 border-b border-gray-100">
               <Th label="Product" align="left" />
               <Th
-                label="Lost revenue / wk"
+                label="Lost sales / wk"
                 sortKey="lostRevenue"
                 currentKey={sortKey}
                 dir={sortDir}
@@ -210,7 +210,7 @@ export default function ProductTrafficTable() {
       </div>
 
       <div className="px-5 py-2 border-t border-gray-100 text-[10px] text-gray-400 flex items-center justify-between flex-wrap gap-2">
-        <span>{sorted.length} products · sorted by lost revenue at {leakStageLabel}</span>
+        <span>{sorted.length} products · sorted by lost sales at {leakStageLabel}</span>
         <span>Total estimated weekly leak: <span className="font-semibold text-gray-700 tabular-nums">€{totalLost.toLocaleString()}</span></span>
       </div>
     </div>

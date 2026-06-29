@@ -42,7 +42,7 @@ const GROUPS: GroupDef[] = [
     watchKpis: [],
   },
   {
-    id: 'efficiency', label: 'Efficiency', description: 'Cost-to-revenue ratios',
+    id: 'efficiency', label: 'Efficiency', description: 'Cost-to-sales ratios',
     mainKpi: 'ACOS',
     driverKpi: 'CPA',
     watchKpis: ['TACOS', 'TCPA'],

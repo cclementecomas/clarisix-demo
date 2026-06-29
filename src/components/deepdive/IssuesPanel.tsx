@@ -118,7 +118,7 @@ function IssueCard({ d, rank, onClick }: { d: Diagnostic; rank: number; onClick:
           </span>
           <span className="text-gray-300">·</span>
           <span className="text-gray-500">
-            Revenue <span className={`font-bold tabular-nums ${d.revenueImpact > 0 ? 'text-gray-900' : 'text-gray-400'}`}>
+            Sales <span className={`font-bold tabular-nums ${d.revenueImpact > 0 ? 'text-gray-900' : 'text-gray-400'}`}>
               {d.revenueImpact > 0 ? `−€${d.revenueImpact.toLocaleString()}` : '—'}
             </span>
           </span>

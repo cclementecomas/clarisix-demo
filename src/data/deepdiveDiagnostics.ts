@@ -470,7 +470,7 @@ export type RankKey = 'profit' | 'revenue' | 'severity' | 'sales';
 
 export const RANK_OPTIONS: { id: RankKey; label: string }[] = [
   { id: 'profit',   label: 'Profit impact' },
-  { id: 'revenue',  label: 'Revenue impact' },
+  { id: 'revenue',  label: 'Sales impact' },
   { id: 'severity', label: 'Severity' },
   { id: 'sales',    label: 'Sales change' },
 ];

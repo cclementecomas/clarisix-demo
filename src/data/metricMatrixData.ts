@@ -51,7 +51,7 @@ export interface MatrixMetric {
   tooltip?: string;
 }
 
-const VOL = 'Volume & revenue';
+const VOL = 'Volume & sales';
 const MIX = 'Customer mix';
 const FUNNEL = 'Demand funnel';
 const ADS = 'Marketing & promo';

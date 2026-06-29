@@ -633,7 +633,7 @@ export default function InventoryOverview() {
                 <SortableHeader label="Ideal" sortKey="idealInventory" currentKey={sortKey} dir={sortDir} onSort={handleSort} tooltip="Target on-hand inventory = (Adjusted Weekly Sales × Coverage Weeks) + Safety Stock. DDLT shown below drives WHEN to order (ROP), not how much to stock." />
                 <SortableHeader label="Reorder" sortKey="reorderQty" currentKey={sortKey} dir={sortDir} onSort={handleSort} tooltip="Suggested reorder quantity = Ideal Inventory − Available Units. Shows 'OK' when current stock exceeds the ideal level." />
                 <SortableHeader label="In" sortKey="daysUntilReorder" currentKey={sortKey} dir={sortDir} onSort={handleSort} tooltip="Days until stock hits the reorder point (ROP). 'NOW' = already below ROP. 'TODAY' = hits ROP today. Factors in lead time so you order before stockout." />
-                <SortableHeader label="Rev @ Risk" sortKey="revenueAtRisk" currentKey={sortKey} dir={sortDir} onSort={handleSort} tooltip="Estimated revenue that could be lost if stock runs out before replenishment arrives, based on current sell-through rate and days of projected stockout." />
+                <SortableHeader label="Sales @ Risk" sortKey="revenueAtRisk" currentKey={sortKey} dir={sortDir} onSort={handleSort} tooltip="Estimated sales that could be lost if stock runs out before replenishment arrives, based on current sell-through rate and days of projected stockout." />
               </tr>
             </thead>
             <tbody>

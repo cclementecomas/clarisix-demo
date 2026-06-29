@@ -35,11 +35,11 @@ export const primeDayRevenue = { thisYear: 486_200, lastYear: 392_800 };
 
 export const primeDayMetrics: YoYMetric[] = [
   // Demand / volume
-  { key: 'revenue', label: 'Revenue',        unit: 'currency', thisYear: 486_200, lastYear: 392_800, polarity: 'higher', group: 'headline' },
+  { key: 'revenue', label: 'Sales',          unit: 'currency', thisYear: 486_200, lastYear: 392_800, polarity: 'higher', group: 'headline' },
   { key: 'units',   label: 'Units sold',     unit: 'number',   thisYear: 13_420,  lastYear: 11_180,  polarity: 'higher', group: 'demand' },
   { key: 'orders',  label: 'Orders',         unit: 'number',   thisYear: 9_860,   lastYear: 8_540,   polarity: 'higher', group: 'demand' },
   { key: 'aov',     label: 'AOV',            unit: 'currency', thisYear: 49.3,    lastYear: 46.0,    polarity: 'higher', group: 'demand' },
-  { key: 'glance',  label: 'Glance views',   unit: 'number',   thisYear: 1_820_000, lastYear: 1_540_000, polarity: 'higher', group: 'demand' },
+  { key: 'glance',  label: 'Page views',     unit: 'number',   thisYear: 1_820_000, lastYear: 1_540_000, polarity: 'higher', group: 'demand' },
   { key: 'cvr',     label: 'Conversion rate',unit: 'pct',      thisYear: 14.8,    lastYear: 13.1,    polarity: 'higher', group: 'demand' },
   // Advertising (provisional — attribution settling)
   { key: 'adSpend', label: 'Ad spend',       unit: 'currency', thisYear: 68_400,  lastYear: 54_200,  polarity: 'neutral', group: 'advertising', provisional: true },
@@ -176,7 +176,7 @@ export function fmtMetricValue(unit: MetricUnit, value: number, currency: string
 }
 
 export const primeDayTakeaways: string[] = [
-  'Revenue grew +23.8% YoY on +20% units — demand scaled faster than discounting, and new-to-brand share rose to 52%.',
+  'Sales grew +23.8% YoY on +20% units — demand scaled faster than discounting, and new-to-brand share rose to 52%.',
   'Margin compressed −1.7pp as average discount depth deepened to 22%. Review deal eligibility on low-margin SKUs before the next event.',
   'Italy (+30.5%) and Wellness (+35.7%) overtook last year\'s leaders (Spain, Baby & Toddler) — rebalance inventory and ad budget toward the new momentum.',
   '3 hero ASINs stocked out (~€18.6k missed). Lift Prime Day cover targets on B0DEMO001X / B0DEMO006X for next year.',

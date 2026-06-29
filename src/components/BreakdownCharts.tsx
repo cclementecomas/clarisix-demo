@@ -361,21 +361,21 @@ export default function BreakdownCharts() {
       <BulletChart
         title="Sales by Marketplace"
         data={salesByMarketplace}
-        tooltip="Revenue split by Amazon marketplace. Rank toggle: Growth shows top contributors to change; Sales shows largest absolute volume."
+        tooltip="Salessplit by Amazon marketplace. Rank toggle: Growth shows top contributors to change; Sales shows largest absolute volume."
         mode={mode}
         onModeChange={setMode}
       />
       <BulletChart
         title="Sales by Category"
         data={salesByCategory}
-        tooltip="Revenue split by product category. Rank toggle: Growth shows top contributors to change; Sales shows largest absolute volume."
+        tooltip="Salessplit by product category. Rank toggle: Growth shows top contributors to change; Sales shows largest absolute volume."
         mode={mode}
         onModeChange={setMode}
       />
       <ASINBulletChart
         title="Sales by ASIN"
         data={salesByASIN}
-        tooltip="Revenue per ASIN, expandable to show individual SKUs. Rank toggle: Growth shows top contributors to change; Sales shows largest absolute volume."
+        tooltip="Salesper ASIN, expandable to show individual SKUs. Rank toggle: Growth shows top contributors to change; Sales shows largest absolute volume."
         mode={mode}
         onModeChange={setMode}
       />

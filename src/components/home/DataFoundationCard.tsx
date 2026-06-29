@@ -101,7 +101,7 @@ export default function DataFoundationCard({
       key: 'cogs',
       icon: DollarSign,
       label: 'Profit reliability',
-      detail: `${cogsCoverage.revenueCoverage}% revenue coverage` + (cogsCoverage.needsCostCount > 0 ? ` · ${cogsCoverage.needsCostCount} SKUs need cost` : ''),
+      detail: `${cogsCoverage.revenueCoverage}% sales coverage` + (cogsCoverage.needsCostCount > 0 ? ` · ${cogsCoverage.needsCostCount} SKUs need cost` : ''),
       tone: cogsCoverage.revenueCoverage >= 90 ? 'good' : cogsCoverage.revenueCoverage >= 60 ? 'warn' : 'bad',
       cta: cogsCoverage.needsCostCount > 0 ? 'Open Costs' : undefined,
       onClick: () => onNavigateToSettings('costs'),

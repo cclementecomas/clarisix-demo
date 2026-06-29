@@ -189,7 +189,7 @@ export default function PrimeDayRecap() {
 
             {/* Metric tiles */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 flex-shrink-0">
-              <HeroTile label="Revenue" value={fmtMetricValue('currency', rev.thisYear, currency)} m={byKey.get('revenue')!} icon={<Coins className="w-3.5 h-3.5 text-amber-600" />} lastYear={fmtMetricValue('currency', rev.lastYear, currency)} />
+              <HeroTile label="Sales" value={fmtMetricValue('currency', rev.thisYear, currency)} m={byKey.get('revenue')!} icon={<Coins className="w-3.5 h-3.5 text-amber-600" />} lastYear={fmtMetricValue('currency', rev.lastYear, currency)} />
               <HeroTile label="Units" value={fmtMetricValue('number', units.thisYear, currency)} m={units} icon={<Package className="w-3.5 h-3.5 text-cx-600" />} lastYear={fmtMetricValue('number', units.lastYear, currency)} />
               <HeroTile label="Ad spend" value={fmtMetricValue('currency', adSpend.thisYear, currency)} m={adSpend} icon={<Megaphone className="w-3.5 h-3.5 text-cx-600" />} lastYear={fmtMetricValue('currency', adSpend.lastYear, currency)} />
               <HeroTile label="ROAS" value={`${roas.thisYear.toFixed(2)}x`} m={roas} icon={<Target className="w-3.5 h-3.5 text-emerald-600" />} lastYear={`${roas.lastYear.toFixed(2)}x`} />
@@ -204,7 +204,7 @@ export default function PrimeDayRecap() {
 
       {/* ── Revenue by day + contribution to growth ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <Card title="Revenue by event day" tooltip={`Revenue per Prime Day, ${primeDayMeta.thisYearLabel} (${primeDayMeta.thisYearDates}) vs ${primeDayMeta.lastYearLabel} (${primeDayMeta.lastYearDates}).`}
+        <Card title="Sales by event day" tooltip={`Sales per Prime Day, ${primeDayMeta.thisYearLabel} (${primeDayMeta.thisYearDates}) vs ${primeDayMeta.lastYearLabel} (${primeDayMeta.lastYearDates}).`}
           action={
             <div className="flex items-center gap-2">
               <span className="text-[11px] font-semibold text-emerald-700 tabular-nums">+{revPct.toFixed(1)}% YoY · +{fc(revAbs, currency, { compact: true })}</span>
@@ -230,7 +230,7 @@ export default function PrimeDayRecap() {
           </div>
         </Card>
 
-        <Card title="Where the growth came from" tooltip={`Each ${contribDim.label.toLowerCase().replace(/s$/, '')}'s € contribution to the YoY revenue gain (${primeDayMeta.thisYearDates} vs ${primeDayMeta.lastYearDates}).`}
+        <Card title="Where the growth came from" tooltip={`Each ${contribDim.label.toLowerCase().replace(/s$/, '')}'s € contribution to the YoY sales gain (${primeDayMeta.thisYearDates} vs ${primeDayMeta.lastYearDates}).`}
           action={
             <div className="flex items-center bg-gray-100 rounded-lg p-0.5 gap-0.5">
               {primeDayMovers.map((d, i) => (

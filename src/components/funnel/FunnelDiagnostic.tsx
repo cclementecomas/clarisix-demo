@@ -387,7 +387,7 @@ export function TrafficSourceDecomposition({ funnels }: { funnels: TrafficSource
                 <div className="min-w-0">
                   <div className="text-[11px] font-semibold text-gray-800 leading-tight">{f.source}</div>
                   <div className="text-[10px] text-gray-500 mt-0.5">
-                    {purchaseShare.toFixed(0)}% of purchases · {revenueShare.toFixed(0)}% of revenue
+                    {purchaseShare.toFixed(0)}% of purchases · {revenueShare.toFixed(0)}% of sales
                   </div>
                   <div className="text-[10px] font-bold text-gray-900 tabular-nums">€{f.revenue.toLocaleString()}/wk</div>
                 </div>
@@ -408,7 +408,7 @@ export function RecommendedActionsCards({ actions }: { actions: RecommendedActio
       <div className="px-5 py-3 border-b border-gray-100">
         <h3 className="text-sm font-semibold text-gray-900">Recommended actions</h3>
         <p className="text-[11px] text-gray-500 mt-0.5">
-          Ranked by estimated weekly revenue impact. Click any card to drill into the affected SKUs / campaigns.
+          Ranked by estimated weekly sales impact. Click any card to drill into the affected SKUs / campaigns.
         </p>
       </div>
       <div className="px-5 py-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">

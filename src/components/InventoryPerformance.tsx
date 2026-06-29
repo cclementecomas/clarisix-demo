@@ -249,7 +249,7 @@ export default function InventoryPerformance() {
       { field: 'storageCostMonthly', headerName: 'Storage Cost/mo', valueFormatter: fmtCurrency, width: 140 },
       {
         field: 'grossMargin', headerName: 'Gross Margin', valueFormatter: pctShareFormatter, width: 120,
-        tooltip: 'Gross profit ÷ revenue — how profitable each dollar of sales is, before subtracting ads, FBA fees, or storage. Pairs with Turnover to form GMROI. ≥ 50% healthy, 30–50% watch, < 30% thin.',
+        tooltip: 'Gross profit ÷ sales — how profitable each dollar of sales is, before subtracting ads, FBA fees, or storage. Pairs with Turnover to form GMROI. ≥ 50% healthy, 30–50% watch, < 30% thin.',
         cellStyle: (p): Record<string, string> => {
           const v = p.value as number;
           if (v >= 50) return { color: '#16A34A', fontWeight: '600' };
@@ -346,7 +346,7 @@ export default function InventoryPerformance() {
           icon={<TrendingUp className="w-4 h-4 text-blue-500" />}
           label="Avg Gross Margin"
           value={`${avgGrossMargin.toFixed(1)}%`}
-          subtitle="Gross profit ÷ revenue"
+          subtitle="Gross profit ÷ sales"
           tone="neutral"
           tip="Portfolio-average gross margin — the profit left on each dollar of sales after COGS, before ads, FBA fees, or storage. The other ingredient of GMROI. GMROI = Gross Margin × Turnover, so raising either raises GMROI."
         />

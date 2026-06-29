@@ -34,7 +34,7 @@ export function buildSummaryCanvas(currency: string): HTMLCanvasElement {
   const revPct = pctDelta(rev.thisYear, rev.lastYear);
   const revAbs = rev.thisYear - rev.lastYear;
   ctx.fillStyle = SC.faint; ctx.font = `700 10px ${SC.FONT}`;
-  ctx.fillText('PRIME DAY REVENUE', pad, 82);
+  ctx.fillText('PRIME DAY SALES', pad, 82);
 
   ctx.fillStyle = SC.ink; ctx.font = `800 32px ${SC.FONT}`;
   const revStr = fmtMetricValue('currency', rev.thisYear, currency);
@@ -162,7 +162,7 @@ export function buildRevenueByDayCanvas(currency: string): HTMLCanvasElement {
   const { canvas, ctx } = makeCanvas(W, H);
 
   drawCardHeader(
-    ctx, W, pad, 'Prime Day 2026 — Revenue by event day',
+    ctx, W, pad, 'Prime Day 2026 — Sales by event day',
     `${primeDayMeta.thisYearLabel} (${primeDayMeta.thisYearDates})  vs  ${primeDayMeta.lastYearLabel} (${primeDayMeta.lastYearDates}), day for day`,
   );
 
@@ -228,7 +228,7 @@ export function buildRevenueByDayCanvas(currency: string): HTMLCanvasElement {
   ctx.fillStyle = SC.sub;
   ctx.fillText(primeDayMeta.lastYearLabel, offset + 16, lgY + 9);
 
-  drawCardFooter(ctx, W, H - 30, footerCaption('Prime Day Recap · Revenue by day'));
+  drawCardFooter(ctx, W, H - 30, footerCaption('Prime Day Recap · Sales by day'));
   return canvas;
 }
 

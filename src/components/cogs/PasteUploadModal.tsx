@@ -327,7 +327,7 @@ export default function PasteUploadModal({
             </span>
           ) : (
             <span className="text-[10px] text-gray-400">
-              You can apply valid rows now and resolve issues later.
+              Apply valid rows now and resolve issues later. Applied costs aren't instant — they take a little while to process before they show in your figures.
             </span>
           )}
           <div className="flex items-center gap-2">
@@ -690,7 +690,7 @@ function ReviewStep({
 
       <div className="bg-cx-50 border border-cx-200 rounded-lg px-3 py-2 flex items-center justify-between">
         <div className="text-[11px] text-cx-800">
-          Revenue coverage after applying: <span className="font-semibold">{coverage.revenueCoverage}% → {estimatedCoverage}%</span>
+          Sales coverage after applying: <span className="font-semibold">{coverage.revenueCoverage}% → {estimatedCoverage}%</span>
         </div>
         {stats.needsReview > 0 && (
           <button

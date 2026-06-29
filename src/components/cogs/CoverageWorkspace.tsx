@@ -280,7 +280,7 @@ export default function CoverageWorkspace() {
               <span className="text-[11px] text-gray-500">
                 {filteredProfiles.length} {filteredProfiles.length === 1 ? 'SKU' : 'SKUs'}
                 {activeWorklist === 'needs-cost' && ' missing cost'}
-                {activeWorklist === 'top-revenue' && ', sorted by 90d revenue'}
+                {activeWorklist === 'top-revenue' && ', sorted by 90d sales'}
                 {activeWorklist === 'inbound' && ' with inbound activity'}
                 {activeWorklist === 'dormant' && ' dormant'}
               </span>
@@ -408,7 +408,7 @@ function CoverageHeaderCard({
   const headline = score >= 90
     ? 'Profit reliability is strong.'
     : score >= 60
-    ? `${100 - score}% of revenue has unknown COGS — profit is partial.`
+    ? `${100 - score}% of sales has unknown COGS — profit is partial.`
     : 'Your profit is not ready yet.';
 
   return (
@@ -451,7 +451,7 @@ function CoverageHeaderCard({
           <div className="flex-shrink-0">
             <div className="flex items-baseline gap-1">
               <span className={`text-4xl font-bold ${tierColors.text}`}>{score}%</span>
-              <span className="text-xs text-gray-400 font-medium">revenue coverage</span>
+              <span className="text-xs text-gray-400 font-medium">sales coverage</span>
             </div>
             <div className="text-[10px] text-gray-400 mt-1">
               {fc(coverage.coveredRevenue90d, cur)} covered of {fc(coverage.totalRevenue90d, cur)}
@@ -504,7 +504,7 @@ function CoverageHeaderCard({
               </div>
             </div>
             <div>
-              <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Uncovered revenue</div>
+              <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Uncovered sales</div>
               <div className="text-lg font-semibold text-gray-900 mt-0.5">{fc(coverage.uncoveredRevenue90d, cur)}</div>
               <div className="text-[10px] text-gray-400 mt-0.5">
                 across {coverage.needsCostCount} SKU{coverage.needsCostCount !== 1 ? 's' : ''}
@@ -528,7 +528,7 @@ function WorklistSidebar({
 }) {
   const items: Array<{ key: WorklistKey; icon: React.ComponentType<{ className?: string }>; label: string; sub: string; count: number; tone: 'red' | 'amber' | 'gray' | 'cx' }> = [
     { key: 'needs-cost',  icon: AlertTriangle, label: 'Needs COGS',     sub: 'Sold or stocked, no cost',   count: coverage.needsCostCount,        tone: 'red' },
-    { key: 'top-revenue', icon: TrendingUp,    label: 'Top revenue',    sub: 'Sorted by 90d revenue',      count: coverage.activeSkus,            tone: 'cx' },
+    { key: 'top-revenue', icon: TrendingUp,    label: 'Top sales',      sub: 'Sorted by 90d sales',        count: coverage.activeSkus,            tone: 'cx' },
     { key: 'inbound',     icon: Inbox,         label: 'Inbound review', sub: 'Recent FBA receipts',        count: coverage.inboundReviewCount,    tone: 'amber' },
     { key: 'dormant',     icon: Moon,          label: 'Dormant',        sub: 'No recent activity',         count: coverage.dormantCount,          tone: 'gray' },
     { key: 'all',         icon: Package,       label: 'All SKUs',       sub: 'Full catalog',               count: coverage.activeSkus + coverage.dormantCount, tone: 'gray' },

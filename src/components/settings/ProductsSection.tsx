@@ -318,7 +318,7 @@ export default function ProductsSection() {
       <div className="bg-gray-50 rounded-xl border border-gray-200 px-4 py-3">
         <p className="text-[11px] text-gray-600">
           <span className="font-semibold text-gray-700">Workflow:</span> Edit fields directly in the table above, or download the current mapping → edit in bulk in Excel/Sheets → upload the updated file.
-          Changes apply immediately to all filters and breakdown tables. <span className="font-semibold">Brand</span> and <span className="font-semibold">Category</span> are required — products missing either are bucketed as "NA" downstream.
+          Changes aren't instant — they're queued for processing and roll out to filters and breakdown tables shortly after upload. <span className="font-semibold">Brand</span> and <span className="font-semibold">Category</span> are required — products missing either are bucketed as "NA" downstream.
         </p>
       </div>
     </div>

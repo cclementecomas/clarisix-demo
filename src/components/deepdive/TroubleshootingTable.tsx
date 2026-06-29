@@ -114,7 +114,7 @@ export default function TroubleshootingTable({
                 <Th>Severity</Th>
                 <Th>Confidence</Th>
                 <Th align="right">Profit impact</Th>
-                <Th align="right">Revenue impact</Th>
+                <Th align="right">Sales impact</Th>
                 <Th>Primary driver</Th>
                 <Th>Secondary driver</Th>
                 <Th>Next step</Th>

@@ -260,7 +260,7 @@ export default function PrimeDayWelcome() {
                     </motion.div>
 
                     <motion.div variants={item} className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 mt-2">
-                      in Prime Day revenue
+                      in Prime Day sales
                     </motion.div>
 
                     <motion.div variants={item} className="mt-3 inline-flex items-center gap-1.5 text-[15px] font-bold text-emerald-400 tabular-nums">

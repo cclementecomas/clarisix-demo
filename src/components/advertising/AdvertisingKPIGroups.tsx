@@ -39,7 +39,7 @@ const KPI_POLARITY: Record<string, Polarity> = {
 };
 
 const KPI_TOOLTIPS: Record<string, string> = {
-  'Ad Sales': 'Revenue attributed to ad clicks within the attribution window.',
+  'Ad Sales': 'Sales attributed to ad clicks within the attribution window.',
   'Ad Spend': 'Total spend across all ad campaigns (SP, SB, SD).',
   'ACOS': 'Ad spend ÷ ad-attributed sales. Lower is better.',
   'TACOS': 'Ad spend ÷ total sales (organic + paid). Lower is better.',
@@ -55,7 +55,7 @@ const KPI_TOOLTIPS: Record<string, string> = {
 
 const GROUPS: { id: string; label: string; description: string; kpis: string[] }[] = [
   { id: 'growth',     label: 'Growth',             description: 'Top-of-funnel volume',                      kpis: ['Ad Sales', 'Orders', 'Clicks', 'Impressions'] },
-  { id: 'efficiency', label: 'Efficiency',          description: 'Cost-to-revenue ratios',                    kpis: ['ACOS', 'TACOS', 'CPA', 'TCPA'] },
+  { id: 'efficiency', label: 'Efficiency',          description: 'Cost-to-sales ratios',                    kpis: ['ACOS', 'TACOS', 'CPA', 'TCPA'] },
   { id: 'quality',    label: 'Traffic quality',     description: 'Click-through and conversion',              kpis: ['CTR', 'CPC', 'Ads Conversion Rate'] },
   { id: 'dependency', label: 'Business dependency', description: 'Coming in a later batch',                    kpis: ['Ad Spend'] },
 ];

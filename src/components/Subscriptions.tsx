@@ -171,7 +171,7 @@ export default function Subscriptions() {
               <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">MRR Movements</h3>
               <InfoTooltip />
             </div>
-            <p className="text-xs text-gray-400 mb-5">Monthly recurring revenue changes by category</p>
+            <p className="text-xs text-gray-400 mb-5">Monthly recurring sales changes by category</p>
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={mrrMovements} margin={{ top: 10, right: 10, left: 0, bottom: 0 }} barCategoryGap="20%">
@@ -257,7 +257,7 @@ export default function Subscriptions() {
               <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Churn MRR Loss by Month</h3>
               <InfoTooltip />
             </div>
-            <p className="text-xs text-gray-400 mb-5">Monthly revenue impact from subscriber churn</p>
+            <p className="text-xs text-gray-400 mb-5">Monthly sales impact from subscriber churn</p>
             <div className="h-[260px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={mrrMovements} margin={{ top: 10, right: 10, left: 0, bottom: 0 }} barCategoryGap="30%">

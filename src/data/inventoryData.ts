@@ -427,7 +427,7 @@ function computeKPIs(data: InventorySKU[]): InventoryKPI[] {
     { label: 'Overstock', value: String(overstock), rawValue: overstock, format: 'number', color: 'blue' },
     { label: 'Inventory Value', value: '', rawValue: totalValue, format: 'currency', color: 'neutral' },
     { label: 'Avg Days of Supply', value: String(avgDOS), rawValue: avgDOS, format: 'days', color: avgDOS < 21 ? 'orange' : 'green' },
-    { label: 'Revenue at Risk', value: '', rawValue: totalRevAtRisk, format: 'currency', color: totalRevAtRisk > 0 ? 'red' : 'green' },
+    { label: 'Sales at Risk', value: '', rawValue: totalRevAtRisk, format: 'currency', color: totalRevAtRisk > 0 ? 'red' : 'green' },
   ];
 }
 
@@ -596,7 +596,7 @@ export const controlTowerKPIs: ControlTowerKPI[] = (() => {
 
   return [
     { key: 'totalUnits', label: 'Total Units', value: totalUnits, format: 'number', color: 'neutral', subtitle: `${inventoryData.length} SKUs` },
-    { key: 'revAtRisk', label: 'Revenue at Risk', value: revAtRisk, format: 'currency', color: revAtRisk > 0 ? 'red' : 'green' },
+    { key: 'revAtRisk', label: 'Sales at Risk', value: revAtRisk, format: 'currency', color: revAtRisk > 0 ? 'red' : 'green' },
     { key: 'avgDOC', label: 'Avg Days of Cover', value: avgDOC, format: 'days', color: avgDOC < 21 ? 'orange' : 'green' },
     { key: 'stranded', label: 'Stranded SKUs', value: stranded, format: 'number', color: stranded > 0 ? 'orange' : 'green' },
     { key: 'unfulfillable', label: 'Unfulfillable', value: unfulfillable, format: 'number', color: unfulfillable > 0 ? 'red' : 'green' },

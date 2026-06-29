@@ -1,5 +1,5 @@
 export type TrendMetric =
-  // Volume & revenue
+  // Volume & sales
   | 'sales'
   | 'netSales'
   | 'organicSales'
@@ -59,13 +59,13 @@ export interface TrendDimensionOption {
 // Ordered by the 5-band Sales Deepdive narrative:
 //   what I sold → who bought it → how they got there → what I paid → what's left
 export const metricOptions: TrendMetricOption[] = [
-  // Volume & revenue
-  { value: 'sales',           label: 'Sales',             isCurrency: true,  isPercent: false, group: 'Volume & revenue' },
-  { value: 'netSales',        label: 'Net Sales',         isCurrency: true,  isPercent: false, group: 'Volume & revenue' },
-  { value: 'organicSales',    label: 'Organic Sales',     isCurrency: true,  isPercent: false, group: 'Volume & revenue' },
-  { value: 'units',           label: 'Units',             isCurrency: false, isPercent: false, group: 'Volume & revenue' },
-  { value: 'orders',          label: 'Orders',            isCurrency: false, isPercent: false, group: 'Volume & revenue' },
-  { value: 'avgPrice',        label: 'Avg Price',         isCurrency: true,  isPercent: false, group: 'Volume & revenue' },
+  // Volume & sales
+  { value: 'sales',           label: 'Sales',             isCurrency: true,  isPercent: false, group: 'Volume & sales' },
+  { value: 'netSales',        label: 'Net Sales',         isCurrency: true,  isPercent: false, group: 'Volume & sales' },
+  { value: 'organicSales',    label: 'Organic Sales',     isCurrency: true,  isPercent: false, group: 'Volume & sales' },
+  { value: 'units',           label: 'Units',             isCurrency: false, isPercent: false, group: 'Volume & sales' },
+  { value: 'orders',          label: 'Orders',            isCurrency: false, isPercent: false, group: 'Volume & sales' },
+  { value: 'avgPrice',        label: 'Avg Price',         isCurrency: true,  isPercent: false, group: 'Volume & sales' },
 
   // Customer mix
   { value: 'ntbOrders',       label: 'NTB Orders',        isCurrency: false, isPercent: false, group: 'Customer mix' },
@@ -184,7 +184,7 @@ function getBaseScale(metric: TrendMetric, dimension: string): number {
   const dimHash = dimension.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
 
   const scales: Record<TrendMetric, [number, number]> = {
-    // Volume & revenue
+    // Volume & sales
     sales: [800, 18000],
     netSales: [600, 14000],
     organicSales: [300, 12000],

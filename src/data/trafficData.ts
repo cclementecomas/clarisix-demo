@@ -201,7 +201,7 @@ export const trafficKPIs = [
 ];
 
 // ─── Traffic Funnel (5 stages, monotonically decreasing) ─────────────────────
-// Impressions → Glance Views (Detail PV from all sources) → Sessions → ATC → Orders
+// Impressions → Page Views (Detail PV from all sources) → Sessions → ATC → Orders
 // Funnel: Impressions → Clicks (6% CTR) → Add to Cart (20%) → Purchases (46% of ATC)
 export const trafficFunnel: TrafficFunnelStage[] = [
   { label: 'Impressions',  value: 1240000, popChange: +14.7, convRate:   0,    convRateLabel: ''         },

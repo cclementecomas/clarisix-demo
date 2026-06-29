@@ -134,7 +134,7 @@ export default function AdvertisingDiagnosticsTable({
               <option value="spend">Spend</option>
               <option value="sales">Ad sales</option>
               <option value="acos">ACOS</option>
-              <option value="impact">Revenue impact</option>
+              <option value="impact">Sales impact</option>
             </select>
             <ChevronDown className="w-3 h-3 text-gray-400 absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
@@ -177,7 +177,7 @@ export default function AdvertisingDiagnosticsTable({
                 <Th align="right">CTR</Th>
                 <Th align="right">CVR</Th>
                 <Th align="right">Orders</Th>
-                <Th align="right">Revenue impact</Th>
+                <Th align="right">Sales impact</Th>
                 <Th>Profit</Th>
                 <Th>Conf.</Th>
                 <Th>Next step</Th>
@@ -230,7 +230,7 @@ function Row({ d, onClick, currency }: { d: Diagnostic; onClick: () => void; cur
           {d.decision}
         </span>
         <span
-          title={`Severity = |revenue impact| × confidence multiplier.\nImpact: €${d.revenueImpact.toLocaleString()} · Confidence: ${d.confidence}`}
+          title={`Severity = |sales impact| × confidence multiplier.\nImpact: €${d.revenueImpact.toLocaleString()} · Confidence: ${d.confidence}`}
           className={`inline-flex items-center px-1.5 py-0 rounded text-[9px] font-bold border cursor-help ${sev.chip} ml-1`}
         >{sev.label}</span>
       </td>

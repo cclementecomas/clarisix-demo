@@ -3,6 +3,30 @@ Clarisix Knowledge Base
 Distilled insights from client and team conversations. Used to inform wireframe and development decisions.
 
 
+Terminology conventions (product-wide)
+
+These are global wording rules applied to all USER-FACING copy (labels, titles,
+tooltips, column headers, chart legends, insight sentences, exported PNGs). They
+do NOT change code identifiers (variable names, object keys, type fields) or code
+comments.
+
+1. "Sales", not "Revenue" — everywhere EXCEPT the P&L / accounting views, which
+   keep "Revenue" because that's the accounting term. P&L exceptions that keep
+   "Revenue": Profitability.tsx, ProfitabilityDeepdive.tsx, profitabilityData.ts,
+   profitabilityDeepdiveData.ts, settlementPostingData.ts, SettlementPostingBridge.tsx
+   (and accounting line items like "Gross Ordered Revenue", "Net Revenue").
+   Everywhere else (Sales, Advertising, Traffic, Inventory, Prime Day, COGS
+   coverage, Home, Subscriptions/LTV, etc.) uses "Sales" — e.g. "Sales impact",
+   "Sales @ Risk", "sales coverage", "Cost-to-sales ratios". Data keys such as
+   key:'revenue', revenueImpact, revenue90d stay as-is.
+2. "Page views", never "Glance views" — use "Page views" for the Amazon
+   glance-views/detail-page-views metric.
+3. Data uploads/updates are NOT instant — never tell the user a change applies
+   immediately. After an upload/edit (product mapping, COGS cost import, etc.),
+   copy must say the change is queued and takes some time to process before it
+   shows in figures (e.g. ProductsSection workflow note, COGS PasteUploadModal).
+
+
 Product Direction
 
 80% of the app value = homepage summary + profitability module. Everything else (inventory, ads, traffic) = deep dives, secondary.
