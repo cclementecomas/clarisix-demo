@@ -1,37 +1,39 @@
+import { useState } from 'react';
 import { brandFunnelDiagnostic } from '../data/funnelDiagnosticData';
 import {
   FunnelStageCards, StageTrendCharts,
   TrafficSourceDecomposition,
 } from './funnel/FunnelDiagnostic';
+import { LeakOpportunityAndActions, TopDriverCards } from './funnel/TrafficInsights';
 import HeroInsightCard from './funnel/HeroInsightCard';
 import ProductTrafficTable from './funnel/ProductTrafficTable';
 import LastRefreshed from './LastRefreshed';
 import WeeklyDataBadge from './WeeklyDataBadge';
-import { TrendingUp } from 'lucide-react';
+import { TrendingUp, ChevronDown } from 'lucide-react';
 
 /**
  * Sales → Traffic — insight-first funnel diagnostic.
  *
- * Shortest path to insight: in under 10 seconds the user should know
- *   1. What is the main bottleneck
- *   2. How much is it worth
- *   3. Which ASINs cause it
- *   4. What to do next
- *
- * Layout (top → bottom):
- *   1. Hero insight — main leak, gap, impact, units, next step
- *   2. Funnel diagnostic — where the leak happens (cards vs market)
- *   3. Top ASINs causing the leak — ranked by lost revenue, with MECE
- *      Funnel issue × Likely cause columns
- *   4. Supporting trend — is the issue persistent or recent?
- *   5. Source contribution — does organic or paid explain the leak?
+ * Cards-first, not a table. In under 10 seconds the user should know:
+ *   1. Where the funnel leaks (hero + funnel diagnostic)
+ *   2. How big the upside is (opportunity estimate)
+ *   3. What to do about it (leak-triggered action cards)
+ *   4. Which ASINs to fix first (top driver cards)
+ * The full per-ASIN table + trends + source mix live behind "View details".
  */
 export default function Traffic() {
   const d = brandFunnelDiagnostic;
+  const [showDetails, setShowDetails] = useState(false);
 
-  const handleScrollToLeakingAsins = () => {
-    const el = document.getElementById('leaking-asins-table');
+  const scrollTo = (id: string) => {
+    const el = document.getElementById(id);
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const openDetails = () => {
+    setShowDetails(true);
+    // wait for the section to mount before scrolling
+    setTimeout(() => scrollTo('traffic-details'), 60);
   };
 
   return (
@@ -43,7 +45,7 @@ export default function Traffic() {
             <h1 className="text-lg font-bold text-gray-900">Traffic — funnel & conversion diagnostic</h1>
           </div>
           <p className="text-[11px] text-gray-500 mt-0.5">
-            Where conversion leaks, how much it costs, and which products to fix first.
+            Where the funnel leaks, how big the upside is, and which products to fix first.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -53,19 +55,35 @@ export default function Traffic() {
       </div>
 
       {/* 1 — Hero insight: main leak, impact, next step */}
-      <HeroInsightCard diagnostic={d} onNextStep={handleScrollToLeakingAsins} />
+      <HeroInsightCard diagnostic={d} onNextStep={() => scrollTo('top-drivers')} />
 
       {/* 2 — Funnel diagnostic: where the leak happens */}
       <FunnelStageCards diagnostic={d} />
 
-      {/* 3 — Top ASINs causing the leak, ranked by lost revenue */}
-      <ProductTrafficTable />
+      {/* 3 — Opportunity + recommended actions (one widget) */}
+      <LeakOpportunityAndActions diagnostic={d} />
 
-      {/* 4 — Supporting trend: persistent or recent? */}
-      <StageTrendCharts diagnostic={d} />
+      {/* 4 — Top drivers: which ASINs to fix first */}
+      <TopDriverCards diagnostic={d} onViewDetails={openDetails} />
 
-      {/* 5 — Source contribution: does organic or paid explain it? */}
-      {d.sourceFunnels && <TrafficSourceDecomposition funnels={d.sourceFunnels} />}
+      {/* 6 — Full detail (table + trends + source), collapsed by default */}
+      <div id="traffic-details">
+        <button
+          onClick={() => setShowDetails((v) => !v)}
+          className="w-full flex items-center justify-between px-5 py-3 bg-white rounded-xl border border-gray-200 shadow-sm text-sm font-semibold text-gray-900 hover:bg-gray-50 transition-colors"
+        >
+          <span>Detailed data — per-ASIN table, stage trends & traffic source</span>
+          <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${showDetails ? 'rotate-180' : ''}`} />
+        </button>
+
+        {showDetails && (
+          <div className="space-y-4 mt-4">
+            <ProductTrafficTable />
+            <StageTrendCharts diagnostic={d} />
+            {d.sourceFunnels && <TrafficSourceDecomposition funnels={d.sourceFunnels} />}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

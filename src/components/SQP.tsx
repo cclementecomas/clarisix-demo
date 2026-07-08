@@ -1,7 +1,15 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Search } from 'lucide-react';
 import { sqpKeywords, sqpSummary } from '../data/sqpData';
 import type { KeywordRow } from '../data/sqpData';
+
+type BrandFilter = 'all' | 'nonBranded' | 'branded';
+
+const BRAND_FILTERS: { value: BrandFilter; label: string }[] = [
+  { value: 'all',        label: 'All' },
+  { value: 'nonBranded', label: 'Non-branded' },
+  { value: 'branded',    label: 'Branded' },
+];
 import PortfolioMap from './sqp/PortfolioMap';
 import KeywordTable from './sqp/KeywordTable';
 import KeywordDetailDrawer from './sqp/KeywordDetailDrawer';
@@ -21,12 +29,19 @@ import WeeklyDataBadge from './WeeklyDataBadge';
  */
 export default function SQP() {
   const [selected, setSelected] = useState<KeywordRow | null>(null);
+  const [brandFilter, setBrandFilter] = useState<BrandFilter>('all');
+
+  const rows = useMemo(() => {
+    if (brandFilter === 'branded') return sqpKeywords.filter((k) => k.branded);
+    if (brandFilter === 'nonBranded') return sqpKeywords.filter((k) => !k.branded);
+    return sqpKeywords;
+  }, [brandFilter]);
 
   const handleSelect = (k: KeywordRow | null) => setSelected(k);
 
   const handleHeroNext = () => {
     // Open the top opportunity directly in the drawer — fastest path to action.
-    const topOpp = [...sqpKeywords].sort((a, b) => b.opportunityEur - a.opportunityEur)[0];
+    const topOpp = [...rows].sort((a, b) => b.opportunityEur - a.opportunityEur)[0];
     if (topOpp) setSelected(topOpp);
   };
 
@@ -43,6 +58,19 @@ export default function SQP() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <div className="flex items-center bg-gray-100 rounded-md p-0.5" title="Analyze non-branded to judge true listing & PPC performance — branded terms inflate CTR/CVR (SOP).">
+            {BRAND_FILTERS.map((f) => (
+              <button
+                key={f.value}
+                onClick={() => setBrandFilter(f.value)}
+                className={`px-2 py-0.5 text-[11px] font-semibold rounded transition-all ${
+                  brandFilter === f.value ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
           <WeeklyDataBadge />
           <LastRefreshed offsetMinutes={11} />
         </div>
@@ -52,15 +80,14 @@ export default function SQP() {
       <SQPHeroCard onNextStep={handleHeroNext} />
 
       {/* 2 — Portfolio map */}
-      <PortfolioMap keywords={sqpKeywords} onSelect={handleSelect} />
+      <PortfolioMap keywords={rows} onSelect={handleSelect} />
 
       {/* 3 — Prioritized keyword table */}
       <KeywordTable
-        rows={sqpKeywords}
+        rows={rows}
         selectedKeyword={selected?.query ?? null}
         onSelect={handleSelect}
         portfolioAvgClickShare={sqpSummary.avgClickShare}
-        portfolioAvgPurchaseShare={sqpSummary.avgPurchaseShare}
       />
 
       {/* 4 — Keyword detail drawer */}

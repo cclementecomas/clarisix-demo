@@ -86,12 +86,21 @@ risk-side decisions relabel as "…risk" (Critical/High/Medium risk, then Watch)
 ```
 Stages: Impressions → Clicks → Cart Adds → Purchases
 Per stage: marketCount (whole market) · brandCount (you) · share = brand/market×100
-share gap[S]      = marketShare[S] − yourShare[S]        // + = you under-index
-conv rate[A→B]    = count[B] / count[A] × 100            // yours vs market
+conv rate[A→B]    = count[B] / count[A] × 100            // yours AND market, both real
+rate gap[A→B]     = marketRate[A→B] − yourRate[A→B]      // + = you trail the market
 half-gap recovery = gap / 2                              // only half is recoverable
-ASP constants     = €35 (Traffic, blended basket) · €18 (SQP, single-ASIN)
+ASP               = ACCOUNT_ASP (accountMetrics.ts) ≈ €37.80, used on BOTH pages
 ```
-Both ASP values are wireframe constants — replace with real per-scope ASP.
+**No "market share benchmark."** SQP gives your brand counts AND the market
+totals per stage, so `share` is already brand ÷ market — there is no second
+"market share" to compare against. The honest, API-grounded comparison is
+conversion RATES: your CTR/CVR vs the market's on the same searches. Note the
+equivalence — impression share > click share ⟺ your CTR < market CTR; click
+share > purchase share ⟺ your CVR < market CVR. (An earlier build fabricated a
+per-stage `marketShares` benchmark; that is removed — see engines E & F.)
+
+ASP is one account-wide value = account net sales ÷ units sold (≈ €37.80). Both
+pages import `ACCOUNT_ASP`; replace its inputs with the live P&L join per scope.
 
 ### 2.5 Metric coloring rules (do not conflate — there are four families)
 - **Market-relative:** green = beats market, red = trails market, amber = the chosen
@@ -343,86 +352,97 @@ can mean strong acquisition OR weak retention) → polarity downgraded to neutra
 ### E. Sales → Traffic — main leak / biggest opportunity / impact
 Files: `data/funnelDiagnosticData.ts` · `components/funnel/*`.
 
+One shared source of truth (`trafficCalc.leakOpportunity` / `leakAllocation`) feeds
+the hero, the opportunity widget, the driver cards AND the detail table, so every
+€/unit on the page reconciles.
 ```
-Step 1 leak stage = arg max over stages of gap[S] = marketShare[S] − yourShare[S]
-                    (demo hardcodes Cart Adds; production = arg-max, no hardcoding)
-Step 2 conv-rate gap on the leak transition A→B:
-       delta = yourRate − marketRate  (yourRate = brand[B]/brand[A]×100, etc.)
-Step 3 € impact (half-gap):
-       recoverableUnits = round(yourClicks × (|delta|/2)/100)
-       impactEur        = round(recoverableUnits × €35 ASP)
+Step 1 leak transition = the A→B transition with the worst conversion-rate gap
+       vs market:  worst = argmin over transitions of delta,
+                   delta = yourRate − marketRate  (both from real counts)
+       biggestOpportunityIdx = index of the "to" stage B  (no hardcoding, no
+       synthetic share benchmark). Demo resolves to Click → Basket Add.
+Step 2 FULL-match upside (leakOpportunity — "if this leak matched the market",
+       the ceiling; NOT the old half-gap on this surface):
+       recoveredAtLeak = round(brandCount[A] × |delta|/100)          // e.g. clicks × 8.4% = 385 basket adds
+       purchases       = recoveredAtLeak × Π(your downstream rates B→…→purchases)
+       revenue         = round(purchases × ACCOUNT_ASP)              // 221 → €8,354
+Step 3 per-ASIN decomposition (leakAllocation): split `purchases`/`revenue`
+       across ASINs by each ASIN's own basket-add gap weight
+       (estimateLostRevenue = sessions × max(0, marketRate − ASIN rate)/100 ×
+       0.5 × 0.5 × ASP, used as a WEIGHT only). Rows SUM BACK to leakOpportunity,
+       so driver cards + table total = the hero/widget number.
 ```
-Per-ASIN "Lost sales / wk" (`estimateLostRevenue`):
-```
-lost = round( sessions × max(0, marketATCRate − productATCRate)/100
-              × 0.5     // half-recovery of the ATC gap
-              × 0.5     // ATC → Purchase downstream (~50% market avg)
-              × €35 )   // ASP
-```
-Footer "Total weekly leak" = Σ; "So what" = top-3 ASINs' share of that total.
-**Caveat:** `marketShare[S]` is a synthetic benchmark (Amazon doesn't publish per-query
-brand-rollup market share). Production needs a real category benchmark, a portfolio-average
-fallback, or drop the comparison and show drop-off only. ASP €35 is flat.
+**UI surfaces:** hero (rate gap + €{revenue} + {purchases}/wk, "if matched to
+market"), opportunity+actions widget (one card: +recoveredAtLeak → +purchases →
++€revenue, then the leak-triggered action cards), driver cards (top-4 ASINs by
+their share of `purchases`), detail table (collapsed; total = revenue). Stage
+cards show YOUR share per stage (+ WoW, + status pill); the market-relative
+diagnostic lives in the conversion chips (your CTR / basket-add / CVR vs market).
+Stage-trend mini-charts plot your share over 12 weeks (trend-colored). Header
+carries the brand-share Calculation note. Terminology on this page: "Basket Add".
+**Note:** this surface intentionally uses the FULL-match ceiling; the app-wide
+half-gap convention (§2.4) still governs SQP keyword opportunity (F1).
 
 ---
 
-### F. Sales → SQP — keyword opportunity, quadrant, main gap, and the detail pop-up
+### F. Sales → SQP — keyword position, funnel diagnosis, opportunity, detail pop-up
 File: `data/sqpData.ts` · drawer `components/sqp/KeywordDetailDrawer.tsx`.
 
-**F1. Opportunity (per keyword)**
+Two classifiers, **different questions, cannot contradict**: `keywordQuadrant`
+answers *is this keyword worth my attention* (position); `keywordDiagnosis`
+answers *what's wrong and what to do* (the fix + the row's Action). The old
+`classify()`/`actionFor()` divergence is removed; `status === quadrant`.
+
+**F1. Opportunity (per keyword)** — unchanged shape, real account ASP:
 ```
-portfolioAvgClick = mean(clickShare) over tracked keywords
-opportunity (pp)  = max(0, portfolioAvgClick − clickShare)      // 0 if at/above your avg
-opportunityScore  = round(marketVolume × opportunity)           // unitless SORT key
-opportunityEur    = round(marketVolume × (opportunity/200) × 0.5 × €18)
-                    // ½-gap fraction × cart→buy 50% × €18 ASP
+portfolioAvgClick = mean(clickShare) over tracked keywords   // honest, derivable ref
+opportunity (pp)  = max(0, portfolioAvgClick − clickShare)   // 0 if at/above your avg
+opportunityScore  = round(marketVolume × opportunity)        // unitless SORT key
+opportunityEur    = round(marketVolume × (opportunity/200) × 0.5 × ACCOUNT_ASP)
+                    // ½-gap fraction × cart→buy 50% × account ASP (≈ €37.80)
 ```
 
-**F2. Quadrant (the badge in the pop-up)** — `keywordQuadrant`, portfolio-RELATIVE
+**F2. Position — quadrant** (`keywordQuadrant`, portfolio-RELATIVE). Also the row's
+`status`; drives the 2×2 map and the badge.
 ```
 highVol   = marketVolume ≥ volumeMedian
 highShare = clickShare   ≥ avgClickShare
-highVol & highShare  → DEFEND  (emerald)  "Protect share, avoid losing rank"
-highVol & !highShare → INVEST  (amber)    "Increase bid / content / rank"
-!highVol & highShare → HARVEST (indigo)   "Maintain, optimize ACOS"
-else                 → TAIL    (slate)    "Ignore or test cheaply"
+highVol & highShare  → DEFEND  (emerald)   highVol & !highShare → INVEST (amber)
+!highVol & highShare → HARVEST (indigo)    else                 → TAIL   (slate)
 ```
 
-**F3. Recommended action (the amber call-out)** — uses an ABSOLUTE-threshold status,
-NOT the relative quadrant above. `classify()` → `actionFor()`:
+**F3. Funnel diagnosis** (`keywordDiagnosis`) — REAL SQP data, no synthetic
+benchmark. yourCtr = brandClicks/brandImpr; marketCtr = marketClicks/marketImpr;
+yourCvr = brandPurch/brandClicks; marketCvr = marketPurch/marketClicks (all real).
+`ctrGapPp = marketCtr − yourCtr`, `cvrGapPp = marketCvr − yourCvr` (+ = you trail).
+FIRST MATCH WINS:
 ```
-status: volHi = marketVolume ≥ 8000 ; shareHi = clickShare ≥ 15
-        volHi & shareHi  → trend4w < −3 ? 'optimize' : 'defend'
-        volHi & !shareHi → 'invest'
-        !volHi & shareHi → 'harvest'
-        else             → 'drop'
-gap = portfolioAvgClick − clickShare
-action: defend→"Hold rank; protect bids"
-        invest→ gap>15 ? "Aggressive bid + creative refresh" : "Increase bid 20% on top campaigns"
-        optimize→"Audit listing & creative for funnel leak"
-        harvest→"Lower bid; preserve margin"
-        drop→"Pause bids; deprioritize"
+IS=impressionShare, CLK=clickShare
+1. CLK ≥ 2×IS AND IS ≥ 3%              → Cannibalization → "Cut bids ~20%/wk; watch rank"
+2. IS < 2% AND marketVolume ≥ 8000     → Visibility gap  → "Invest — exact-match SP, top-of-search"
+3. ctrGapPp ≥ cvrGapPp AND ctrGapPp>0.5 → CTR problem     → "Fix CTR — main image, title, price, reviews"
+4. cvrGapPp > 0.5                       → CVR problem     → "Fix CVR — A+, price, reviews, delivery"
+5. else                                 → Consistent      → "Hold — defend rank and bids"
 ```
+Shown as a color chip (Diagnosis column + drawer): cannibalization=indigo,
+visibility=amber, ctr/cvr=rose, healthy=emerald. The drawer's "You vs market"
+cards show yourCtr/marketCtr + yourCvr/marketCvr; "Your share by funnel stage"
+shows your four shares with the ~7% impression-share ceiling marked (no market bar).
 
-**F4. Main gap** — synthetic per-stage market benchmark, then arg-max:
-```
-marketStageShares = { impressions: max(15, clickShare+8), clicks: max(15, clickShare+8),
-                      cartAdds: max(12, clickShare+5), purchases: max(10, purchaseShare+6) }
-mainGap = arg max over S of (marketStageShares[S] − yourShare[S])
-        > 0 → "{stage} · {gap}pp behind synthetic market" ; ≤ 0 → "beats market at every stage"
-```
+**F4. Branded/non-branded filter** (`SQP.tsx`) — SOP step 1. `branded = intent==='branded'`.
+Toggle All / Non-branded / Branded scopes the map + table (hero stays portfolio-global).
+Analyze non-branded to judge true listing/PPC performance — branded terms inflate CTR/CVR.
 
 **F5. Portfolio hero narrative** — `dominantOppQuadrant` = arg max of Σ opportunityEur by
-quadrant → 'invest'/'defend'/'harvest'/'tail' each map to a headline sentence.
-Hero stats: `totalOpportunityEur` (Σ), `top5ConcentrationPct`, `underIndexedCount`
+quadrant → 'invest'/'defend'/'harvest'/'tail' headline. Hero stats:
+`totalOpportunityEur` (Σ), `top5ConcentrationPct`, `underIndexedCount`
 (keywords with clickShare < avgClickShare).
 
-> **⚠ Two-classifier divergence to fix:** the **badge** is portfolio-relative
-> (`keywordQuadrant`) while the **action** is absolute-threshold (`classify`). They
-> usually agree but CAN contradict. In production pick ONE source of truth so the chip
-> and the recommendation can never disagree. Also replace the synthetic per-stage market
-> shares with real Brand Analytics shares (or relabel "vs your portfolio average"), and
-> wire real QSS (currently randomised).
+Impression-share reference (rules of thumb shown as guidance, NOT hard limits and
+NOT used to classify): impression share rarely exceeds **~7%** per child ASIN, and
+**~4%+** is often already strong. The one FUNCTIONAL threshold is **< 2%** on a
+high-volume term → the Visibility-gap diagnosis (LOW_IS in F3). QSS (a randomised
+fake "search query score") is removed — it isn't an SQP field.
 
 > **Monthly SQP rule:** prefer Amazon's native monthly SQP file; if you must aggregate
 > weeks, **SUM counts and RECOMPUTE rates** (never average weekly %); recompute all
@@ -542,9 +562,10 @@ YoY > 0** — never celebrate a flat or down event.
 | Severity (€) | Critical / High / Medium / Watch | ≥20k / ≥5k / ≥1k / >0 | 2.3 |
 | Confidence | High / Medium / Low multiplier | 1.0 / 0.7 / 0.4 | 2.2 |
 | Recovery | recoverable fraction of any gap | ½ (0.5) | 2.4 |
-| ASP | Traffic / SQP | €35 / €18 | 2.4 |
+| ASP | account-wide (Traffic + SQP) | ACCOUNT_ASP ≈ €37.80 | 2.4 |
 | Traffic CVR | portfolio benchmark (green) | ≥12.5% | E |
-| SQP action | volume hi / share hi / trend / gap | ≥8000 / ≥15% / <−3 / >15 | F3 |
+| SQP diagnosis | cannibal ratio / min IS / low IS / rate gap / vol hi | 2× / 3% / 2% / 0.5pp / 8000 | F3 |
+| SQP impression share | reference ~7% / ~4% (guidance) · functional <2% (visibility) | ~7% / ~4% / <2% | F3 |
 | Inventory | DOS bands (Crit/Low/Healthy/Over) | 7 / 21 / 120 | G1 |
 | Inventory | reorder-soon window / dead stock | 14d / 180d | G2,G4 |
 | Inventory | GMROI / Gross Margin bands | 300/150 · 50/30 | G4 |
@@ -569,8 +590,11 @@ YoY > 0** — never celebrate a flat or down event.
    is the one actually costing money.
 5. **Confidence everywhere** — carry the data base through to a visible High/Med/Low tag so a
    flag built on thin data reads as low-confidence.
-6. **Real benchmarks** — replace synthetic "market" stage shares (Traffic & SQP) with a real
-   category benchmark or relabel "vs your portfolio average". Replace flat ASPs with real
-   per-scope ASP. Make TARGETS/coverage cutoffs per-account configurable in Settings → Data.
-7. **One source of truth per surface** — notably SQP, where the badge and the action must be
-   driven by the same classifier (see F).
+6. **Real benchmarks** *(done for Traffic & SQP funnels — Jul 2026)* — the synthetic per-stage
+   "market share" benchmark is removed; the funnel diagnostic now uses real CTR/CVR-vs-market
+   rates (derivable from SQP counts). ASP is one account-wide value (`ACCOUNT_ASP`); still
+   replace its inputs with a live per-scope P&L join. Make TARGETS/coverage cutoffs per-account
+   configurable in Settings → Data.
+7. **One source of truth per surface** *(done for SQP — Jul 2026)* — position (`keywordQuadrant`)
+   and the fix (`keywordDiagnosis`) answer different questions and can't contradict; the old
+   divergent `classify()` is gone and `status === quadrant`.

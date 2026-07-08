@@ -5,10 +5,12 @@
 // rates, and the recommended action.
 
 import { useEffect } from 'react';
-import { X, Lightbulb, TrendingUp, TrendingDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { X, Lightbulb, TrendingUp, TrendingDown } from 'lucide-react';
 import type { KeywordRow } from '../../data/sqpData';
-import { keywordMarketStageShares, keywordMainGap, QUADRANT_LABEL, QUADRANT_STYLE, keywordQuadrant } from '../../data/sqpData';
-import { sqpSummary } from '../../data/sqpData';
+import {
+  keywordDiagnosis, DIAGNOSIS_STYLE, IMPRESSION_SHARE_CEILING, IMPRESSION_SHARE_STRONG,
+  QUADRANT_LABEL, QUADRANT_STYLE, keywordQuadrant, sqpSummary,
+} from '../../data/sqpData';
 
 export default function KeywordDetailDrawer({
   keyword,
@@ -49,8 +51,8 @@ export default function KeywordDetailDrawer({
 function DrawerContent({ keyword: k, onClose }: { keyword: KeywordRow; onClose: () => void }) {
   const quadrant = keywordQuadrant(k, sqpSummary.volumeMedian, sqpSummary.avgClickShare);
   const quadStyle = QUADRANT_STYLE[quadrant];
-  const market = keywordMarketStageShares(k);
-  const mainGap = keywordMainGap(k);
+  const dx = keywordDiagnosis(k);
+  const dxStyle = DIAGNOSIS_STYLE[dx.key];
 
   // Per-keyword paid vs organic estimate.
   // Synthetic for the wireframe: ACoS implies paid share — higher ACoS,
@@ -59,12 +61,6 @@ function DrawerContent({ keyword: k, onClose }: { keyword: KeywordRow; onClose: 
   const yourPurchases = k.purchases.brandCount;
   const paidPurchases = Math.round(yourPurchases * paidWeight);
   const organicPurchases = yourPurchases - paidPurchases;
-
-  // CTR + CVR derived from counts (yours vs market)
-  const yourCtr  = k.impressions.brandCount > 0 ? (k.clicks.brandCount    / k.impressions.brandCount) * 100 : 0;
-  const mktCtr   = k.impressions.marketCount > 0 ? (k.clicks.marketCount   / k.impressions.marketCount) * 100 : 0;
-  const yourCvr  = k.clicks.brandCount      > 0 ? (k.purchases.brandCount  / k.clicks.brandCount)      * 100 : 0;
-  const mktCvr   = k.clicks.marketCount     > 0 ? (k.purchases.marketCount / k.clicks.marketCount)     * 100 : 0;
 
   return (
     <>
@@ -75,9 +71,7 @@ function DrawerContent({ keyword: k, onClose }: { keyword: KeywordRow; onClose: 
             <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ring-1 ring-inset ${quadStyle.bg} ${quadStyle.text} ${quadStyle.ring}`}>
               {QUADRANT_LABEL[quadrant]}
             </span>
-            <span className="text-[10px] text-gray-400 uppercase tracking-wider">QSS {k.qss.toFixed(1)}</span>
-            <span className="text-[10px] text-gray-400 uppercase tracking-wider">·</span>
-            <span className="text-[10px] text-gray-400 uppercase tracking-wider">{k.intent}</span>
+            <span className="text-[10px] text-gray-400 uppercase tracking-wider">{k.intent}{k.branded ? ' · branded' : ''}</span>
           </div>
           <h2 className="text-base font-bold text-gray-900 leading-tight">{k.query}</h2>
           <div className="text-[11px] text-gray-500 mt-1">
@@ -93,17 +87,19 @@ function DrawerContent({ keyword: k, onClose }: { keyword: KeywordRow; onClose: 
         </button>
       </div>
 
-      {/* Recommended action — surface up top, it's the why-you-opened-this */}
+      {/* Diagnosis + recommended action — the why-you-opened-this */}
       <div className="px-5 py-3 bg-amber-50/40 border-b border-amber-100">
         <div className="flex items-start gap-2">
           <Lightbulb className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
           <div className="min-w-0">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-amber-700">Recommended action</div>
-            <div className="text-[13px] font-semibold text-gray-900 mt-0.5">{k.action}</div>
-            <div className="text-[11px] text-gray-500 mt-1">
-              Main gap: <span className="font-semibold text-gray-700">{mainGap.stageLabel}</span>
-              {mainGap.gapPp > 0 ? <> · <span className="font-semibold text-rose-700">{mainGap.gapPp.toFixed(1)}pp behind</span> synthetic market</> : <> · beats market at every stage</>}
+            <div className="flex items-center gap-2">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-amber-700">Diagnosis</div>
+              <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ring-1 ring-inset ${dxStyle.bg} ${dxStyle.text} ${dxStyle.ring}`}>
+                {dx.label}
+              </span>
             </div>
+            <div className="text-[11px] text-gray-600 mt-1">{dx.detail}</div>
+            <div className="text-[13px] font-semibold text-gray-900 mt-1.5">→ {dx.action}</div>
           </div>
         </div>
       </div>
@@ -114,21 +110,21 @@ function DrawerContent({ keyword: k, onClose }: { keyword: KeywordRow; onClose: 
           <KeywordTrend k={k} />
         </Section>
 
-        {/* Section 2 — Market vs brand CTR / CVR */}
-        <Section title="You vs market" subtitle="Conversion rates at each transition">
+        {/* Section 2 — Market vs brand CTR / CVR (real, from SQP counts) */}
+        <Section title="You vs market" subtitle="Your conversion rate vs the market's on the same searches">
           <div className="grid grid-cols-2 gap-3">
-            <RateCompare label="CTR (Impr → Click)" yours={yourCtr} market={mktCtr} />
-            <RateCompare label="CVR (Click → Purchase)" yours={yourCvr} market={mktCvr} />
+            <RateCompare label="CTR (Impr → Click)" yours={dx.yourCtr} market={dx.marketCtr} />
+            <RateCompare label="CVR (Click → Purchase)" yours={dx.yourCvr} market={dx.marketCvr} />
           </div>
         </Section>
 
-        {/* Section 3 — Stage share gaps */}
-        <Section title="Share gap by stage" subtitle="Your share vs synthetic market share">
+        {/* Section 3 — Your funnel shares (real, no synthetic benchmark) */}
+        <Section title="Your share by funnel stage" subtitle={`As a guide, impression share rarely tops ~${IMPRESSION_SHARE_CEILING}% per ASIN, so ~${IMPRESSION_SHARE_STRONG}%+ is often already strong`}>
           <div className="space-y-1.5">
-            <StageBar label="Impressions" yours={k.impressions.share} market={market.impressions} highlight={mainGap.stageKey === 'impressions'} />
-            <StageBar label="Clicks"      yours={k.clicks.share}      market={market.clicks}      highlight={mainGap.stageKey === 'clicks'} />
-            <StageBar label="Cart Adds"   yours={k.cartAdds.share}    market={market.cartAdds}    highlight={mainGap.stageKey === 'cartAdds'} />
-            <StageBar label="Purchases"   yours={k.purchases.share}   market={market.purchases}   highlight={mainGap.stageKey === 'purchases'} />
+            <ShareBar label="Impressions" share={k.impressions.share} showCeiling />
+            <ShareBar label="Clicks"      share={k.clicks.share} />
+            <ShareBar label="Cart Adds"   share={k.cartAdds.share} />
+            <ShareBar label="Purchases"   share={k.purchases.share} />
           </div>
         </Section>
 
@@ -189,35 +185,23 @@ function RateCompare({ label, yours, market }: { label: string; yours: number; m
   );
 }
 
-function StageBar({ label, yours, market, highlight }: { label: string; yours: number; market: number; highlight: boolean }) {
-  const maxScale = Math.max(yours, market, 30);
-  const yourPct = (yours / maxScale) * 100;
-  const mktPct  = (market / maxScale) * 100;
-  const gap = +(market - yours).toFixed(1);
+function ShareBar({ label, share, showCeiling = false }: { label: string; share: number; showCeiling?: boolean }) {
+  // Scale to a fixed 20% so bars are comparable across keywords; the ~7%
+  // impression-share ceiling sits at a stable position on the impressions row.
+  const maxScale = 20;
+  const sharePct = Math.min(100, (share / maxScale) * 100);
+  const ceilingPct = (IMPRESSION_SHARE_CEILING / maxScale) * 100;
   return (
-    <div className={`px-3 py-2 rounded-lg border ${highlight ? 'border-amber-300 bg-amber-50/40 ring-1 ring-amber-200' : 'border-gray-100 bg-gray-50/40'}`}>
-      <div className="flex items-center justify-between mb-1.5">
-        <span className="text-[11px] font-semibold text-gray-700">{label}</span>
-        <span className={`text-[10px] font-semibold tabular-nums ${gap > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
-          {gap > 0 ? <ArrowDown className="w-2.5 h-2.5 inline" /> : <ArrowUp className="w-2.5 h-2.5 inline" />}
-          {Math.abs(gap).toFixed(1)}pp vs market
-        </span>
-      </div>
-      <div className="space-y-1">
-        <div className="flex items-center gap-2">
-          <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400 w-12">You</span>
-          <div className="flex-1 h-2 bg-white rounded-full overflow-hidden">
-            <div className="h-full bg-cx-500" style={{ width: `${yourPct}%` }} />
-          </div>
-          <span className="text-[10px] font-bold text-gray-900 tabular-nums w-10 text-right">{yours.toFixed(1)}%</span>
+    <div className="px-3 py-2 rounded-lg border border-gray-100 bg-gray-50/40">
+      <div className="flex items-center gap-2">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 w-20">{label}</span>
+        <div className="relative flex-1 h-2.5 bg-white rounded-full overflow-hidden border border-gray-100">
+          <div className="h-full bg-cx-500" style={{ width: `${sharePct}%` }} />
+          {showCeiling && (
+            <div className="absolute top-0 bottom-0 border-l border-dashed border-gray-400" style={{ left: `${ceilingPct}%` }} title={`~${IMPRESSION_SHARE_CEILING}% — typical practical max, for reference`} />
+          )}
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400 w-12">Market</span>
-          <div className="flex-1 h-2 bg-white rounded-full overflow-hidden">
-            <div className="h-full bg-gray-300" style={{ width: `${mktPct}%` }} />
-          </div>
-          <span className="text-[10px] font-semibold text-gray-500 tabular-nums w-10 text-right">{market.toFixed(1)}%</span>
-        </div>
+        <span className="text-[11px] font-bold text-gray-900 tabular-nums w-10 text-right">{share.toFixed(1)}%</span>
       </div>
     </div>
   );

@@ -7,20 +7,13 @@
 
 import { useMemo, useState } from 'react';
 import { ChevronsUpDown, ArrowUp, ArrowDown, Copy, Check } from 'lucide-react';
-import { productTrafficData } from '../../data/trafficData';
 import type { ProductTrafficRow } from '../../data/trafficData';
 import { brandFunnelDiagnostic } from '../../data/funnelDiagnosticData';
-import type { FunnelDiagnostic } from '../../data/funnelDiagnosticData';
+import { ACCOUNT_ASP } from '../../data/accountMetrics';
+import { productImageUrl, leakAllocation } from './trafficCalc';
 import InfoTooltip from '../InfoTooltip';
 
-const AVG_SELLING_PRICE = 35;
-
-/** Stable thumbnail per ASIN — uses Picsum seed so the same ASIN always
- *  renders the same image. Replace with the Amazon CDN URL when product
- *  metadata wiring is in place. */
-function productImageUrl(asin: string): string {
-  return `https://picsum.photos/seed/${encodeURIComponent(asin)}/80/80`;
-}
+const AVG_SELLING_PRICE = ACCOUNT_ASP;
 
 function AsinCopyChip({ asin }: { asin: string }) {
   const [copied, setCopied] = useState(false);
@@ -49,50 +42,7 @@ type SortKey =
   | 'lostRevenue' | 'sessions' | 'pageViews' | 'pvPerSession' | 'cvr'
   | 'addToCartRate' | 'buyBoxPct' | 'orders' | 'organicPct';
 
-/** Compute portfolio quartile thresholds for each funnel metric so the
- *  health-dot coloring is self-referential (top 25% green, bottom 25% red,
- *  middle 50% gray) instead of arbitrary fixed thresholds. */
-function quartile(values: number[], q: number): number {
-  const sorted = [...values].sort((a, b) => a - b);
-  const idx = (sorted.length - 1) * q;
-  const lo = Math.floor(idx);
-  const hi = Math.ceil(idx);
-  if (lo === hi) return sorted[lo];
-  return sorted[lo] + (sorted[hi] - sorted[lo]) * (idx - lo);
-}
-
-interface FunnelBenchmarks {
-  sessions:      { p25: number; p75: number };
-  pvPerSession:  { p25: number; p75: number };
-  addToCartRate: { p25: number; p75: number };
-  cvr:           { p25: number; p75: number };
-}
-
-function buildBenchmarks(rows: ProductTrafficRow[]): FunnelBenchmarks {
-  return {
-    sessions:      { p25: quartile(rows.map((r) => r.sessions),      0.25), p75: quartile(rows.map((r) => r.sessions),      0.75) },
-    pvPerSession:  { p25: quartile(rows.map((r) => r.pvPerSession),  0.25), p75: quartile(rows.map((r) => r.pvPerSession),  0.75) },
-    addToCartRate: { p25: quartile(rows.map((r) => r.addToCartRate), 0.25), p75: quartile(rows.map((r) => r.addToCartRate), 0.75) },
-    cvr:           { p25: quartile(rows.map((r) => r.cvr),           0.25), p75: quartile(rows.map((r) => r.cvr),           0.75) },
-  };
-}
-
 const PORTFOLIO_CVR_BENCHMARK = 12.5;
-
-/** Estimate weekly revenue this ASIN is leaking at the brand-level leak stage.
- *  Brand leak is Click → Cart Add, so the rate of interest is addToCartRate
- *  (per ASIN) compared to the brand-funnel's market click→cart-add rate. */
-function estimateLostRevenue(row: ProductTrafficRow, d: FunnelDiagnostic): number {
-  const leakConv = d.conversions[d.biggestOpportunityIdx - 1];
-  const marketRate = leakConv.marketRate;       // market click→cart rate (≈ 31.7%)
-  const productRate = row.addToCartRate;
-  const gapPp = Math.max(0, marketRate - productRate);
-  // Half-recovery assumption (consistent with brand-level insight calc).
-  const potentialExtraATCs = row.sessions * (gapPp / 100) * 0.5;
-  // ATC→Purchase ≈ market purchase rate ≈ 50%.
-  const potentialExtraOrders = potentialExtraATCs * 0.5;
-  return Math.round(potentialExtraOrders * AVG_SELLING_PRICE);
-}
 
 export default function ProductTrafficTable() {
   const d = brandFunnelDiagnostic;
@@ -104,17 +54,14 @@ export default function ProductTrafficTable() {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [search, setSearch] = useState('');
 
-  const benchmarks = useMemo(() => buildBenchmarks(productTrafficData), []);
-
-  /** Enrich each row with lost-revenue estimate at the brand-level leak stage. */
-  const enriched = useMemo(() => {
-    return productTrafficData.map((r) => ({
-      ...r,
-      lostRevenue: estimateLostRevenue(r, d),
-    }));
+  // Per-ASIN rows are a decomposition of the brand leak opportunity, so the
+  // table total reconciles with the hero + opportunity widget + driver cards.
+  const { opp, enriched } = useMemo(() => {
+    const { opp, rows } = leakAllocation(d);
+    return { opp, enriched: rows };
   }, [d]);
 
-  const totalLost = useMemo(() => enriched.reduce((s, r) => s + r.lostRevenue, 0), [enriched]);
+  const totalLost = opp.revenue;
 
   const sorted = useMemo(() => {
     let rows = enriched;
@@ -182,28 +129,16 @@ export default function ProductTrafficTable() {
                 }
               />
               <Th label="Sessions"          sortKey="sessions"      currentKey={sortKey} dir={sortDir} onClick={setSort} align="right" />
-              <Th label="Add-to-Cart Rate"  sortKey="addToCartRate" currentKey={sortKey} dir={sortDir} onClick={setSort} align="right" />
+              <Th label="Basket-Add Rate"  sortKey="addToCartRate" currentKey={sortKey} dir={sortDir} onClick={setSort} align="right" />
               <Th label="CVR"          sortKey="cvr"           currentKey={sortKey} dir={sortDir} onClick={setSort} align="right" />
               <Th label="BBox %"       sortKey="buyBoxPct"     currentKey={sortKey} dir={sortDir} onClick={setSort} align="right" />
-              <Th
-                label="Funnel"
-                align="center"
-                tooltip={
-                  '4 health dots, color-coded against your portfolio quartiles: ' +
-                  'green = top 25% of your products at that stage, gray = middle 50%, red = bottom 25%. ' +
-                  `Sess: red <${Math.round(benchmarks.sessions.p25)}, green >${Math.round(benchmarks.sessions.p75)}; ` +
-                  `PV/S: red <${benchmarks.pvPerSession.p25.toFixed(2)}, green >${benchmarks.pvPerSession.p75.toFixed(2)}; ` +
-                  `ATC: red <${benchmarks.addToCartRate.p25.toFixed(1)}%, green >${benchmarks.addToCartRate.p75.toFixed(1)}%; ` +
-                  `CVR: red <${benchmarks.cvr.p25.toFixed(1)}%, green >${benchmarks.cvr.p75.toFixed(1)}%.`
-                }
-              />
               <Th label="Orders"      sortKey="orders"      currentKey={sortKey} dir={sortDir} onClick={setSort} align="right" />
               <Th label="Organic %"   sortKey="organicPct"  currentKey={sortKey} dir={sortDir} onClick={setSort} align="right" />
             </tr>
           </thead>
           <tbody>
             {sorted.map((r) => (
-              <Row key={r.asin} row={r} benchmarks={benchmarks} marketATCRate={marketATCRate} totalLost={totalLost} />
+              <Row key={r.asin} row={r} marketATCRate={marketATCRate} totalLost={totalLost} />
             ))}
           </tbody>
         </table>
@@ -249,9 +184,8 @@ function Th({
   );
 }
 
-function Row({ row: r, benchmarks, marketATCRate, totalLost }: {
+function Row({ row: r, marketATCRate, totalLost }: {
   row: ProductTrafficRow & { lostRevenue: number };
-  benchmarks: FunnelBenchmarks;
   marketATCRate: number;
   totalLost: number;
 }) {
@@ -307,9 +241,6 @@ function Row({ row: r, benchmarks, marketATCRate, totalLost }: {
         <div className={`text-[12px] font-semibold tabular-nums ${bboxHealthy ? 'text-gray-900' : 'text-orange-700'}`}>{r.buyBoxPct.toFixed(1)}%</div>
         <DeltaPct value={r.buyBoxPctPoP} suffix="pp" />
       </td>
-      <td className="px-3 py-2">
-        <FunnelDots row={r} benchmarks={benchmarks} />
-      </td>
       <td className="px-3 py-2 text-right">
         <span className="text-[12px] font-semibold text-gray-900 tabular-nums">{r.orders.toLocaleString()}</span>
       </td>
@@ -327,47 +258,6 @@ function DeltaPct({ value, suffix }: { value: number; suffix: string }) {
   return (
     <div className={`text-[9px] font-medium ${positive ? 'text-emerald-700' : 'text-rose-700'}`}>
       {positive ? '+' : ''}{value.toFixed(1)}{suffix} PoP
-    </div>
-  );
-}
-
-// 4 colored dots: Sessions, PV/Sess, ATC, CVR — quartile coloring vs portfolio.
-function FunnelDots({ row, benchmarks }: { row: ProductTrafficRow; benchmarks: FunnelBenchmarks }) {
-  const stages = [
-    {
-      label: 'Sess',
-      good: row.sessions >= benchmarks.sessions.p75,
-      bad:  row.sessions <  benchmarks.sessions.p25,
-      title: `Sessions: ${row.sessions.toLocaleString()} · portfolio Q1 ${Math.round(benchmarks.sessions.p25).toLocaleString()} / Q3 ${Math.round(benchmarks.sessions.p75).toLocaleString()}`,
-    },
-    {
-      label: 'PV/S',
-      good: row.pvPerSession >= benchmarks.pvPerSession.p75,
-      bad:  row.pvPerSession <  benchmarks.pvPerSession.p25,
-      title: `Page views per session: ${row.pvPerSession.toFixed(2)} · portfolio Q1 ${benchmarks.pvPerSession.p25.toFixed(2)} / Q3 ${benchmarks.pvPerSession.p75.toFixed(2)}`,
-    },
-    {
-      label: 'ATC',
-      good: row.addToCartRate >= benchmarks.addToCartRate.p75,
-      bad:  row.addToCartRate <  benchmarks.addToCartRate.p25,
-      title: `Add-to-cart rate: ${row.addToCartRate.toFixed(1)}% · portfolio Q1 ${benchmarks.addToCartRate.p25.toFixed(1)}% / Q3 ${benchmarks.addToCartRate.p75.toFixed(1)}%`,
-    },
-    {
-      label: 'CVR',
-      good: row.cvr >= benchmarks.cvr.p75,
-      bad:  row.cvr <  benchmarks.cvr.p25,
-      title: `Conversion rate: ${row.cvr.toFixed(1)}% · portfolio Q1 ${benchmarks.cvr.p25.toFixed(1)}% / Q3 ${benchmarks.cvr.p75.toFixed(1)}%`,
-    },
-  ];
-  const color = (good: boolean, bad: boolean) => bad ? '#EF4444' : good ? '#10B981' : '#CBD5E1';
-  return (
-    <div className="flex items-center justify-center gap-2">
-      {stages.map((s, i) => (
-        <div key={i} className="flex flex-col items-center gap-0.5" title={s.title}>
-          <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color(s.good, s.bad) }} />
-          <span className="text-[8px] font-semibold text-gray-500 leading-none uppercase tracking-wide">{s.label}</span>
-        </div>
-      ))}
     </div>
   );
 }

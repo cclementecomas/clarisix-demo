@@ -264,7 +264,6 @@ export default function PortfolioMap({ keywords, onSelect }: {
                 hovered.status === 'defend' ? 'bg-emerald-500/20 text-emerald-300'
                 : hovered.status === 'invest' ? 'bg-amber-500/20 text-amber-300'
                 : hovered.status === 'harvest' ? 'bg-indigo-500/20 text-indigo-300'
-                : hovered.status === 'optimize' ? 'bg-orange-500/20 text-orange-300'
                 : 'bg-gray-500/20 text-gray-400'
               }`}>{hovered.status}</span>
               <span className="text-[10px] text-gray-400 ml-auto">{hovered.intent}</span>

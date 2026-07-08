@@ -5,8 +5,8 @@
 
 import { AlertTriangle, ArrowDown, ArrowRight, Coins, Package } from 'lucide-react';
 import type { FunnelDiagnostic } from '../../data/funnelDiagnosticData';
-
-const AVG_SELLING_PRICE = 35;
+import { ACCOUNT_ASP } from '../../data/accountMetrics';
+import { leakOpportunity } from './trafficCalc';
 
 export default function HeroInsightCard({
   diagnostic,
@@ -17,16 +17,24 @@ export default function HeroInsightCard({
   onNextStep?: () => void;
 }) {
   const leakIdx = diagnostic.biggestOpportunityIdx;
-  const toStage   = diagnostic.stages[leakIdx];
   const leakConv  = diagnostic.conversions[leakIdx - 1];
 
   // Use the conversion's shortLabel so transition naming stays consistent
   // across the page (e.g. "Click → Cart Add").
   const transitionLabel = leakConv.shortLabel;
   const conversionGapPp = leakConv.delta; // negative if you're below market
-  const shareGapPp = +(toStage.share - diagnostic.marketShares[toStage.key]).toFixed(1);
-  const impactEur = diagnostic.insightImpactEur;
-  const recoverableUnits = Math.max(1, Math.round(impactEur / AVG_SELLING_PRICE));
+  // Same source as the opportunity widget + driver cards, so every number matches.
+  const opp = leakOpportunity(diagnostic);
+  const impactEur = opp.revenue;
+  const recoverableUnits = opp.purchases;
+
+  // Plain-English one-liner keyed to which transition leaks.
+  const ONE_LINER: Record<string, string> = {
+    clicks:    'The brand is seen but shoppers click competitors — you lose them on the search results page.',
+    cartAdds:  'The brand wins clicks but loses shoppers before they add to basket — the leak is on the product page.',
+    purchases: 'Shoppers add to basket but don’t complete the purchase — the leak is at checkout.',
+  };
+  const oneLiner = ONE_LINER[leakConv.toKey] ?? 'Your conversion at this stage trails the market; the impact compounds across every product.';
 
   return (
     <div className="relative bg-gradient-to-br from-rose-50 via-white to-amber-50/40 rounded-xl border-2 border-rose-200 shadow-sm overflow-hidden">
@@ -43,8 +51,8 @@ export default function HeroInsightCard({
             <div className="text-xl font-bold text-gray-900 leading-tight mt-0.5">
               {transitionLabel}
             </div>
-            <div className="text-[11px] text-gray-500 mt-1 max-w-[280px]">
-              Your conversion at this stage trails the market. The downstream impact compounds across every product.
+            <div className="text-[11px] text-gray-500 mt-1 max-w-[300px]">
+              {oneLiner}
             </div>
           </div>
         </div>
@@ -52,23 +60,23 @@ export default function HeroInsightCard({
         {/* Metric row */}
         <div className="grid grid-cols-3 gap-3 flex-shrink-0">
           <MetricTile
-            label="Gap vs market"
+            label="Rate gap vs market"
             value={`${conversionGapPp > 0 ? '+' : ''}${conversionGapPp.toFixed(1)}pp`}
-            sub={`Share gap ${shareGapPp > 0 ? '+' : ''}${shareGapPp.toFixed(1)}pp`}
+            sub={`You ${leakConv.yourRate.toFixed(1)}% · mkt ${leakConv.marketRate.toFixed(1)}%`}
             icon={<ArrowDown className="w-3.5 h-3.5 text-rose-600" />}
             tone="rose"
           />
           <MetricTile
             label="Impact / wk"
             value={`€${impactEur.toLocaleString()}`}
-            sub="If half the gap closes"
+            sub="If matched to market"
             icon={<Coins className="w-3.5 h-3.5 text-amber-600" />}
             tone="amber"
           />
           <MetricTile
-            label="Units / wk"
+            label="Purchases / wk"
             value={recoverableUnits.toLocaleString()}
-            sub={`@ €${AVG_SELLING_PRICE} ASP`}
+            sub={`@ €${ACCOUNT_ASP} account ASP`}
             icon={<Package className="w-3.5 h-3.5 text-emerald-600" />}
             tone="emerald"
           />

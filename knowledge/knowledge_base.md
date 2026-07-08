@@ -1068,7 +1068,9 @@ Demo data calibration check
 
 Developer Reference — Traffic & SQP Calculations (Jun 22 2026)
 
-Explainer for implementing the Sales → Traffic and Sales → SQP pages. Every formula below is what the wireframe actually computes, with file + function references so the numbers can be reproduced against real Amazon data (Business Reports for Traffic, Brand Analytics SQP for SQP). Two recurring conventions to know up front: (1) we only ever assume HALF of any gap is recoverable — a deliberately conservative default, keep it; (2) ASP (average selling price) is a flat constant — €35 on Traffic, €18 on SQP — replace with real per-ASIN/category price when product metadata is wired.
+> **SUPERSEDED IN PART (Jul 7 2026) — read the "Traffic & SQP funnel accuracy rework" entry below first.** The per-stage synthetic "market share" benchmark, the hardcoded Traffic leak stage, the SQP `keywordMarketStageShares`/`keywordMainGap`, the divergent SQP `classify()`/`actionFor()`, and randomised QSS described here are all REMOVED. ASP is now one account-wide constant (`ACCOUNT_ASP` ≈ €37.80) on BOTH pages, not €35/€18. The leak/diagnosis is now derived from real CTR/CVR-vs-market rates. The half-gap recovery convention and the opportunity-€ shape are unchanged.
+
+Explainer for implementing the Sales → Traffic and Sales → SQP pages. Every formula below is what the wireframe actually computes, with file + function references so the numbers can be reproduced against real Amazon data (Business Reports for Traffic, Brand Analytics SQP for SQP). Two recurring conventions to know up front: (1) we only ever assume HALF of any gap is recoverable — a deliberately conservative default, keep it; (2) ASP (average selling price) is now ONE account-wide constant `ACCOUNT_ASP` ≈ €37.80 (accountMetrics.ts = account net sales ÷ units), used on both pages — replace its inputs with a live per-scope P&L join when wired. (This line originally said €35 Traffic / €18 SQP — no longer true.)
 
 The brand funnel everywhere is Impressions → Clicks → Cart Adds → Purchases. Each stage stores marketCount (whole market) + brandCount (you); share = brandCount / marketCount × 100.
 
@@ -2096,3 +2098,164 @@ PRODUCTION NOTES / DECISIONS TO MAKE
   - Absolute thresholds (volume 8000, share 15%, gap 15pp, trend −3pp) and the
     Opportunity constants (½ gap, €18 ASP) are flat placeholders — make them
     per-account configurable (category ASP, target share) in production.
+
+────────────────────────────────────────────────────────────────────────────
+Traffic & SQP funnel accuracy rework (Jul 7 2026)
+
+Why: the Traffic and SQP pages were showing a fabricated per-stage "market
+share" benchmark and stacking opaque recovery assumptions. Reworked against the
+ICAP framework (myamazonguy.com/icap) + the My Real Profit SQP SOPs so every
+number is real, API-grounded, and readable by an executive. Structure the user
+values (the 2×2 portfolio map + € opportunity estimates) is kept; the wrong
+formulas are fixed. Files: data/accountMetrics.ts (new), data/sqpData.ts,
+data/funnelDiagnosticData.ts, components/funnel/*, components/sqp/*, SQP.tsx.
+
+The core fix — no synthetic "market share" benchmark.
+- Amazon SQP gives your brand counts AND the market totals per stage
+  (Impressions → Clicks → Cart Adds → Purchases), so `share` is already
+  brand ÷ market. There is NO second "market share" to compare against — the
+  old marketShares = {imp:11, clk:11.5, cart:13.8, buy:9} (Traffic) and
+  keywordMarketStageShares = clickShare+8 (SQP) were invented. Removed.
+- The honest comparison is conversion RATES: your CTR/CVR vs the MARKET's CTR/CVR,
+  both derivable from counts. Equivalence used throughout: impression share >
+  click share ⟺ your CTR < market CTR; click share > purchase share ⟺ your CVR
+  < market CVR. So the SOP funnel rules need no benchmark.
+
+Traffic (funnelDiagnosticData.ts + components/funnel/*):
+- Leak stage is now DERIVED: biggestOpportunityIdx = the "to" stage of the
+  transition with the worst yourRate−marketRate (real). No more hardcoded idx=2.
+- Stage cards show your share per stage + WoW; the impressions card notes the
+  ~7% ceiling / 4%-is-strong context. The market-relative read moved to the
+  conversion chips (your CTR / add-to-cart / CVR vs market rate). Stage-trend
+  mini-charts plot your share over 12 weeks, trend-coloured — the fake market
+  line is gone (StageTrendPoint.marketShare removed).
+- Impact/wk uses ACCOUNT_ASP; per-ASIN "Lost sales/wk" unchanged shape, ASP swapped.
+- Dead synthetic buildKeywordFunnel() deleted.
+
+SQP (sqpData.ts + components/sqp/*):
+- keywordDiagnosis(k) — one real funnel classifier (first match): Cannibalization
+  (clickShare ≥ 2× impressionShare & IS ≥ 3%) → Visibility gap (IS < 2% & vol ≥
+  8000) → CTR problem (ctrGap dominant & > 0.5pp) → CVR problem (cvrGap > 0.5pp)
+  → Consistent. Returns real yourCtr/marketCtr/yourCvr/marketCvr + label + detail
+  + action. Drives the table's Diagnosis chip, the Action column, and the drawer.
+- One-source-of-truth: position = keywordQuadrant (2×2), fix = keywordDiagnosis.
+  Different questions, can't contradict. status === quadrant; the divergent
+  classify()/actionFor() and KeywordStatus 'optimize'/'drop' are removed.
+- Drawer: "Your share by funnel stage" shows your 4 real shares with the ~7%
+  impression-share ceiling marked (no market bar); "You vs market" keeps the real
+  CTR/CVR cards. Synthetic StageBar removed.
+- QSS removed everywhere (randomised fake; not an SQP field).
+- Branded/non-branded toggle added to SQP.tsx (SOP step 1: analyse non-branded to
+  judge true listing/PPC performance). branded = intent==='branded'. Scopes map +
+  table; hero stays portfolio-global. Impr Share column added to the table.
+- opportunityScore/opportunityEur shape kept (user asked to keep the estimate);
+  only ASP changed → ACCOUNT_ASP.
+
+ACCOUNT_ASP (data/accountMetrics.ts): one account-wide ASP = account net sales ÷
+units (YTD €298,412.60 ÷ 7,895 ≈ €37.80), used by both pages so € impacts never
+disagree. Replaces the flat €35 (Traffic) / €18 (SQP). Wire to the live P&L join
+per scope in production.
+
+The "PRODUCTION NOTES / DECISIONS TO MAKE" list just above (synthetic market
+shares, two classifiers, QSS, €18 ASP) is now ADDRESSED by this rework and kept
+only as historical context.
+
+────────────────────────────────────────────────────────────────────────────
+Sales → Traffic — insight-first Funnel Diagnostic redesign (Jul 7 2026)
+
+Reshaped the Traffic page from "funnel + big table" into a cards-first decision
+screen per the Funnel-Diagnostic spec. New files: components/funnel/TrafficInsights.tsx
+(the three card sections) and components/funnel/trafficCalc.ts (shared non-component
+helpers productImageUrl + estimateLostRevenue, moved out so Fast Refresh stays clean).
+
+Default layout (Traffic.tsx), top → bottom:
+1. Hero (HeroInsightCard) — main leak + a plain-English one-liner keyed to the leak
+   transition ("The brand wins clicks but loses shoppers before they add to basket") +
+   rate gap / impact / units + Next step (scrolls to Top drivers).
+2. Funnel diagnostic (FunnelStageCards) — 4 share cards + 3 transition chips.
+3. Opportunity estimate (OpportunityEstimateCard).
+4. Recommended actions (RecommendedActionCards) — only the plays that fire.
+5. Top drivers (TopDriverCards) — 3–5 ASINs, "View details".
+6. Detailed data — per-ASIN table + stage trends + source mix, COLLAPSED behind a
+   "View details" disclosure (open on demand or via a driver card's button).
+
+Terminology: "Cart Add" → "Basket Add" on the Traffic funnel (matches the seller's EU
+Amazon labels: impressions / clicks / basket adds / purchases). Display strings only;
+the data key stays `cartAdds`. (SQP page still shows "ATC / Cart Adds" — align later if
+wanted.) Conversions now read CTR · Click → Basket Add · Basket Add → Purchase.
+
+Brand-share calculation note (exact wording, shown as a header ⓘ on the funnel):
+"Shares are calculated as brand ASIN counts divided by market totals. Market totals are
+deduplicated by search query and week. Do not average ASIN shares." Rationale: Amazon's
+SQP ASIN view gives, per (ASIN × query), Total count (market denominator, identical on
+every ASIN row — take ONCE), ASIN count (numerator), ASIN share. Brand roll-up = Σ ASIN
+counts ÷ market Total, then recompute rates from totals. Prefer Amazon's Brand View
+(already aggregated + de-duplicated) for the funnel; use the ASIN view for drill-down.
+Summing per-ASIN impression counts slightly overstates brand impression share when two
+of your ASINs show in the same search — Brand View avoids it.
+
+Stage-card status pills (stageStatus): leak stage shows the "Where you leak" badge (no
+pill). Impressions: ≥4% Healthy · 2–4% Watch · <2% Opportunity. Other stages: Good if the
+conversion INTO the stage beats market, else Watch.
+
+Opportunity estimate (full-market match, NOT the hero's half-gap — deliberate: this is the
+theoretical ceiling "if this leak matched market"):
+    gapPp            = max(0, −leakConv.delta)              // you trail the market by this
+    recoveredAtLeak  = round(fromStage.brandCount × gapPp/100)   // e.g. clicks × 8.4% = 385 basket adds
+    purchases        = recoveredAtLeak × Π(your downstream rates from the leak stage → purchases)
+    revenue          = round(purchases × ACCOUNT_ASP)
+Demo: Click → Basket Add, 4,580 clicks × 8.4pp = +385 basket adds → ×57.3% = +221 purchases
+→ €8,354/wk. Subtext names the base + the market rate used.
+
+Recommended action cards (firedActions) — 5 typed plays, only the ones whose trigger fires,
+primary (matching the leak stage) first, capped at 3:
+    Fix PDP / Offer        CTR healthy AND Click→Basket below market
+    Improve Clickability   CTR below market OR impression share > click share
+    Scale Visibility       all transitions beat market AND impression share < 4%
+    Fix Purchase Conversion Basket→Purchase below market
+    Defend Winners         purchase share > impression share AND all transitions beat market
+Each card carries the spec's message + the exact recommended-action checklist.
+
+Top driver cards: top ASINs by estimateLostRevenue (half-gap of the ASIN basket-add rate vs
+the market rate, ×0.5 downstream, ×ACCOUNT_ASP). Shows lost purchases + €, why (rate vs
+market), a short action, and "View details" → opens the collapsed detail section.
+
+DEFERRED (need real data / ingestion, intentionally not built): the filters + view-switcher
+bar (date / brand / marketplace / parent ASIN / child ASIN / query / segment; view = Overall
+Brand / Parent / Child / Query) — needs real parent/child-ASIN funnel data we don't model; and
+the "Partial data view — based only on visible rows" warning — needs a real screenshot/paste
+ingestion path to know when the view is partial. Both are flagged for a follow-up once the SQP
+ingestion (Brand View + ASIN View) is wired.
+
+────────────────────────────────────────────────────────────────────────────
+Traffic — merged Opportunity+Actions widget + full number reconciliation (Jul 8 2026)
+
+Two changes on Sales → Traffic:
+1. Merged the "Upside if this leak matched the market" strip and the "Recommended
+   actions" cards into ONE widget (LeakOpportunityAndActions): the upside strip on
+   top, a divider, then the leak-triggered action cards. Removed the separate
+   OpportunityEstimateCard / RecommendedActionCards exports.
+2. Reconciled every €/unit on the page to ONE source. New helpers in
+   components/funnel/trafficCalc.ts:
+   - leakOpportunity(d): the brand FULL-match upside ("if this leak matched market",
+     the ceiling). recoveredAtLeak = brandCount[fromStage] × gap/100; purchases =
+     recoveredAtLeak × Π(your downstream rates → purchases); revenue = purchases × ACCOUNT_ASP.
+     Demo: Click→Basket Add, 4,580 clicks × 8.4pp = +385 basket adds → ×57.3% = +221
+     purchases → €8,354/wk.
+   - leakAllocation(d): decomposes purchases/revenue across ASINs weighted by each
+     ASIN's own basket-add gap (estimateLostRevenue used as a WEIGHT only). Rows sum
+     back to leakOpportunity.
+   Now the hero (impact/purchases tiles), the opportunity widget, the driver cards and
+   the detail-table total ALL show €8,354 / 221 (driver row-sum 222 = 1-unit rounding
+   across 20 rows, never shown as a sum). The hero previously showed a DIFFERENT number
+   (€7,258 / 192) because it used the old half-gap-basket-adds-as-units method — fixed.
+
+Framing change: the Traffic leak surface now uses the FULL-match ceiling, not the
+app-wide half-gap convention. Deliberate — the widget literally says "if this leak
+matched the market". SQP keyword opportunity (F1) still uses half-gap. Documented in
+classifiers.md §E.
+
+Also condensed: the opportunity strip is a single row (inline +385 → +221 → +€8,354);
+action cards use a 2-column compact checklist. Recommendations remain a fixed rule
+engine (5 authored ACTION_DEFS templates + firedActions trigger) — not AI, not a live
+backlog; the catalog is the backlog, selection is by leak pattern.

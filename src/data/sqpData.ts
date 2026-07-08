@@ -6,14 +6,19 @@
 // stage (Impressions → Clicks → Cart Adds → Purchases). Plus derived signals
 // (Opportunity Score, status label, 4-week trend).
 
-export type KeywordStatus = 'defend' | 'invest' | 'optimize' | 'harvest' | 'drop';
+import { ACCOUNT_ASP } from './accountMetrics';
+
+// Portfolio position === the quadrant (one classifier, no divergence).
+export type KeywordStatus = Quadrant;
 
 export type KeywordIntent = 'branded' | 'generic' | 'competitor' | 'longTail' | 'category';
 
 export interface KeywordTrendPoint {
   week: string;
   marketVolume: number;
+  yourImpressionShare: number;
   yourClickShare: number;
+  yourCartAddShare: number;
   yourPurchaseShare: number;
 }
 
@@ -29,9 +34,9 @@ export interface FunnelStageShare {
 export interface KeywordRow {
   query: string;
   intent: KeywordIntent;
+  /** True for branded queries (SOP: analyze non-branded to judge listing/PPC). */
+  branded: boolean;
   status: KeywordStatus;
-  /** Search Query Score (Amazon-provided 1–10) */
-  qss: number;
   /** Search Query Volume — total market weekly searches */
   marketVolume: number;
   impressions: FunnelStageShare;
@@ -66,6 +71,11 @@ function rng(seed: number): () => number {
 }
 
 // ─── Keyword catalog ────────────────────────────────────────────────────────
+
+// Which funnel story a demo keyword illustrates. Derived from its economics
+// (see deriveProfile) so the page shows a realistic spread across all five
+// diagnoses, then used to set impression/purchase share consistently.
+type DiagProfile = 'cannibal' | 'visibility' | 'ctr' | 'cvr' | 'healthy';
 
 interface RawKeyword {
   query: string;
@@ -127,47 +137,71 @@ const RAW: RawKeyword[] = [
 
 // ─── Derive each row's full record ─────────────────────────────────────────
 
-function classify(marketVol: number, clickShare: number, trend: number): KeywordStatus {
-  const volHi = marketVol >= 8000;
-  const shareHi = clickShare >= 15;
-  if (volHi && shareHi) return trend < -3 ? 'optimize' : 'defend';
-  if (volHi && !shareHi) return 'invest';
-  if (!volHi && shareHi) return 'harvest';
-  return 'drop';
+// Funnel-diagnosis thresholds (SOP-sourced). Declared here (before the
+// sqpKeywords IIFE, which calls keywordDiagnosis) so they're initialized when
+// the derivation runs. Impression-share ceiling ≈ 7% per child ASIN; < 2% on a
+// high-volume term = a visibility problem; click share ≥ 2× impression share =
+// PPC duplicating organic clicks.
+const CANNIBAL_RATIO = 2;
+const CANNIBAL_MIN_IS = 3;
+const LOW_IS = 2;
+const VOL_HI = 8000;
+const GAP_MIN = 0.5;
+
+// Pick the funnel story a keyword illustrates from its economics: you own
+// branded / cheap-to-win terms organically (PPC cannibalizes); you're barely
+// visible on big, expensive competitor terms (visibility gap); the rest split
+// across CTR / CVR / consistent. Deterministic so the demo is stable.
+function deriveProfile(raw: RawKeyword): DiagProfile {
+  if (raw.intent === 'branded' || raw.ppcAcos < 12) return 'cannibal';
+  if (raw.marketVol >= VOL_HI && raw.myClickShare < 6 && raw.ppcAcos > 30) return 'visibility';
+  const h = hash(raw.query + 'dx') % 3;
+  return h === 0 ? 'ctr' : h === 1 ? 'cvr' : 'healthy';
 }
 
-function gen12wTrend(volBase: number, clickShareBase: number, purchaseShareBase: number, seed: number): KeywordTrendPoint[] {
+// Derive impression & purchase share from click share so (IS, CLK, PS) are
+// internally consistent AND realize the intended diagnosis. Cannibalization
+// needs click share ≥ 2× impression share; visibility needs impression share
+// < 2%; CTR needs impression share above click share; CVR needs purchase share
+// below click share.
+function sharesForProfile(profile: DiagProfile, clickShare: number): { impShare: number; purShare: number } {
+  let impShare: number, purShare: number;
+  switch (profile) {
+    case 'cannibal':   impShare = clickShare * 0.42; purShare = clickShare * 1.08; break;
+    case 'visibility': impShare = Math.min(1.9, Math.max(1.0, clickShare * 0.40)); purShare = clickShare * 1.05; break;
+    case 'ctr':        impShare = clickShare * 1.35; purShare = clickShare * 1.06; break;
+    case 'cvr':        impShare = clickShare * 1.02; purShare = clickShare * 0.78; break;
+    default:           impShare = clickShare * 1.00; purShare = clickShare * 1.08; break;
+  }
+  return { impShare: +impShare.toFixed(1), purShare: +Math.max(0.1, purShare).toFixed(1) };
+}
+
+function gen12wTrend(volBase: number, impShareBase: number, clickShareBase: number, cartShareBase: number, purchaseShareBase: number, seed: number): KeywordTrendPoint[] {
   const r = rng(seed);
   const out: KeywordTrendPoint[] = [];
+  // Noise scales with the level so tiny shares (e.g. 1%) don't wobble as much
+  // in absolute terms as double-digit ones.
+  const wobble = (base: number) => Math.max(0, +(base + (r() - 0.5) * Math.max(0.6, base * 0.18)).toFixed(1));
   for (let i = 11; i >= 0; i--) {
     const wkDate = new Date('2026-05-25'); wkDate.setDate(wkDate.getDate() - i * 7);
     const label = `W${Math.ceil(((wkDate.getTime() - new Date(wkDate.getFullYear(), 0, 1).getTime()) / 86400000 + 1) / 7)}`;
-    const drift = 1 + (Math.random() < 0.5 ? -1 : 1) * 0;
-    void drift;
     const noise = 0.85 + r() * 0.3;
     out.push({
       week: label,
       marketVolume: Math.round(volBase * noise),
-      yourClickShare: Math.max(0, +(clickShareBase + (r() - 0.5) * 2).toFixed(1)),
-      yourPurchaseShare: Math.max(0, +(purchaseShareBase + (r() - 0.5) * 2).toFixed(1)),
+      yourImpressionShare: wobble(impShareBase),
+      yourClickShare: wobble(clickShareBase),
+      yourCartAddShare: wobble(cartShareBase),
+      yourPurchaseShare: wobble(purchaseShareBase),
     });
   }
   return out;
 }
 
-function actionFor(status: KeywordStatus, gap: number): string {
-  switch (status) {
-    case 'defend':   return 'Hold rank; protect bids';
-    case 'invest':   return gap > 15 ? 'Aggressive bid + creative refresh' : 'Increase bid 20% on top campaigns';
-    case 'optimize': return 'Audit listing & creative for funnel leak';
-    case 'harvest':  return 'Lower bid; preserve margin';
-    case 'drop':     return 'Pause bids; deprioritize';
-  }
-}
-
 export const sqpKeywords: KeywordRow[] = (() => {
   const rows: KeywordRow[] = [];
-  // Portfolio avg click share (used in Opportunity Score formula)
+  // Portfolio avg click share — the honest, derivable reference for
+  // "under-indexing" (Amazon doesn't publish a per-query click-share benchmark).
   const portfolioAvgClick = RAW.reduce((s, r) => s + r.myClickShare, 0) / RAW.length;
 
   for (const raw of RAW) {
@@ -179,29 +213,27 @@ export const sqpKeywords: KeywordRow[] = (() => {
     const cartMarket  = Math.round(clickMarket * (raw.marketAtcRate / 100));
     const buyMarket   = Math.round(cartMarket * (raw.marketBuyRate / 100));
 
-    // Your brand counts derived from share at each stage. Each share drifts a
-    // bit so funnel leaks show up.
-    const impShare   = +(raw.myClickShare * (0.85 + r() * 0.3)).toFixed(1);   // typically a bit below click share
+    // Your brand shares at each stage, derived from click share + the keyword's
+    // funnel profile so (impression, click, cart, purchase) shares tell a
+    // consistent, real story (no synthetic benchmark needed downstream).
     const clickShare = raw.myClickShare;
-    const cartShare  = +Math.max(0.1, clickShare - (3 + r() * 5)).toFixed(1); // ATC leaks 3–8pp vs clicks
-    const purShare   = raw.myPurchaseShare;
+    const { impShare, purShare } = sharesForProfile(deriveProfile(raw), clickShare);
+    const cartShare  = +Math.max(0.1, (clickShare + purShare) / 2).toFixed(1); // sits between click & purchase
 
     const trend4w = +((r() - 0.45) * 8).toFixed(1);          // -3.6 to +4.4 pp
 
     const opportunity = Math.max(0, portfolioAvgClick - clickShare);
     const opportunityScore = Math.round(raw.marketVol * opportunity);
-    // €/week impact ≈ half the gap × market volume × Amazon avg cart-to-buy × ~€18 ASP
-    const opportunityEur = Math.round(raw.marketVol * (opportunity / 200) * 0.5 * 18);
+    // €/week impact ≈ half the gap × market volume × Amazon avg cart-to-buy × account ASP
+    const opportunityEur = Math.round(raw.marketVol * (opportunity / 200) * 0.5 * ACCOUNT_ASP);
 
-    const status = classify(raw.marketVol, clickShare, trend4w);
-    const gap = portfolioAvgClick - clickShare;
-    const trend = gen12wTrend(raw.marketVol, clickShare, purShare, seed);
+    const trend = gen12wTrend(raw.marketVol, impShare, clickShare, cartShare, purShare, seed);
 
     rows.push({
       query: raw.query,
       intent: raw.intent,
-      status,
-      qss: +(2 + r() * 7.5).toFixed(1),
+      branded: raw.intent === 'branded',
+      status: 'invest', // placeholder — reassigned below from the unified quadrant classifier
       marketVolume: raw.marketVol,
       impressions: { marketCount: impMarket,   brandCount: Math.round(impMarket * impShare / 100),   share: impShare },
       clicks:      { marketCount: clickMarket, brandCount: Math.round(clickMarket * clickShare / 100), share: clickShare },
@@ -213,9 +245,20 @@ export const sqpKeywords: KeywordRow[] = (() => {
       opportunityEur,
       topAsin: { asin: raw.topAsin, title: raw.topTitle, brandShare: raw.topShare },
       ppc: { spend: raw.ppcSpend, acos: raw.ppcAcos },
-      action: actionFor(status, gap),
+      action: '', // reassigned below from the funnel diagnosis
     });
   }
+
+  // Second pass: one classifier for position (quadrant) + one for the fix
+  // (funnel diagnosis). They answer different questions and can't contradict.
+  const avgClick = rows.reduce((s, k) => s + k.clicks.share, 0) / rows.length;
+  const vols = rows.map((k) => k.marketVolume).sort((a, b) => a - b);
+  const volMedian = vols[Math.floor(vols.length / 2)] ?? 0;
+  for (const row of rows) {
+    row.status = keywordQuadrant(row, volMedian, +avgClick.toFixed(1));
+    row.action = keywordDiagnosis(row).action;
+  }
+
   return rows.sort((a, b) => b.opportunityScore - a.opportunityScore);
 })();
 
@@ -276,31 +319,84 @@ export function keywordQuadrant(k: KeywordRow, volumeMedian: number, avgClickSha
   return 'tail';
 }
 
-/** Per-keyword synthetic market stage shares used by the funnel diagnostic.
- *  Mirrors the logic in `KeywordDetail` so the "Main gap" column and the
- *  drawer agree on the same numbers. */
-export function keywordMarketStageShares(k: KeywordRow): { impressions: number; clicks: number; cartAdds: number; purchases: number } {
-  return {
-    impressions: Math.max(15, k.clicks.share + 8),
-    clicks:      Math.max(15, k.clicks.share + 8),
-    cartAdds:    Math.max(12, k.clicks.share + 5),
-    purchases:   Math.max(10, k.purchases.share + 6),
-  };
+// ─── Funnel diagnosis (real SQP data — no synthetic benchmark) ─────────────
+// Amazon SQP gives brand counts AND market totals per stage, so your CTR/CVR
+// vs the MARKET's CTR/CVR are directly derivable (unlike a "market share"
+// benchmark, which doesn't exist). The share-language and rate-language are
+// equivalent: impression share > click share ⟺ your CTR < market CTR; click
+// share > purchase share ⟺ your CVR < market CVR.
+
+export type DiagnosisKey = 'cannibalization' | 'visibility' | 'ctr' | 'cvr' | 'healthy';
+
+export interface KeywordFunnel {
+  yourCtr: number; marketCtr: number; ctrGapPp: number;   // + = you trail market
+  yourCvr: number; marketCvr: number; cvrGapPp: number;
+  key: DiagnosisKey;
+  label: string;
+  detail: string;
+  action: string;
 }
 
-/** Identify the funnel stage where this keyword has the largest gap vs the
- *  synthetic market share. Returns the stage label and pp gap. Negative gap
- *  means you beat market at every stage. */
-export function keywordMainGap(k: KeywordRow): { stageKey: 'impressions' | 'clicks' | 'cartAdds' | 'purchases'; stageLabel: string; gapPp: number } {
-  const m = keywordMarketStageShares(k);
-  const stages = [
-    { stageKey: 'impressions' as const, stageLabel: 'Impressions', gapPp: +(m.impressions - k.impressions.share).toFixed(1) },
-    { stageKey: 'clicks'      as const, stageLabel: 'Clicks',      gapPp: +(m.clicks      - k.clicks.share).toFixed(1) },
-    { stageKey: 'cartAdds'    as const, stageLabel: 'Cart Adds',   gapPp: +(m.cartAdds    - k.cartAdds.share).toFixed(1) },
-    { stageKey: 'purchases'   as const, stageLabel: 'Purchases',   gapPp: +(m.purchases   - k.purchases.share).toFixed(1) },
-  ];
-  return stages.reduce((a, b) => (b.gapPp > a.gapPp ? b : a));
+export function keywordDiagnosis(k: KeywordRow): KeywordFunnel {
+  const is = k.impressions.share, clk = k.clicks.share, ps = k.purchases.share;
+
+  // Market rates come from the large market counts; your rates are recovered
+  // from the shares (yourCtr = marketCtr × clickShare/imprShare) so they're
+  // exact and free of small-count rounding noise.
+  const marketCtr = k.impressions.marketCount > 0 ? (k.clicks.marketCount / k.impressions.marketCount) * 100 : 0;
+  const marketCvr = k.clicks.marketCount > 0 ? (k.purchases.marketCount / k.clicks.marketCount) * 100 : 0;
+  const yourCtr = is > 0 ? marketCtr * (clk / is) : 0;
+  const yourCvr = clk > 0 ? marketCvr * (ps / clk) : 0;
+
+  // Gaps in share points — exact, and literally the SOP rule (impression share
+  // > click share ⟺ CTR below market; click share > purchase share ⟺ CVR below).
+  const ctrGapPp = +(is - clk).toFixed(1);   // > 0 → seen but not clicked
+  const cvrGapPp = +(clk - ps).toFixed(1);    // > 0 → clicked but not converted
+
+  const base = {
+    yourCtr: +yourCtr.toFixed(1), marketCtr: +marketCtr.toFixed(1), ctrGapPp,
+    yourCvr: +yourCvr.toFixed(1), marketCvr: +marketCvr.toFixed(1), cvrGapPp,
+  };
+
+  let key: DiagnosisKey, label: string, detail: string, action: string;
+  if (clk >= CANNIBAL_RATIO * is && is >= CANNIBAL_MIN_IS) {
+    key = 'cannibalization'; label = 'Cannibalization';
+    detail = `Click share ${clk.toFixed(1)}% is ${(clk / Math.max(is, 0.1)).toFixed(1)}× your impression share ${is.toFixed(1)}% — PPC is buying clicks organic already wins.`;
+    action = 'Cut bids ~20%/wk; watch rank';
+  } else if (is < LOW_IS && k.marketVolume >= VOL_HI) {
+    key = 'visibility'; label = 'Visibility gap';
+    detail = `Only ${is.toFixed(1)}% impression share on ${k.marketVolume.toLocaleString()} searches/wk — customers can't find you.`;
+    action = 'Invest — exact-match SP, top-of-search';
+  } else if (ctrGapPp >= cvrGapPp && ctrGapPp > GAP_MIN) {
+    key = 'ctr'; label = 'CTR problem';
+    detail = `Impression share ${is.toFixed(1)}% but click share only ${clk.toFixed(1)}% — your CTR ${base.yourCtr}% trails the market's ${base.marketCtr}%. You're seen but not clicked.`;
+    action = 'Fix CTR — main image, title, price, reviews';
+  } else if (cvrGapPp > GAP_MIN) {
+    key = 'cvr'; label = 'CVR problem';
+    detail = `Click share ${clk.toFixed(1)}% but purchase share only ${ps.toFixed(1)}% — your CVR ${base.yourCvr}% trails the market's ${base.marketCvr}%. Clicks aren't converting.`;
+    action = 'Fix CVR — A+, price, reviews, delivery';
+  } else {
+    key = 'healthy'; label = 'Consistent';
+    detail = `Impression, click and purchase share are in line — no single-stage leak.`;
+    action = 'Hold — defend rank and bids';
+  }
+  return { ...base, key, label, detail, action };
 }
+
+export const DIAGNOSIS_STYLE: Record<DiagnosisKey, { text: string; bg: string; ring: string }> = {
+  cannibalization: { text: 'text-indigo-700', bg: 'bg-indigo-50',  ring: 'ring-indigo-200' },
+  visibility:      { text: 'text-amber-700',  bg: 'bg-amber-50',   ring: 'ring-amber-200' },
+  ctr:             { text: 'text-rose-700',   bg: 'bg-rose-50',    ring: 'ring-rose-200' },
+  cvr:             { text: 'text-rose-700',   bg: 'bg-rose-50',    ring: 'ring-rose-200' },
+  healthy:         { text: 'text-emerald-700', bg: 'bg-emerald-50', ring: 'ring-emerald-200' },
+};
+
+// Reference rules-of-thumb for reading impression share (NOT hard limits, and
+// NOT used to classify — the visibility diagnosis uses LOW_IS above). Impression
+// share per child ASIN rarely climbs above ~7%, and ~4% is often already strong.
+// Shown only as guidance next to the number.
+export const IMPRESSION_SHARE_CEILING = 7;
+export const IMPRESSION_SHARE_STRONG = 4;
 
 export const sqpSummary: SqpSummary = (() => {
   const total = sqpKeywords.reduce((s, k) => s + k.marketVolume, 0);
