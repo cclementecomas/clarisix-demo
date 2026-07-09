@@ -350,7 +350,12 @@ can mean strong acquisition OR weak retention) → polarity downgraded to neutra
 ---
 
 ### E. Sales → Traffic — main leak / biggest opportunity / impact
-Files: `data/funnelDiagnosticData.ts` · `components/funnel/*`.
+> **SUPERSEDED (Jul 8 2026).** Rebuilt on the real SQP contract — see `lib/sqp/metrics.ts`
+> (`computeLeak`, `leakOpportunity`→`aggregate`/`stageMetrics`) and `components/searchfunnel/*`.
+> `data/funnelDiagnosticData.ts` + `components/funnel/*` are DELETED. The leak model below is
+> unchanged in spirit (arg-max € over transitions, noise-floored) but now aggregates real
+> per-ASIN×week×query rows (market deduped by query-week) instead of a brand-level synthetic.
+Files (historical): `data/funnelDiagnosticData.ts` · `components/funnel/*`.
 
 One shared source of truth (`trafficCalc.leakOpportunity` / `leakAllocation`) feeds
 the hero, the opportunity widget, the driver cards AND the detail table, so every
@@ -386,7 +391,12 @@ half-gap convention (§2.4) still governs SQP keyword opportunity (F1).
 ---
 
 ### F. Sales → SQP — keyword position, funnel diagnosis, opportunity, detail pop-up
-File: `data/sqpData.ts` · drawer `components/sqp/KeywordDetailDrawer.tsx`.
+> **SUPERSEDED (Jul 8 2026).** Rebuilt on the real SQP contract — see `lib/sqp/metrics.ts`
+> (`queryStats`, `queryOpportunity` conv+vis, `quadrantOf`, `computeFlags`, `playbook`) and
+> `components/keywords/*`. `data/sqpData.ts` + `components/sqp/*` are DELETED. Quadrants,
+> per-query opportunity and the flag set now derive from real per-ASIN×week rows; noise floors,
+> the ~7% ceiling and branded/non-branded segmentation are enforced. Defaults to non-branded.
+File (historical): `data/sqpData.ts` · drawer `components/sqp/KeywordDetailDrawer.tsx`.
 
 Two classifiers, **different questions, cannot contradict**: `keywordQuadrant`
 answers *is this keyword worth my attention* (position); `keywordDiagnosis`

@@ -2259,3 +2259,258 @@ Also condensed: the opportunity strip is a single row (inline +385 → +221 → 
 action cards use a 2-column compact checklist. Recommendations remain a fixed rule
 engine (5 authored ACTION_DEFS templates + firedActions trigger) — not AI, not a live
 backlog; the catalog is the backlog, selection is by leak pattern.
+
+────────────────────────────────────────────────────────────────────────────
+SQP-derivable rebuild — Traffic "Search Funnel" + SQP "Keyword Portfolio" (Jul 8 2026)
+
+Full rebuild of both pages on a real SQP data contract, so every rendered number
+is derivable from what Amazon actually gives us. Two pivots of ONE dataset:
+Traffic = ASIN pivot ("is there a traffic problem, where, on which products, what
+does it cost"); SQP = query pivot ("which keywords to invest/defend/harvest/ignore").
+
+Foundation — src/lib/sqp/ (single source of truth; components hold no formulas):
+- types.ts    — SqpRow contract: per (ASIN × week × query), market Total counts +
+                ASIN counts + shares at Impressions/Clicks/Basket adds/Purchases,
+                prices, shipping, nulls. Market columns identical per (query, week).
+- constants.ts— named constants: noise floors (200 impr / 20 clicks / 10 baskets per
+                wk), flag thresholds, VOLUME_SPLIT_PCTL 0.75, DEFAULT_ASP, closure 0.5,
+                ~7% ceiling, brand_aliases (GUM/Sunstar), integration flags (ads +
+                business_reports = OFF).
+- fixture.ts  — deterministic synthetic fixture, 8 ASINs × 8 weeks, GUM/interdental
+                DE/EUR domain. Mirrors the STRUCTURE/FORMAT of a real export (imp ≈
+                25×volume, near-constant ASIN price above varied market medians, small
+                shares, null prices, top-100 cap, WoW drift, ≥3 queries per flag). NO
+                real client data — the real CSV was NOT committed (deleted). One ASIN
+                (B0DEMOG207) omits the newest week to demo the "latest week partial" state.
+- metrics.ts  — aggregation (dedup market by query-week, sum ASIN), stage metrics +
+                the share↔rate identity, ASP (purchases→clicks→default, source shown),
+                leak model (§2.3), per-query opportunity conv+vis (§2.4), quadrants,
+                9 flags (incl. OLS trend), playbook, week utils (resolveRange,
+                latestWeekStatus).
+- metrics.test.ts (`npm run test:sqp`) — 29 assertions: brand-aggregation dedup,
+                the identity, noise floors, null prices, every flag renders, branded
+                split, week snapping + prior period, partial latest week.
+
+Traffic → "Search funnel & conversion diagnostic" (components/searchfunnel/):
+main-leak banner (+ gap widened/narrowed vs prior), ICAP share waterfall (4 stage
+cards + 3 rate connectors, leak highlighted, data-templated "so what", identity
+tooltip), weekly trend (4 series + faded prior + legend toggles), ASIN leak table
+(missed €/wk, imp share, CTR/basket/close Δpp with noise-floor "low data", leak
+chip, purchases, click-share spark, top query — NO sessions/BBOX/CVR/organic), ASIN
+drawer (rate-vs-market bars, weekly trend, price vs market, top queries, playbook,
+gated Business-Reports placeholder).
+
+SQP → "Keyword portfolio" (components/keywords/): main-issue banner ("X% of € in
+{quadrant}", opportunity/wk with 25/50/75 closure slider, concentration = top-5 of
+your SQP purchases, under-indexed count), portfolio map (volume × share quadrants,
+splits from the visible set, y-axis toggle incl. impression share), prioritized
+table (flags, quadrant, I·C·B·P mini-waterfall, biggest gap, opportunity conv+vis
+tooltip, price Δ%, top ASIN, spark, playbook — ACOS/PPC greyed "Connect Ads"),
+keyword drawer (ASIN split, weekly trend, price-by-stage, fast-ship context,
+playbook, "verify relevancy" checklist for under-invested). Defaults to non-branded.
+
+Globals (components/sqpui/): TrustBar (source ribbon + "How this is calculated"
+modal rendering the formulas/floors/aggregation-rule/~7%-ceiling from lib/sqp),
+LatestWeekBanner (partial newest week), WeekRangePicker (week-snapped end + 2/4/8
+weeks + "vs prior N"), BrandedToggle. Both pages window by SQP weeks and react
+to the branded segment on every module.
+
+Deleted (superseded, fully orphaned): components/funnel/*, components/sqp/*,
+data/{sqpData,funnelDiagnosticData,accountMetrics,trafficData}.ts. Not built (§7
+non-goals; only gated placeholders remain): Ads join (ACOS/spend/true cannibalization),
+Business-Reports join (sessions/BBOX/coverage), alerting, monthly/quarterly ranges,
+competitor benchmarking. classifiers.md engines E & F are superseded by lib/sqp/metrics.
+
+────────────────────────────────────────────────────────────────────────────
+Traffic "Search Funnel" v2 — verdict engine, € reconciliation, parity bridge (Jul 9 2026)
+
+Refined the Traffic page + ASIN drawer to fix a self-contradicting headline and
+non-reconciling € totals, upgrade the flat waterfall, fix a drawer playbook bug, and
+restore/extend the trust layer. All models added to lib/sqp/verdict.ts; 41 unit tests.
+
+- Verdict engine (lib/sqp/verdict.ts): synthesises Diagnosis A (cross-sectional
+  ADDRESSABLE conversion leak = per-ASIN sum, over-performers don't net off) and
+  Diagnosis B (share trajectory: Δshare per stage, share-loss €/wk, pattern). primary =
+  larger of the two; severity = headline € ÷ weekly SQP purchase revenue (≥10% critical /
+  3–10% warning / <3% watch); healthy when no addressable gaps + purchase share stable.
+  On the declining brand it reads SHARE DECLINE (critical); on branded it reads healthy.
+- Banner (searchfunnel/MainLeakBanner) rebuilt: share / conversion / healthy variants,
+  severity-scaled shell, two stat cards (€/wk + % of search revenue; units in the tooltip),
+  secondary-diagnosis chip, CTA that pre-filters the ASIN table to the leak stage, and a
+  "How this is calculated" link.
+- € reconciliation: addressableByStage(stage) == ASIN-table footer Σ(stage) == bridge
+  step €, to the euro (unit-tested + smoke). The brand-netted figure is a modal footnote.
+- Parity bridge (searchfunnel/ParityBridge) replaces the 7-card waterfall: anchor bars
+  (impression → purchase share) + 3 floating step bars (Δshare, exact: Σ = purch−imp share),
+  BIGGEST LEAK badge follows the banner stage, hover = counts + addressable €, click =
+  filters the table to that stage.
+- ASIN table (searchfunnel/AsinLeakTable): stage-filter pills (All / Impr→Click /
+  Click→Basket / Basket→Purchase), reconciling footer, "top 3 = X% of addressable"
+  synthesis line, search box, weekly-avg counts, "Purchase-rate Δ" rename.
+- Trend (searchfunnel/WeeklyTrend): stage color tokens, faded prior-period ghost,
+  pattern-aware "So what" (parallel_decline = visibility problem), largest-drop marker,
+  dot markers, hover tooltip, right-side readout in funnel order.
+- ASIN drawer (searchfunnel/AsinDrawer): playbook now keys on the leak stage
+  (playbookActions) — basket→purchase never shows visibility actions; evidence-linked
+  (price test leads with both prices). Header shows Missed €/wk + leak chip + severity
+  tint. Rate bars + trend merged into 3 transition rows (bullet bar + market tick +
+  Δpp + €/wk + stage sparkline); shared MiniWaterfall in top queries; gated Business-
+  Reports section.
+- Shared (sqpui/): stage color tokens (STAGE_COLOR), MiniWaterfall, format util
+  (pp with no -0.0, abbrev counts, /wk). LEAK_CHIP recoloured to the stage tokens.
+- Fixture: branded scope tuned to the HEALTHY state (you beat market, stable shares);
+  added a low-data ASIN (B0DEMOG208) that's provably sub-floor → insufficient-data states.
+- Removed: searchfunnel/ShareWaterfall.tsx (replaced by ParityBridge).
+
+────────────────────────────────────────────────────────────────────────────
+Traffic bridge — "won & lost" clarity pass + how brand-level numbers aggregate (Jul 9 2026)
+
+Two things: (1) make the parity bridge readable by a non-analyst exec, and (2) write
+down HOW per-ASIN, per-keyword SQP rows roll up into one brand-level bar — because that
+"how do we make it relevant overall?" question kept coming up. No new metrics; wording
+and one tooltip in searchfunnel/ParityBridge.tsx.
+
+Why the old bridge was hard to read
+- It labelled each step "−0.3pp" — a delta with no anchor. An exec can't tell whether
+  −0.3pp of a 10% share is a rounding blip or a real loss, and "pp" is analyst dialect.
+- Earlier iterations put per-ASIN "recoverable €" on the tooltip of a BRAND-AVERAGE bar.
+  That's a category error: the bar is an average (strong ASINs net against weak ones); the
+  recoverable € is a per-ASIN sum (only trailing ASINs count). Users asked, rightly, "how
+  is this recovering something if we're better than the market?" — so € came off the bridge
+  entirely and lives on the banner/ASIN table (the per-ASIN surfaces).
+
+The clarity model now — speak in SLICES and SALES, not "pp"
+- Title: "Where your market share is won & lost" (dropped the "parity bridge" jargon).
+- Permanent subtitle: "Your slice of the market, and what each conversion step does to it —
+  beat the market and your slice grows, trail it and your slice shrinks." Frames the whole
+  chart before any number is read.
+- Each step now shows the slice MOVING, not a delta: "10.6% → 10.3%" above the bar
+  (from = cumulative share entering the step, to = cumulative share leaving it). The
+  endpoints are read off the same `cum[]` the anchors use, so the last step's "to" is
+  exactly the purchase-share anchor — no rounding mismatch between step labels and anchors.
+- TWO LAYERS, never mixed in one column (this was the confusing bit — share % above a bar
+  and rate % below it collided and read as four unrelated numbers):
+  (a) The BARS carry only the SHARE story. Every bar has one consistent label like the
+      anchors — steps show the plain funnel transition ("Views → clicks" / "Clicks → basket
+      adds" / "Basket adds → sales", STEP_NAME); anchors show "Impression/Purchase share".
+      Above each step bar, the slice move "10.6% → 10.7%".
+  (b) A separate RATES TABLE below the chart ("Why your slice moves — your conversion rate
+      vs the market at each step") gives one clean full-width row per transition:
+      name · you X% · market Y% · Z.z× the market · (BIGGEST DROP badge or ±pp share).
+      Full-width rows can't overflow into a neighbour the way per-column sub-labels did.
+  So the reader never has to decode which % is a share vs a rate: shares live on the bars,
+  rates live in the table, the ratio column is the mechanism (why the slice grew/shrank).
+  RATE_LABEL ("click rate" etc.) still names the metric in the hover title.
+- Hover ties the rate gap to real sales, UNITS FIRST, pp last:
+    you 37.7% vs market 38.7% · 0.97× the market
+    ≈ 4 fewer sales/wk than keeping pace with the market
+    → your slice 10.6% → 10.3% (−0.3pp)
+  The unit count is brand-average, honest to the bar: fromYouWk × (your_rate − market_rate),
+  where fromYouWk = your upstream volume/wk (b.counts[STEP_FROM].you). Noun follows the step
+  (clicks / basket adds / sales), so basket→purchase reads "sales", the exec's word.
+- BIGGEST DROP badge sits on the worst share drop (biggestLeakKey), self-consistent with the
+  "So what" line. Caption still says the biggest recoverable € can sit on a different step and
+  points to the banner/table for the per-ASIN number.
+
+How per-ASIN × per-keyword rolls up to one brand bar (the aggregation rule)
+- SQP gives one row per (ASIN × week × query). To get ONE brand number you SUM your side and
+  DEDUPE the market side:
+    your count[stage]   = Σ over ASINs, keywords, weeks of your counts   (add them all)
+    market total[stage] = Σ over (keyword, week), counted ONCE            (dedupe, never sum)
+    brand share[stage]  = your count ÷ market total
+- Why dedupe the market: the market Total column is identical on every ASIN's row for the same
+  (keyword, week). Summing it across your N ASINs inflates the market ~N× and collapses your
+  share. Count each (keyword, week) market total exactly once.
+- Rates over a range = recompute from summed counts (Σclicks ÷ Σimpr), never average weekly %.
+- Impression caveat: one search shows ~25 products, so a shopper can "impress" several of your
+  ASINs on the same search — brand impression count can double-count a shopper that per-ASIN
+  rows can't disentangle. Clicks/baskets/purchases don't have this problem. So the brand
+  impression SHARE is a slight over-count; the conversion steps (the leaks) are clean.
+- Two pivots, one contract: Traffic pivots these sums by ASIN (Brand View — "which products
+  leak"); the Keyword Portfolio pivots the same sums by keyword ("which searches leak"). Both
+  read the same lib/sqp aggregate(); numbers reconcile because it's one dedupe rule.
+- This is also why the bridge is a brand AVERAGE and the € is per-ASIN: the share bar answers
+  "where does the brand as a whole trail the market"; the recoverable € answers "sum the wins
+  from every ASIN that individually trails" — different questions, different math, kept apart.
+
+This rule is the same one already in HowCalculatedModal ("Aggregation — getting shares right")
+and classifiers.md §2.1; documented here in exec language for the bridge.
+
+────────────────────────────────────────────────────────────────────────────
+Traffic — "Weekly share trend" section removed (for now) (Jul 9 2026)
+
+Removed the WeeklyTrend card (line chart of the 4 funnel shares + prior ghost + right-side
+readout) from the Traffic page — judged too busy for the exec view. Page order is now:
+banner → "Where your market share is won & lost" bridge → "ASINs causing the leak" table
+→ ASIN drawer. The bridge already carries the share story per step, so the trend was
+largely redundant.
+- searchfunnel/WeeklyTrend.tsx is left on disk but no longer imported — easy to restore.
+- Orphan handling: the banner's share-diagnosis CTA used to read "See the trend" and scroll
+  to #weekly-trend. It now reads "Review leaking ASINs" and routes to the ASIN table (both
+  the share and conversion diagnoses land on the table). onFocusTrend in Traffic.tsx now
+  calls focusStageAndScroll(null).
+- Candidate replacement (NOT built): a simpler "sessions · page views · conversion rate"
+  widget. CAVEAT for whoever builds it — sessions & page views are Business Reports
+  (all-traffic scope), NOT in SQP; business_reports is currently a gated placeholder. Only
+  conversion rate is SQP-derivable (CTR / basket-add / purchase rate). So this widget either
+  waits on the Business Reports connection or is clearly labelled all-traffic (different scope
+  from the search-only funnel above it).
+
+────────────────────────────────────────────────────────────────────────────
+Traffic ASIN drawer → Keyword Portfolio deep-link (Jul 9 2026)
+
+The "Keyword Portfolio ↗" button on each query in the Traffic ASIN drawer's "Top queries for
+this ASIN" was a dead placeholder. Now it cross-navigates to Sales → SQP and opens THAT
+keyword's drawer directly. Rationale: the ASIN drawer shows a query for one ASIN only; the
+Keyword Portfolio is the keyword pivot (that query across all your ASINs vs market, its
+quadrant + 12-wk trend + keyword playbook) — the natural "tell me everything about this
+search term" next step.
+- Plumbing: App holds `sqpFocus {query, branded}`. AsinDrawer.onOpenKeyword(query, branded)
+  → Traffic pass-through → App.openKeyword sets sqpFocus + switches to Sales/SQP. SQP takes
+  `focusQuery` + `onFocusConsumed`; a useEffect sets the brand toggle to match the query
+  (branded term flips the scope so it's visible), finds the QueryRow in view.rows, setSelected
+  (opens KeywordDrawer), then calls onFocusConsumed to clear (even if not found, so it can't
+  re-trigger). Query strings + branded flags are identical across pages (both from SqpRow), so
+  the match is exact.
+- Known limitation (acceptable for the wireframe): SQP uses ITS OWN week range (default last
+  4w through max week), not Traffic's currently-selected range. The deep-link passes only the
+  query, not the range — so a query only present in a non-default Traffic range may not be
+  found. If cross-page range continuity is wanted later, lift endWeek/nWeeks to App and pass
+  them alongside sqpFocus.
+
+────────────────────────────────────────────────────────────────────────────
+One canonical funnel-transition label (Jul 9 2026)
+
+The three funnel transitions were named three different ways: the bridge said "Views →
+clicks / Clicks → basket adds / Basket adds → sales", the ASIN table's stage pills said
+"Impr → Click / Click → Basket / Basket → Purchase", and the banner said "Impression →
+Click / Click → Basket add / Basket add → Purchase". Unified them into ONE map,
+sqpui/tokens.ts → TRANSITION_NAME, imported by ParityBridge (step label / rate-table /
+tooltip), AsinLeakTable (the stage pills + the reconciling footer stageLabel), and
+MainLeakBanner (aliased as STAGE_NAME). Change the label once, everywhere updates — no drift.
+Settled wording (user decision): "Impression → Click / Click → Basket / Basket → Purchase"
+— noun form, "Purchase" not "sales", so the transitions line up with the share labels
+("Impression share" … "Purchase share"). The bridge tooltip's unit noun follows suit
+(clicks / basket adds / purchases).
+
+────────────────────────────────────────────────────────────────────────────
+Keyword drawer — per-ASIN metrics replace the weekly trend (Jul 9 2026)
+
+Two changes to the Keyword Portfolio drawer (keywords/KeywordDrawer):
+- REMOVED the "Weekly share trend" mini line chart (4 unlabeled overlapping series in a
+  90px-tall SVG — judged low-insight; the page's spark column already shows direction).
+  MiniTrend component deleted; KeywordDetail.weekly dropped from the selector.
+- The "Which ASINs own this query" section (a bare clicks-split bar) became "Your ASINs on
+  this keyword": one card per ASIN with its funnel AT THIS KEYWORD level — shared
+  MiniWaterfall (imp/click/basket/purch share), purchases/wk, % of your clicks, worst-gap
+  LEAK_CHIP (only when negative), and missed €/wk. Sorted by purchases/wk desc; top 6 with a
+  "+N more" line.
+- Selector math (keywords/selectors.ts keywordDetail): per ASIN, filter the query's rows to
+  that ASIN, then aggregate() + stageMetrics() → shares, computeLeak() → worst gap + €/wk.
+  Market side per ASIN comes from that ASIN's own rows deduped by week — if an ASIN is
+  missing weeks the market denominator shrinks with it (per-ASIN shares are for THAT ASIN's
+  active weeks). clicksPct/purchPct remain the split of YOUR totals on the query.
+- € note: the per-ASIN "missed €/wk" figures are each ASIN's own worst transition — they
+  don't sum to the keyword's conversion opportunity in the header (that's computed on the
+  query aggregate, one worst transition for the whole query). Same per-ASIN-vs-aggregate
+  distinction as Traffic's recoverable €.

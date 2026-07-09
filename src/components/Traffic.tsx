@@ -1,89 +1,66 @@
-import { useState } from 'react';
-import { brandFunnelDiagnostic } from '../data/funnelDiagnosticData';
-import {
-  FunnelStageCards, StageTrendCharts,
-  TrafficSourceDecomposition,
-} from './funnel/FunnelDiagnostic';
-import { LeakOpportunityAndActions, TopDriverCards } from './funnel/TrafficInsights';
-import HeroInsightCard from './funnel/HeroInsightCard';
-import ProductTrafficTable from './funnel/ProductTrafficTable';
-import LastRefreshed from './LastRefreshed';
-import WeeklyDataBadge from './WeeklyDataBadge';
-import { TrendingUp, ChevronDown } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { TrendingUp } from 'lucide-react';
+import { sqpWeekly } from '../lib/sqp/fixture';
+import { maxWeek, listWeeks, resolveRange, filterScope, latestWeekStatus } from '../lib/sqp/metrics';
+import { computeVerdict } from '../lib/sqp/verdict';
+import type { TransitionKey } from '../lib/sqp/types';
+import { brandView } from './searchfunnel/selectors';
+import MainLeakBanner from './searchfunnel/MainLeakBanner';
+import ParityBridge from './searchfunnel/ParityBridge';
+import AsinLeakTable from './searchfunnel/AsinLeakTable';
+import AsinDrawer from './searchfunnel/AsinDrawer';
+import TrustBar from './sqpui/TrustBar';
+import LatestWeekBanner from './sqpui/LatestWeekBanner';
+import WeekRangePicker from './sqpui/WeekRangePicker';
+import BrandedToggle, { type Brand } from './sqpui/BrandedToggle';
 
-/**
- * Sales → Traffic — insight-first funnel diagnostic.
- *
- * Cards-first, not a table. In under 10 seconds the user should know:
- *   1. Where the funnel leaks (hero + funnel diagnostic)
- *   2. How big the upside is (opportunity estimate)
- *   3. What to do about it (leak-triggered action cards)
- *   4. Which ASINs to fix first (top driver cards)
- * The full per-ASIN table + trends + source mix live behind "View details".
- */
-export default function Traffic() {
-  const d = brandFunnelDiagnostic;
-  const [showDetails, setShowDetails] = useState(false);
+/** Sales → Traffic → "Search Funnel" (§4). ASIN pivot on Amazon SQP. */
+export default function Traffic({ onOpenKeyword }: { onOpenKeyword?: (query: string, branded: boolean) => void }) {
+  const allWeeks = listWeeks(sqpWeekly);
+  const [endWeek, setEndWeek] = useState(maxWeek(sqpWeekly));
+  const [nWeeks, setNWeeks] = useState(4);
+  const [brand, setBrand] = useState<Brand>('all');
+  const [selectedAsin, setSelectedAsin] = useState<string | null>(null);
+  const [stage, setStage] = useState<TransitionKey | 'all'>('all');
 
-  const scrollTo = (id: string) => {
-    const el = document.getElementById(id);
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
+  const latest = latestWeekStatus(sqpWeekly);
+  const nAsins = latest.expected;
 
-  const openDetails = () => {
-    setShowDetails(true);
-    // wait for the section to mount before scrolling
-    setTimeout(() => scrollTo('traffic-details'), 60);
-  };
+  const { view, verdict, currRows, weeks } = useMemo(() => {
+    const { weeks, priorWeeks } = resolveRange(sqpWeekly, endWeek, nWeeks);
+    const currRows = filterScope(sqpWeekly, { weeks, branded: brand });
+    const priorRows = filterScope(sqpWeekly, { weeks: priorWeeks, branded: brand });
+    return { view: brandView(currRows, priorRows), verdict: computeVerdict(currRows, priorRows), currRows, weeks };
+  }, [endWeek, nWeeks, brand]);
+
+  const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const focusStageAndScroll = (s: TransitionKey | null) => { setStage(s ?? 'all'); scrollTo('asin-leak-table'); };
 
   return (
     <div className="space-y-4 min-w-0">
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-cx-500" />
-            <h1 className="text-lg font-bold text-gray-900">Traffic — funnel & conversion diagnostic</h1>
+      <div className="space-y-2">
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div>
+            <div className="flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-cx-500" />
+              <h1 className="text-lg font-bold text-gray-900">Traffic funnel</h1>
+            </div>
+            <p className="text-[11px] text-gray-500 mt-0.5">Where your search funnel leaks vs the market, what it costs, and which ASINs to fix first. Amazon search traffic (SQP), weekly.</p>
           </div>
-          <p className="text-[11px] text-gray-500 mt-0.5">
-            Where the funnel leaks, how big the upside is, and which products to fix first.
-          </p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <WeekRangePicker weeks={allWeeks} endWeek={endWeek} nWeeks={nWeeks} onChange={(e, n) => { setEndWeek(e); setNWeeks(n); }} />
+            <BrandedToggle value={brand} onChange={setBrand} />
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          <WeeklyDataBadge />
-          <LastRefreshed offsetMinutes={9} />
-        </div>
+        <TrustBar throughWeek={endWeek} nAsins={nAsins} />
+        <LatestWeekBanner status={latest} />
       </div>
 
-      {/* 1 — Hero insight: main leak, impact, next step */}
-      <HeroInsightCard diagnostic={d} onNextStep={() => scrollTo('top-drivers')} />
+      <MainLeakBanner verdict={verdict} nWeeks={weeks.length} onFocusStage={focusStageAndScroll} onFocusTrend={() => focusStageAndScroll(null)} />
+      <ParityBridge rows={currRows} onFocusStage={(s) => focusStageAndScroll(s)} />
+      <AsinLeakTable rows={view.asins} stage={stage} onStageChange={setStage} onSelect={setSelectedAsin} />
 
-      {/* 2 — Funnel diagnostic: where the leak happens */}
-      <FunnelStageCards diagnostic={d} />
-
-      {/* 3 — Opportunity + recommended actions (one widget) */}
-      <LeakOpportunityAndActions diagnostic={d} />
-
-      {/* 4 — Top drivers: which ASINs to fix first */}
-      <TopDriverCards diagnostic={d} onViewDetails={openDetails} />
-
-      {/* 6 — Full detail (table + trends + source), collapsed by default */}
-      <div id="traffic-details">
-        <button
-          onClick={() => setShowDetails((v) => !v)}
-          className="w-full flex items-center justify-between px-5 py-3 bg-white rounded-xl border border-gray-200 shadow-sm text-sm font-semibold text-gray-900 hover:bg-gray-50 transition-colors"
-        >
-          <span>Detailed data — per-ASIN table, stage trends & traffic source</span>
-          <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${showDetails ? 'rotate-180' : ''}`} />
-        </button>
-
-        {showDetails && (
-          <div className="space-y-4 mt-4">
-            <ProductTrafficTable />
-            <StageTrendCharts diagnostic={d} />
-            {d.sourceFunnels && <TrafficSourceDecomposition funnels={d.sourceFunnels} />}
-          </div>
-        )}
-      </div>
+      <AsinDrawer asin={selectedAsin} rows={currRows} onClose={() => setSelectedAsin(null)} onOpenKeyword={onOpenKeyword} />
     </div>
   );
 }

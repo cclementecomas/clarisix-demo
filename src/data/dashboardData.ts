@@ -420,7 +420,7 @@ export const menuItems = [
   {
     label: 'Sales',
     icon: 'BarChart3',
-    subItems: ['Overview', 'Diagnostics', 'Traffic', 'SQP', 'Targets', 'Trends'],
+    subItems: ['Overview', 'Diagnostics', 'Traffic funnel', 'Keyword portfolio', 'Targets', 'Trends'],
     defaultSub: 'Overview',
     comingSoonSubs: ['Targets'],
   },

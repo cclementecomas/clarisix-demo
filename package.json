@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
+    "test:sqp": "npx tsx src/lib/sqp/metrics.test.ts",
     "capture:figma": "node scripts/capture-figma-pages.mjs",
     "capture:figma:install": "npx playwright install chromium",
     "capture:figma:tidy": "npm run capture:figma && node scripts/rename-figma-captures.mjs"

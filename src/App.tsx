@@ -117,6 +117,7 @@ export default function App() {
   const [settingsTab, setSettingsTab] = useState<SettingsTabId | undefined>(undefined);
   const [sectionLoading, setSectionLoading] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const [sqpFocus, setSqpFocus] = useState<{ query: string; branded: boolean } | null>(null);
   const prevKey = useRef('');
 
   const contentKey = `${currentPage}-${activeSection}-${activeSub}`;
@@ -162,6 +163,16 @@ export default function App() {
     setActiveSection(section);
     setActiveSub(sub);
   };
+
+  // Traffic ASIN drawer → open this query in the Keyword Portfolio (SQP), landing on its drawer.
+  const openKeyword = useCallback((query: string, branded: boolean) => {
+    if (isEmbed) return;
+    setSqpFocus({ query, branded });
+    setCurrentPage('dashboard');
+    setActiveSection('Sales');
+    setActiveSub('Keyword portfolio');
+  }, [isEmbed]);
+  const clearSqpFocus = useCallback(() => setSqpFocus(null), []);
 
   const DATA_TABS: SettingsTabId[] = ['products', 'costs', 'keywordRules', 'account', 'connections'];
   const isDataTab = (tab: SettingsTabId): boolean => DATA_TABS.includes(tab);
@@ -227,14 +238,14 @@ export default function App() {
     if (activeSection === 'Sales' && activeSub === 'Diagnostics') {
       return <DeepDive />;
     }
-    if (activeSection === 'Sales' && activeSub === 'Traffic') {
-      return <Traffic />;
+    if (activeSection === 'Sales' && activeSub === 'Traffic funnel') {
+      return <Traffic onOpenKeyword={openKeyword} />;
     }
     if (activeSection === 'Sales' && activeSub === 'Trends') {
       return <Trends />;
     }
-    if (activeSection === 'Sales' && activeSub === 'SQP') {
-      return <SQP />;
+    if (activeSection === 'Sales' && activeSub === 'Keyword portfolio') {
+      return <SQP focusQuery={sqpFocus} onFocusConsumed={clearSqpFocus} />;
     }
     if (activeSection === 'Advertising' && activeSub === 'Overview') {
       return <AdvertisingOverview />;
