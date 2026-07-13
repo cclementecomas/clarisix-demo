@@ -2514,3 +2514,58 @@ Two changes to the Keyword Portfolio drawer (keywords/KeywordDrawer):
   don't sum to the keyword's conversion opportunity in the header (that's computed on the
   query aggregate, one worst transition for the whole query). Same per-ASIN-vs-aggregate
   distinction as Traffic's recoverable €.
+
+────────────────────────────────────────────────────────────────────────────
+Data → Overheads — the P&L overheads source (Jul 13 2026)
+
+New admin page (Data → Overheads) that owns the P&L "(-) Allocated Overheads" line.
+Inspired by Sellerboard's fixed/variable expense model, rebuilt as an executive P&L overheads
+ledger. Files: data/overheadsData.ts (model+seed+math), settings/
+OverheadsSection.tsx (page), settings/OverheadModal.tsx (add/edit). Wired as a Data tab in
+5 places: Settings.tsx (TabId + groups + renderSection), App.tsx (DATA_TABS + forward map +
+reverse map), dashboardData.ts (adminItems subItems + subToTab).
+
+Model
+- Two kinds, matching how a cost actually behaves:
+  - RECURRING (fixed): amount × frequency (monthly / quarterly / yearly / one-off).
+  - VARIABLE: a rate on a business driver — % of sales, € per placed order, € per unit sold
+    (Sellerboard's three "calculate expense as" options).
+- Category = a chart-of-accounts GL code, anchored on the codes ALREADY documented in the
+  P&L overheads tooltip (8010 Staff & Payroll, 8020 Software & Tools, 8030 Other) and extended
+  (8040 Rent & Facilities, 8050 Professional Services, 8060 Agency & Marketing). So the P&L can
+  break the overheads line down by account and it stays auditable.
+- Allocation basis per entry (revenue / units / equal / company-level) = HOW the cost pushes
+  down onto per-SKU net profit in the Profitability deepdive. Payroll by revenue, prep by
+  units, a trademark split equally, a company-level cost not pushed to SKUs at all.
+- Effective dating: start date + Forever/Until, yielding a status (active / scheduled /
+  expired / paused). One-off costs are excluded from the monthly run-rate but flagged as
+  landing in their month.
+- monthlyRunRate() normalises everything to €/month (quarterly÷3, yearly÷12, variable = rate ×
+  BUSINESS_BASIS driver). BUSINESS_BASIS (net rev €385k/mo, 9.5k orders, 14.2k units) is the
+  denominator variable overheads cost against; in prod this comes from the last full P&L month.
+
+Why this over Sellerboard (the deliberate improvements)
+1. One ledger with the total up front, not two hidden lists. Sellerboard splits fixed vs
+   variable and never shows the combined total. We lead with a single monthly run-rate +
+   annualised, a Recurring/Variable/one-off split, and a category (GL) breakdown bar — the
+   number an exec needs in one glance.
+   (An on-page "P&L reconciliation" card — configured vs the 5% placeholder, with the delta —
+   was built then REMOVED at the user's request: the backend links overheads → P&L directly,
+   so showing a placeholder delta in the UI was noise. PNL_PLACEHOLDER_PCT dropped with it.)
+2. Chart-of-accounts categories instead of freeform tags — makes the overheads line auditable
+   and lets the P&L show it by account, reusing the taxonomy the P&L already documents.
+3. Explicit allocation basis per cost. Sellerboard spreads overheads one implicit way; letting
+   each cost choose revenue/units/equal/none makes SKU-level net profit honest (a €/unit prep
+   fee should ride units, a salary shouldn't).
+4. Live impact preview in the add/edit form (monthly + annualised, recomputed as you type),
+   and a single clean form instead of Sellerboard's stacked inline dropdown popovers that hide
+   fields behind clicks.
+5. Real effective-dating with visible status (scheduled/expired) so a Q4 contractor or a
+   dropped tool is modelled over time, not just toggled on/off.
+
+Status / follow-up
+- The page is a self-contained interactive wireframe (local state, seed data, working
+  add/edit/pause/duplicate/delete + live preview). It does NOT write into profitabilityData.ts
+  — the backend will link overheads → the P&L line directly. When wired: replace the
+  scl(netRevenue, 0.05) placeholder with monthlyRunRate() spread across the 68 PV period keys
+  and allocate per basis in profitabilityDeepdiveData.ts.

@@ -11,6 +11,7 @@ import {
   DollarSign,
   Cable,
   Tag,
+  Receipt,
 } from 'lucide-react';
 import PreferencesSection from './PreferencesSection';
 import TeamSection from './TeamSection';
@@ -21,11 +22,12 @@ import DangerZoneSection from './DangerZoneSection';
 import AccountSection from './AccountSection';
 import ProductsSection from './ProductsSection';
 import KeywordRulesSection from './KeywordRulesSection';
+import OverheadsSection from './OverheadsSection';
 import COGSManager from '../COGSManager';
 import Connectors from '../Connectors';
 
 type TabId =
-  | 'products' | 'costs' | 'keywordRules' | 'account' | 'connections'
+  | 'products' | 'costs' | 'overheads' | 'keywordRules' | 'account' | 'connections'
   | 'preferences' | 'team' | 'security' | 'subscription' | 'invoices' | 'danger';
 
 type SettingsMode = 'data' | 'account' | 'all';
@@ -49,6 +51,7 @@ const groups: TabGroup[] = [
     tabs: [
       { id: 'products',     label: 'Products',          icon: Boxes },
       { id: 'costs',        label: 'Costs',             icon: DollarSign },
+      { id: 'overheads',    label: 'Overheads',         icon: Receipt },
       { id: 'keywordRules', label: 'Keyword rules',     icon: Tag },
       { id: 'account',      label: 'Account specifics', icon: Settings2 },
       { id: 'connections',  label: 'Connections',       icon: Cable },
@@ -95,6 +98,7 @@ export default function Settings({
     switch (activeTab) {
       case 'products':     return <ProductsSection />;
       case 'costs':        return <COGSManager />;
+      case 'overheads':    return <OverheadsSection />;
       case 'keywordRules': return <KeywordRulesSection />;
       case 'account':      return <AccountSection />;
       case 'connections':  return <Connectors />;

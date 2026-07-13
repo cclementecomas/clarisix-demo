@@ -174,7 +174,7 @@ export default function App() {
   }, [isEmbed]);
   const clearSqpFocus = useCallback(() => setSqpFocus(null), []);
 
-  const DATA_TABS: SettingsTabId[] = ['products', 'costs', 'keywordRules', 'account', 'connections'];
+  const DATA_TABS: SettingsTabId[] = ['products', 'costs', 'overheads', 'keywordRules', 'account', 'connections'];
   const isDataTab = (tab: SettingsTabId): boolean => DATA_TABS.includes(tab);
 
   const handleNavigateToSettings = (tab: string) => {
@@ -189,6 +189,7 @@ export default function App() {
     const map: Record<string, SettingsTabId> = {
       'Products':          'products',
       'Costs':             'costs',
+      'Overheads':         'overheads',
       'Keyword rules':     'keywordRules',
       'Account specifics': 'account',
       'Connections':       'connections',
@@ -204,6 +205,7 @@ export default function App() {
     const reverse: Record<string, string> = {
       products: 'Products',
       costs: 'Costs',
+      overheads: 'Overheads',
       keywordRules: 'Keyword rules',
       account: 'Account specifics',
       connections: 'Connections',
