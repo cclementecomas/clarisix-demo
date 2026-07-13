@@ -2569,3 +2569,27 @@ Status / follow-up
   — the backend will link overheads → the P&L line directly. When wired: replace the
   scl(netRevenue, 0.05) placeholder with monthlyRunRate() spread across the 68 PV period keys
   and allocate per basis in profitabilityDeepdiveData.ts.
+
+────────────────────────────────────────────────────────────────────────────
+DeepDiveTable — "All {child}s" flat drill-down (Jul 13 2026)
+
+Users asked to see all data by SKU directly rather than expanding each ASIN one by one.
+Added a grouping toggle to the shared deepdive/DeepDiveTable — "Grouped | All {child}s" —
+next to "Expand All". In flat mode it lists every child (SKU / ASIN / placement) as a
+top-level row so the whole catalogue can be ranked, scanned and exported at the child grain
+in one shot. "Expand All" hides in flat mode (nothing to expand).
+
+- One change, all hierarchy tables: any non-embedded table that passes childRowsMap gets it
+  automatically — Sales → Diagnostics "Best Selling ASINs" (All SKUs) and Profitability by
+  Product (All ASINs). The Advertising campaign→placement table is `embedded` (no toolbar) so
+  it's untouched, as before.
+- Mechanism (reuses everything): flatData flattens childRowsMap into one array and overrides
+  the pinned key with each child's own label (childLabelField), so the existing parent
+  row-render path handles sorting, cell-select, PoP/LY and Excel/Sheets export unchanged.
+  baseData = flat ? flatData : rowData feeds sortedData; child lookups return undefined for a
+  flattened row so no expand chevrons appear. Parents with no children are kept (no data lost).
+  Total (pinnedBottomRowData) is unchanged and still reconciles — SKUs sum to the ASIN total.
+- childNoun derives the label from childLabelField (sku→SKU, asin→ASIN, placement→placement).
+- Known cosmetic: the pinned column header still reads "ASIN" while showing SKU codes in flat
+  mode (columnDefs are owned by the caller). Values are clearly SKU codes and the Title column
+  carries the product, so it reads fine; relabeling the header per-mode is a later polish.

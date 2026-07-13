@@ -166,7 +166,9 @@ export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottom
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>(null);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [flatView, setFlatView] = useState(false);
   const hasChildren = !!childRowsMap && !!rowKeyField;
+  const childNoun = childLabelField === 'sku' ? 'SKU' : childLabelField === 'asin' ? 'ASIN' : childLabelField === 'placement' ? 'placement' : (childLabelField ?? 'item');
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => {
     return new Set(columnDefs.filter((c) => !c.hide).map((c) => c.field));
   });
@@ -230,9 +232,33 @@ export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottom
     [sortField, sortDir]
   );
 
+  // "All {child}s" view — flatten every child (SKU / ASIN / placement) to a top-level row so
+  // the whole catalogue can be ranked, scanned and exported at the child grain without
+  // expanding each parent. Overriding the pinned key with the child's own label lets the
+  // existing row-render path handle it (sorting, selection, PoP/LY, export all reuse this).
+  const flatData = useMemo(() => {
+    if (!hasChildren) return rowData;
+    const out: typeof rowData = [];
+    for (const parent of rowData) {
+      const kids = childRowsMap![parent[rowKeyField!] as string];
+      if (kids?.length) {
+        for (const kid of kids) {
+          const label = childLabelField ? kid[childLabelField] : kid[rowKeyField!];
+          out.push({ ...kid, [rowKeyField!]: label ?? kid[rowKeyField!] });
+        }
+      } else {
+        out.push(parent); // parent with no children — keep it so no data is lost
+      }
+    }
+    return out;
+  }, [hasChildren, rowData, childRowsMap, rowKeyField, childLabelField]);
+
+  const flat = hasChildren && flatView;
+  const baseData = flat ? flatData : rowData;
+
   const sortedData = useMemo(() => {
-    if (!sortField || !sortDir) return rowData;
-    return [...rowData].sort((a, b) => {
+    if (!sortField || !sortDir) return baseData;
+    return [...baseData].sort((a, b) => {
       const aVal = a[sortField];
       const bVal = b[sortField];
       if (aVal == null && bVal == null) return 0;
@@ -243,7 +269,7 @@ export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottom
       }
       return sortDir === 'asc' ? (aVal as number) - (bVal as number) : (bVal as number) - (aVal as number);
     });
-  }, [rowData, sortField, sortDir]);
+  }, [baseData, sortField, sortDir]);
 
   const sortedDataRef = useRef(sortedData);
   sortedDataRef.current = sortedData;
@@ -484,6 +510,22 @@ export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottom
         </div>
         <div className="flex items-center gap-3">
           {hasChildren && (
+            <div className="inline-flex rounded-lg border border-gray-200 p-0.5" title={`Switch between the parent view and a flat list of every ${childNoun}`}>
+              <button
+                onClick={() => setFlatView(false)}
+                className={`px-2 py-0.5 text-[11px] font-semibold rounded-md transition-colors ${!flat ? 'bg-gray-900 text-white' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                Grouped
+              </button>
+              <button
+                onClick={() => setFlatView(true)}
+                className={`px-2 py-0.5 text-[11px] font-semibold rounded-md transition-colors ${flat ? 'bg-cx-500 text-white' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                All {childNoun}s
+              </button>
+            </div>
+          )}
+          {hasChildren && !flat && (
             <button
               onClick={() => {
                 const allKeys = sortedData.map((r) => r[rowKeyField!] as string).filter((k) => childRowsMap![k]);
