@@ -388,12 +388,13 @@ interface NavigationProps {
   onToggleSidebar: () => void;
   currentPage?: string;
   onNavigate: (page: string) => void;
+  onSectionNavigate?: (section: string, sub: string) => void;
   isOnboarding?: boolean;
   isWizard?: boolean;
   isEmbed?: boolean;
 }
 
-export default function Navigation({ activeSection, activeSub, sidebarCollapsed, onToggleSidebar, currentPage, onNavigate, isOnboarding, isWizard, isEmbed }: NavigationProps) {
+export default function Navigation({ activeSection, activeSub, sidebarCollapsed, onToggleSidebar, currentPage, onNavigate, onSectionNavigate, isOnboarding, isWizard, isEmbed }: NavigationProps) {
   const [dateFilterOpen, setDateFilterOpen] = useState(false);
   const { dateResult, setDateResult } = useDateFilter();
   const { campaignNamingEnabled } = useAccountSpecifics();
@@ -478,7 +479,7 @@ export default function Navigation({ activeSection, activeSub, sidebarCollapsed,
             </>
           )}
           <CurrencySelector />
-          <UserDropdown onNavigate={onNavigate} />
+          <UserDropdown onNavigate={onNavigate} onSectionNavigate={onSectionNavigate} />
         </div>
       </div>
 

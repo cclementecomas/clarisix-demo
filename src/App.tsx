@@ -213,6 +213,15 @@ export default function App() {
     return settingsTab ? reverse[settingsTab] : undefined;
   })();
 
+  // Generic section/sub navigation (used by the "What's new" deep-links).
+  const navigateTo = (section: string, sub: string) => {
+    if (isEmbed) return;
+    if (section === 'Data') { handleAdminNavigate('Data', sub); return; }
+    setCurrentPage('dashboard');
+    setActiveSection(section);
+    if (sub) setActiveSub(sub);
+  };
+
   const renderContent = () => {
     if (sectionLoading) {
       return <SectionLoader />;
@@ -356,6 +365,7 @@ export default function App() {
           onToggleSidebar={() => setCollapsed(!collapsed)}
           currentPage={currentPage}
           onNavigate={setCurrentPage}
+          onSectionNavigate={navigateTo}
           isOnboarding={isOnboarding}
           isWizard={isWizard}
           isEmbed={isEmbed}

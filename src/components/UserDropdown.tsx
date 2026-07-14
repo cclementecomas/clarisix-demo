@@ -1,13 +1,17 @@
 import { useState, useRef, useEffect } from 'react';
-import { Settings, HelpCircle, LogOut, Sparkles } from 'lucide-react';
+import { Settings, HelpCircle, LogOut, Sparkles, Gift } from 'lucide-react';
 import UserAvatar from './UserAvatar';
+import { WhatsNewDrawer, useWhatsNewSeen } from './WhatsNew';
 
 interface UserDropdownProps {
   onNavigate: (page: string) => void;
+  onSectionNavigate?: (section: string, sub: string) => void;
 }
 
-export default function UserDropdown({ onNavigate }: UserDropdownProps) {
+export default function UserDropdown({ onNavigate, onSectionNavigate }: UserDropdownProps) {
   const [open, setOpen] = useState(false);
+  const [wnOpen, setWnOpen] = useState(false);
+  const wn = useWhatsNewSeen();
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -27,6 +31,12 @@ export default function UserDropdown({ onNavigate }: UserDropdownProps) {
     setOpen(false);
   };
 
+  const openWhatsNew = () => {
+    wn.markSeen();
+    setWnOpen(true);
+    setOpen(false);
+  };
+
   const handleSignOut = () => {
     setOpen(false);
   };
@@ -35,11 +45,14 @@ export default function UserDropdown({ onNavigate }: UserDropdownProps) {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setOpen(!open)}
-        className={`flex items-center justify-center rounded-full transition-all duration-200 ring-2 ring-transparent hover:ring-cx-200 ${
+        className={`relative flex items-center justify-center rounded-full transition-all duration-200 ring-2 ring-transparent hover:ring-cx-200 ${
           open ? 'ring-cx-300' : ''
         }`}
       >
         <UserAvatar name="Claudiu Clement" size={32} />
+        {wn.unseen > 0 && (
+          <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-rose-500 ring-2 ring-white" title={`${wn.unseen} new update${wn.unseen === 1 ? '' : 's'}`} />
+        )}
       </button>
 
       {open && (
@@ -61,6 +74,18 @@ export default function UserDropdown({ onNavigate }: UserDropdownProps) {
           </div>
 
           <div className="py-1.5">
+            <button
+              onClick={openWhatsNew}
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              <Gift className="w-4 h-4 text-gray-400" />
+              <span className="font-medium">What's new</span>
+              {wn.unseen > 0 && (
+                <span className="ml-auto min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full bg-rose-500 text-white text-[10px] font-bold">
+                  {wn.unseen}
+                </span>
+              )}
+            </button>
             <button
               onClick={handleSettingsClick}
               className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
@@ -88,6 +113,8 @@ export default function UserDropdown({ onNavigate }: UserDropdownProps) {
           </div>
         </div>
       )}
+
+      <WhatsNewDrawer open={wnOpen} prevSeen={wn.prevSeen} onClose={() => setWnOpen(false)} onNavigate={onSectionNavigate} />
     </div>
   );
 }

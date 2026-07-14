@@ -2593,3 +2593,34 @@ in one shot. "Expand All" hides in flat mode (nothing to expand).
 - Known cosmetic: the pinned column header still reads "ASIN" while showing SKU codes in flat
   mode (columnDefs are owned by the caller). Values are clearly SKU codes and the Title column
   carries the product, so it reads fine; relabeling the header per-mode is a later polish.
+
+────────────────────────────────────────────────────────────────────────────
+"What's new" changelog surface (Jul 14 2026)
+
+Added a user-facing release-notes surface so customers see what changed since they last
+logged in. Files: data/changelogData.ts (the release list), components/WhatsNew.tsx (the
+top-bar button + panel). Entry point lives in the USER MENU (click the avatar, top-right): a "What's new" item, with a
+red notification dot on the avatar and a count pill on the item when there are unseen releases.
+Content opens as a RIGHT-SIDE SLIDE-OVER DRAWER — the same pattern as the ASIN/Keyword drawers
+(backdrop + fixed right aside, portaled to document.body so it layers above the sticky header
+and sidebar). Earlier iterations (top-bar gift icon, then a sidebar row with a pop-out panel)
+were dropped: a popover hanging out of a corner read awkwardly and a changelog is content-heavy,
+so the drawer + a familiar user-menu trigger won. App.tsx `navigateTo(section, sub)` threads
+Navigation → UserDropdown → the drawer so "Take me there" deep-links work.
+
+- Components: WhatsNew.tsx exports `useWhatsNewSeen()` (localStorage seen-tracking → unseen count
+  + prevSeen snapshot) and `WhatsNewDrawer` (the portaled right drawer). UserDropdown owns the
+  trigger: avatar dot + menu item + drawer open state, calling markSeen() on open so the badge
+  clears reactively; the drawer flags releases newer than prevSeen with a "New" tag. Badge = number of
+  releases newer than the version the user last opened (localStorage `cx_whatsnew_lastSeen`,
+  semver-compared). Opening the panel marks the current version seen and clears the badge;
+  releases newer than the previously-seen version get a "New" tag inside the panel.
+- Panel: releases newest-first — version, date, one-line headline, then each change as a
+  New / Improved / Fixed chip + title + plain-language description, with an optional
+  "Take me there →" that deep-links to the feature (routes through App.navigateTo, which sends
+  Data-section routes through handleAdminNavigate and everything else to dashboard section/sub).
+- CONTENT IS DUMMY BUT REAL: the seeded CHANGELOG describes the features actually shipped in
+  this wireframe (v2.6 All-SKUs drill-down + Overheads, v2.5 Traffic funnel/Keyword portfolio
+  rebuild + deep-link, etc.). Copy is written for end users (no dev jargon). Developers append
+  a Release object and bump CURRENT_VERSION each shipped version — this is the mechanism for
+  "what changed from one version to the next", separate from the git history of the wireframe.
