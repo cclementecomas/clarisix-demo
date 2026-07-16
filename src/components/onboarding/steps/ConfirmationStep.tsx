@@ -4,9 +4,8 @@ import { ClarisixSpinner } from '../../ClarisixSpinner';
 import { useWizard } from '../../../contexts/OnboardingWizardContext';
 
 const handoffSteps = [
-  { label: 'Access shared', status: 'done' as const },
-  { label: 'Configuring your pipeline', status: 'active' as const },
-  { label: 'Data loading', status: 'pending' as const },
+  { label: 'Amazon authorized', status: 'done' as const },
+  { label: 'Pulling your data', status: 'active' as const },
   { label: 'Dashboard live', status: 'pending' as const },
 ];
 
@@ -55,10 +54,10 @@ export default function ConfirmationStep() {
 
       <div className="confirmation-fade-up-1">
         <h1 className="text-2xl font-bold text-gray-900 mb-3">
-          You're all set! We'll take it from here.
+          You're connected! Your data is loading.
         </h1>
         <p className="text-gray-500 text-base leading-relaxed max-w-[480px] mx-auto mb-8">
-          Our team will accept your Amazon invitation and start connecting your data. We'll email you when your dashboard is ready.
+          Your Selling Partner and Advertising accounts are authorized. We're pulling your orders, ads, inventory and catalog right now — no waiting on anyone.
         </p>
       </div>
 
@@ -105,13 +104,13 @@ export default function ConfirmationStep() {
             <div>
               <p className="text-sm font-semibold text-green-800">No charges until your data is ready</p>
               <p className="text-xs text-green-700 mt-1 leading-relaxed">
-                Your subscription only starts once all data is fully loaded and validated — saving you 1-2 days of waiting costs.
+                Your subscription starts only once your data is fully loaded and validated — so you never pay while you wait.
               </p>
             </div>
           </div>
         </div>
         <p className="text-sm text-gray-500 mb-8">
-          Estimated time: core data available within 24-48 hours
+          Estimated time: your full data typically arrives within 24–48 hours. We'll email you the moment it's ready.
         </p>
       </div>
 
@@ -121,7 +120,7 @@ export default function ConfirmationStep() {
             onClick={completeWizard}
             className="px-6 py-2.5 bg-cx-500 text-white text-sm font-semibold rounded-lg hover:bg-cx-600 transition-all duration-200 shadow-sm"
           >
-            Explore a demo dashboard
+            Watch my data load
           </button>
           <button
             onClick={completeWizard}

@@ -50,7 +50,7 @@ export default function WelcomeStep({ onNext }: WelcomeStepProps) {
 
         <h1 className="text-3xl font-bold text-gray-900 mb-3">Welcome to Clarisix</h1>
         <p className="text-gray-500 text-base leading-relaxed max-w-[480px] mx-auto mb-10">
-          Let's get your Amazon data connected. This takes about 5 minutes on your end — we handle the rest.
+          Connect your Amazon account with a couple of secure sign-ins. Your data starts loading right away, and your full history typically arrives within 24–48 hours.
         </p>
 
         <div className="text-left max-w-[420px] mx-auto mb-10">

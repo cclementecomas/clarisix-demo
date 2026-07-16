@@ -169,6 +169,33 @@ export default function PreferencesStep() {
             </div>
           )}
         </div>
+
+        <div className="border-t border-gray-100 pt-5 space-y-3">
+          <label className="flex items-start gap-2.5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={formData.acceptedTerms}
+              onChange={() => updateFormData({ acceptedTerms: !formData.acceptedTerms })}
+              className="mt-0.5 w-4 h-4 rounded border-gray-300 text-cx-500 focus:ring-cx-300"
+            />
+            <span className="text-sm text-gray-700">
+              I agree to the{' '}
+              <a href="https://clarisix.com/terms" target="_blank" rel="noreferrer" className="text-cx-600 hover:text-cx-700 underline font-medium">Terms &amp; Conditions</a>.
+              <span className="text-red-500"> *</span>
+            </span>
+          </label>
+          <label className="flex items-start gap-2.5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={formData.newsletter}
+              onChange={() => updateFormData({ newsletter: !formData.newsletter })}
+              className="mt-0.5 w-4 h-4 rounded border-gray-300 text-cx-500 focus:ring-cx-300"
+            />
+            <span className="text-sm text-gray-700">
+              Subscribe to our newsletter — product updates and Amazon selling tips. <span className="text-gray-400">(optional)</span>
+            </span>
+          </label>
+        </div>
       </div>
     </div>
   );

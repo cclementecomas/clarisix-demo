@@ -213,23 +213,18 @@ export const faqItems = [
 
 export const timelinePhases = [
   {
-    label: 'You share access to your Amazon account',
-    duration: '~5 min',
+    label: 'Sign in with Amazon \u2014 Selling Partner & Advertising',
+    duration: '~2 min \u00b7 read-only',
     icon: 'Key',
   },
   {
-    label: 'We configure your data pipeline',
-    duration: 'Up to 24h',
-    icon: 'Settings',
-  },
-  {
-    label: 'Your data starts loading',
-    duration: '1\u201348h depending on volume',
+    label: 'We pull your orders, ads, inventory & catalog automatically',
+    duration: 'Starts instantly',
     icon: 'Database',
   },
   {
     label: 'Your dashboard goes live',
-    duration: '',
+    duration: 'Typically within 24–48 hours',
     icon: 'Rocket',
   },
 ];
@@ -237,9 +232,7 @@ export const timelinePhases = [
 export const wizardStepsMeta = [
   { id: 1, label: 'Welcome' },
   { id: 2, label: 'Business' },
-  { id: 3, label: 'Plan' },
-  { id: 4, label: 'Connect' },
-  { id: 5, label: 'Preferences' },
-  { id: 6, label: 'Mapping' },
-  { id: 7, label: 'Done' },
+  { id: 3, label: 'Connect' },
+  { id: 4, label: 'Preferences' },
+  { id: 5, label: 'Done' },
 ];

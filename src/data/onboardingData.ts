@@ -17,26 +17,24 @@ export const defaultSyncCategories: SyncCategory[] = [
 
 export const onboardingContent = {
   pending_connection: {
-    headline: "We're getting everything ready for you",
-    subtext:
-      'Our team will connect your Amazon account within the next 24 hours. We\u2019ll email you as soon as your data starts loading.',
-    estimatedTime: 'Typically under 24 hours',
+    headline: 'Preparing your workspace',
+    subtext: 'Setting things up \u2014 your data starts loading in a few seconds.',
+    estimatedTime: 'A few seconds',
   },
   connecting: {
-    headline: 'Connecting your Amazon account',
-    subtext:
-      "We're setting up your data pipeline now. This usually takes 1\u20132 hours.",
-    estimatedTime: '1\u20132 hours',
+    headline: 'Finishing your authorization',
+    subtext: 'Securing your read-only tokens with Amazon. This only takes a moment.',
+    estimatedTime: 'Under a minute',
   },
   syncing: {
-    headline: 'Your data is loading',
+    headline: 'Loading your Amazon data',
     subtext:
-      'Core sales and advertising data is almost ready. Full historical data may take up to 48 hours.',
+      "Your Selling Partner and Advertising accounts are authorized \u2014 we're pulling every report now. Full history typically lands within 24\u201348 hours, and we'll email you when it's ready.",
   },
   error: {
-    headline: 'We need a little more info',
+    headline: 'A connection needs your attention',
     subtext:
-      "There's an issue with your account setup. Our team has been notified and will reach out shortly.",
+      "One of your Amazon authorizations expired or was declined. Reconnect it and we'll resume loading right away.",
   },
 };
 

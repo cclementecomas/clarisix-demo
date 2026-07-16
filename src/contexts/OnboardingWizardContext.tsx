@@ -1,20 +1,21 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useOnboarding } from './OnboardingContext';
+import { requiredGrants, authKey } from '../data/connectionsData';
 
 export interface WizardFormData {
   companyName: string;
   selectedMarketplaces: string[];
-  orderVolume: string;
   primaryCurrency: string;
-  selectedAdTypes: string[];
   selectedTools: string[];
   selectedPlan: string;
   billingCycle: 'annual' | 'monthly';
-  accessConfirmed: boolean;
-  marketplaceChecklist: Record<string, boolean>;
+  /** Authorized (connection × region) grants, keyed by authKey('sp_api'|'ads', region). */
+  authorized: Record<string, boolean>;
   fiscalYearStart: number;
   emailNotifications: boolean;
   teamInvites: { name: string; email: string; role: string }[];
+  acceptedTerms: boolean;
+  newsletter: boolean;
 }
 
 export interface WizardState {
@@ -35,17 +36,16 @@ interface WizardContextType {
 const DEFAULT_FORM_DATA: WizardFormData = {
   companyName: '',
   selectedMarketplaces: [],
-  orderVolume: '',
   primaryCurrency: 'EUR',
-  selectedAdTypes: [],
   selectedTools: [],
   selectedPlan: '',
   billingCycle: 'annual',
-  accessConfirmed: false,
-  marketplaceChecklist: {},
+  authorized: {},
   fiscalYearStart: 1,
   emailNotifications: true,
   teamInvites: [],
+  acceptedTerms: false,
+  newsletter: true, // pre-checked
 };
 
 const DEFAULT_STATE: WizardState = {
@@ -96,28 +96,24 @@ export function OnboardingWizardProvider({ children }: { children: ReactNode }) 
   const completeWizard = () => {
     setState((prev) => ({ ...prev, wizardComplete: true }));
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, wizardComplete: true }));
-    setOnboardingStatus('pending_connection');
+    setOnboardingStatus('syncing'); // OAuth already done in-wizard — data loads immediately
   };
 
+  // Step order: 1 Welcome · 2 Business · 3 Connect · 4 Preferences · 5 Confirm
+  // (Plan & catalog mapping moved to a post-sync flow — we only know products/pricing after sync.)
   const canProceed = (step: number): boolean => {
     const { formData } = state;
     switch (step) {
-      case 1:
-        return true;
       case 2:
-        return formData.companyName.trim().length > 0 && formData.selectedMarketplaces.length > 0 && formData.selectedAdTypes.length > 0;
-      case 3:
-        return formData.selectedPlan.length > 0;
+        return formData.companyName.trim().length > 0 && formData.selectedMarketplaces.length > 0;
+      case 3: {
+        const grants = requiredGrants(formData.selectedMarketplaces);
+        return grants.length > 0 && grants.every((g) => formData.authorized[authKey(g.id, g.region)]);
+      }
       case 4:
-        return formData.accessConfirmed;
-      case 5:
-        return true;
-      case 6:
-        return true;
-      case 7:
-        return true;
+        return formData.acceptedTerms;
       default:
-        return false;
+        return true;
     }
   };
 

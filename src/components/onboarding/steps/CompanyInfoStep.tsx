@@ -3,9 +3,7 @@ import { ChevronDown, X } from 'lucide-react';
 import { useWizard } from '../../../contexts/OnboardingWizardContext';
 import {
   marketplaceOptions,
-  orderVolumeOptions,
   currencyOptions,
-  adTypeOptions,
   toolOptions,
 } from '../../../data/onboardingWizardData';
 
@@ -113,13 +111,6 @@ export default function CompanyInfoStep() {
   const { formData } = state;
   const [showTools, setShowTools] = useState(formData.selectedTools.length > 0);
 
-  const toggleAdType = (id: string) => {
-    const next = formData.selectedAdTypes.includes(id)
-      ? formData.selectedAdTypes.filter((t) => t !== id)
-      : [...formData.selectedAdTypes, id];
-    updateFormData({ selectedAdTypes: next });
-  };
-
   const toggleTool = (id: string) => {
     const next = formData.selectedTools.includes(id)
       ? formData.selectedTools.filter((t) => t !== id)
@@ -153,53 +144,16 @@ export default function CompanyInfoStep() {
           <MarketplaceChipSelector />
         </div>
 
-        <div>
+        <div className="max-w-[280px]">
           <label className="block text-xs font-medium text-gray-600 mb-1.5">
-            Ad Types
+            Primary Currency
           </label>
-          <div className="flex flex-wrap gap-1.5">
-            {adTypeOptions.map((ad) => {
-              const isSelected = formData.selectedAdTypes.includes(ad.id);
-              return (
-                <button
-                  key={ad.id}
-                  onClick={() => toggleAdType(ad.id)}
-                  className={`px-3 py-1.5 text-sm rounded-lg border transition-all duration-150 ${
-                    isSelected
-                      ? 'border-cx-400 bg-cx-50 text-cx-700 font-medium'
-                      : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
-                  }`}
-                >
-                  {ad.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1.5">
-              Approximate Monthly Orders
-            </label>
-            <CustomSelect
-              value={formData.orderVolume}
-              onChange={(val) => updateFormData({ orderVolume: val })}
-              options={orderVolumeOptions}
-              placeholder="Select volume"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1.5">
-              Primary Currency
-            </label>
-            <CustomSelect
-              value={formData.primaryCurrency}
-              onChange={(val) => updateFormData({ primaryCurrency: val })}
-              options={currencyOptions}
-              placeholder="Select currency"
-            />
-          </div>
+          <CustomSelect
+            value={formData.primaryCurrency}
+            onChange={(val) => updateFormData({ primaryCurrency: val })}
+            options={currencyOptions}
+            placeholder="Select currency"
+          />
         </div>
 
         <div className="border-t border-gray-100 pt-4">

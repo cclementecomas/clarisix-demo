@@ -2624,3 +2624,107 @@ Navigation → UserDropdown → the drawer so "Take me there" deep-links work.
   rebuild + deep-link, etc.). Copy is written for end users (no dev jargon). Developers append
   a Release object and bump CURRENT_VERSION each shipped version — this is the mechanism for
   "what changed from one version to the next", separate from the git history of the wireframe.
+
+────────────────────────────────────────────────────────────────────────────
+Onboarding rework — SP-API + Ads OAuth, live Sync Center (Jul 16 2026)
+
+Now that we have Selling Partner API (SP-API) + Advertising API access, the onboarding
+moved off the old manual model (invite connect@clarisix.com into Seller Central User
+Permissions, then "our team accepts within 24h") to real OAuth + instant automated sync.
+User decisions baked in: FULL 7-step redesign · Ads REQUIRED (not optional) · single
+"all-ready" Sync Center gate (no progressive unlock) · SIMULATED Login-with-Amazon consent.
+
+Wizard order changed to connect-first (data loads in the background while the user finishes):
+  1 Welcome · 2 Business · 3 Connect · 4 Plan · 5 Preferences · 6 Mapping · 7 Done
+(was: Welcome · Business · Plan · Amazon Access · Preferences · Mapping · Confirm.)
+
+Key pieces
+- data/connectionsData.ts — the model. ApiRegion NA/EU/FE + apiRegionOf(marketplace) +
+  regionsFor() (marketplace regions Americas/Europe/AsiaPac/MiddleEast collapse to Amazon's
+  NA/EU/FE endpoints; IN/AE/SA → EU, JP/AU/SG → FE). CONNECTIONS = two grants (sp_api, ads)
+  each with read-only scopes. requiredGrants() = every (connection × region) — both required.
+  SYNC_DOMAINS = 7 source-tagged domains (orders, finances, catalog, inventory, business,
+  sqp, advertising) each with the real SP-API/Ads report name.
+- steps/ConnectAmazonStep.tsx (replaces AmazonAccessStep, deleted) — two OAuth cards
+  (Selling Partner + Amazon Advertising), scope chips, per-region rows each with a
+  "Connect with Amazon" button / Connected + Reconnect, an X/Y authorizations summary, FAQ.
+- onboarding/LwaConsentModal.tsx — simulated Login-with-Amazon consent (dark amazon header,
+  read-only scope list, Cancel / yellow Allow, ~1.3s "Authorizing…" spinner). Portaled;
+  reused by the error-recovery reconnect. Authorizing sets formData.authorized[authKey(id,region)].
+- OnboardingWizardContext: WizardFormData dropped selectedAdTypes/accessConfirmed/
+  marketplaceChecklist, added authorized:Record<string,boolean>. canProceed step 3 = all
+  requiredGrants authorized. completeWizard now → 'syncing' (no human accept).
+- onboarding/SyncCenter.tsx — the live board for the 'syncing' state. Animated per-domain
+  progress (staggered start, history backfills slower), source tags, live row counters +
+  "to Jan 2024" backfill, overall %; when all 7 hit 100% shows "Enter your dashboard →"
+  (setOnboardingStatus('ready')). Single all-ready gate — no progressive unlock.
+- OnboardingGateway rebuilt: 'syncing' → SyncCenter (wide); 'error' → ErrorRecovery (a
+  specific grant needs re-auth → LwaConsentModal → resume 'syncing'); 'connecting'/'pending'
+  kept as brief transients; copy in onboardingData.ts retuned to the instant flow.
+- steps/CategoryMappingStep reframed: catalog is pulled via SP-API, so it shows N SKUs
+  detected + auto-mapped, an editable preview (brand input + category select, AUTO chips,
+  amber rows needing review), CSV bulk-edit demoted to a collapsible fallback.
+- Welcome/Confirmation copy: "minutes, not days"; Confirm CTA "Watch my data load".
+- data/connectorsData.ts: Amazon Selling Partner + Amazon Advertising marked configured
+  (Connected) so the post-onboarding Connectors page reflects the live connections.
+
+Why (best-in-class rationale): OAuth kills the error-prone manual invite + the 24h human
+accept; connect-first means the dashboard has real numbers on first load; two explicit
+region-scoped grants mirror Amazon's real topology (SP-API and Ads are separate, NA/EU/FE);
+the Sync Center replaces a dead "we'll email you" wall with a live, source-tagged progress
+board; catalog-prefill removes the tedious manual CSV.
+
+Wireframe caveat: all client-side/simulated — no real tokens. DemoSwitcher (dev-only, bottom
+-right of the Gateway) jumps between pending/connecting/syncing/error. Enter the wizard by
+selecting the "New Account" account; "Connected Account" = syncing.
+
+────────────────────────────────────────────────────────────────────────────
+Onboarding rework — refinements (Jul 16 2026)
+
+Follow-up tweaks to the SP-API/Ads onboarding above:
+- Connect step simplified to ONE region: a single Selling Partner grant + a single Ads
+  profile, both in the PRIMARY region (regionsFor(...)[0], derived from the chosen
+  marketplaces). No more per-region matrix — connectionsData.primaryRegion() +
+  requiredGrants() return just the two grants; "add more regions later in Settings →
+  Connections." Rationale: 1 seller region + 1 ads profile is enough to start.
+- Plan/pricing REMOVED from the wizard. Clarisix now prices on ACTIVE PRODUCTS
+  (clarisix.com/pricing), which we don't know until the catalog syncs — so plan selection
+  became a POST-SYNC step. Wizard is now 5 steps: Welcome · Business · Connect · Preferences
+  · Done (wizardStepsMeta + OnboardingWizard renderStep + canProceed updated; PlanSelectionStep
+  no longer imported).
+- Catalog mapping ALSO moved post-sync (we only know the products after sync).
+- New onboarding/PostSyncSetup.tsx runs after the Sync Center completes: Plan choice →
+  catalog mapping → "Enter your dashboard". PlanChoice shows the discovered active-product
+  count (connectionsData.DISCOVERED_ACTIVE_PRODUCTS = 342), product-banded tiers
+  (Starter ≤250 / Growth ≤1,000 / Scale ≤5,000 / Enterprise unlimited) with the matching tier
+  auto-recommended ("342 of 1,000 used"), and reuses CategoryMappingStep for the mapping.
+- Gateway 'syncing' branch now has a local phase: SyncCenter (onDone) → PostSyncSetup
+  (onFinish → 'ready'). SyncCenter's completion CTA is "Review your plan →" (was "Enter
+  dashboard").
+- Billing-timing messaging added throughout: "You won't be charged until every source is
+  fully fetched and validated" (Sync Center), and on the post-sync Plan: "You weren't charged
+  a cent while we loaded — every source is now fetched and validated, so your subscription
+  starts today." (Confirmation step already carried the no-charge-until-ready promise.)
+- Dead but retained: PlanSelectionStep.tsx (old order-volume pricing + payment form + Analog
+  easter egg) is no longer wired into the flow; kept on disk.
+
+- Copy correction: dropped the "minutes, not days" overselling. Full data realistically takes
+  24–48h, so Welcome, the timeline phase, Confirmation, the syncing subtext and the Sync
+  Center all now say "full history typically arrives within 24–48 hours — we'll email you when
+  it's ready." (Connection/authorization is still instant; only the backfill takes 24–48h.)
+- Removed the "Approximate Monthly Orders" field from the Business step (useless now that
+  pricing is per active-product, discovered at sync — not per order). orderVolume dropped from
+  WizardFormData; orderVolumeOptions export left unused.
+
+- CORRECTION to the "single primary region" note above: the Connect step is REGION-FIRST,
+  driven by the marketplace selection. "1 seller + 1 ads, same region" means one Selling
+  Partner grant + one Ads grant PER REGION (not one region total). regionsFor(marketplaces)
+  produces the endpoint regions (US → NA, UK → EU, etc.); ConnectAmazonStep renders a card per
+  region, each with a Selling Partner row + an Amazon Advertising row. requiredGrants =
+  every (region × both connections) — all required. e.g. US + UK ⇒ NA card + EU card,
+  "0 of 4 connected". (primaryRegion() helper removed.)
+
+- Preferences step (step 4) now includes a required Terms & Conditions checkbox (links to
+  https://clarisix.com/terms) that gates Next (canProceed case 4 = formData.acceptedTerms), plus
+  a pre-checked "Subscribe to our newsletter" opt-out. New WizardFormData fields:
+  acceptedTerms (false) + newsletter (true).
