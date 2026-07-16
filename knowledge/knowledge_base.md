@@ -2728,3 +2728,7 @@ Follow-up tweaks to the SP-API/Ads onboarding above:
   https://clarisix.com/terms) that gates Next (canProceed case 4 = formData.acceptedTerms), plus
   a pre-checked "Subscribe to our newsletter" opt-out. New WizardFormData fields:
   acceptedTerms (false) + newsletter (true).
+
+- Removed the "Fiscal Year Starts" field from the Preferences step (no need for now).
+  fiscalYearStart dropped from WizardFormData; the step's local CustomSelect + fiscalYearMonths
+  import removed (fiscalYearMonths export left unused).

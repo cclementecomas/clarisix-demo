@@ -1,50 +1,6 @@
 import { useState } from 'react';
 import { ChevronDown, Plus, X } from 'lucide-react';
 import { useWizard } from '../../../contexts/OnboardingWizardContext';
-import { fiscalYearMonths } from '../../../data/onboardingWizardData';
-
-function CustomSelect({
-  value,
-  onChange,
-  options,
-}: {
-  value: string;
-  onChange: (val: string) => void;
-  options: { value: string | number; label: string }[];
-}) {
-  const [open, setOpen] = useState(false);
-  const selectedLabel = options.find((o) => String(o.value) === String(value))?.label ?? '';
-
-  return (
-    <div className="relative">
-      <button
-        onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between px-3 py-2 text-sm border border-gray-200 rounded-lg hover:border-gray-300 transition-colors bg-white text-left"
-      >
-        <span className="text-gray-900">{selectedLabel}</span>
-        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
-      </button>
-      {open && (
-        <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute top-full left-0 right-0 mt-1 z-20 bg-white border border-gray-200 rounded-lg shadow-lg py-1 max-h-[200px] overflow-y-auto">
-            {options.map((opt) => (
-              <button
-                key={opt.value}
-                onClick={() => { onChange(String(opt.value)); setOpen(false); }}
-                className={`block w-full text-left px-3 py-2 text-sm hover:bg-cx-50 transition-colors ${
-                  String(value) === String(opt.value) ? 'text-cx-700 bg-cx-50 font-medium' : 'text-gray-700'
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
 
 const roleOptions = [
   { value: 'admin', label: 'Admin' },
@@ -82,18 +38,7 @@ export default function PreferencesStep() {
       <p className="text-gray-500 text-sm mb-8">You can always change these later in Settings.</p>
 
       <div className="space-y-6">
-        <div className="max-w-[240px]">
-          <label className="block text-xs font-medium text-gray-600 mb-1.5">
-            Fiscal Year Starts
-          </label>
-          <CustomSelect
-            value={String(formData.fiscalYearStart)}
-            onChange={(val) => updateFormData({ fiscalYearStart: Number(val) })}
-            options={fiscalYearMonths}
-          />
-        </div>
-
-        <div className="flex items-center justify-between py-4 border-t border-b border-gray-100">
+        <div className="flex items-center justify-between py-4 border-b border-gray-100">
           <div>
             <p className="text-sm font-medium text-gray-900">Email notifications</p>
             <p className="text-xs text-gray-500 mt-0.5">Email me when my data is ready</p>

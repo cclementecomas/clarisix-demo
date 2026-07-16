@@ -11,7 +11,6 @@ export interface WizardFormData {
   billingCycle: 'annual' | 'monthly';
   /** Authorized (connection × region) grants, keyed by authKey('sp_api'|'ads', region). */
   authorized: Record<string, boolean>;
-  fiscalYearStart: number;
   emailNotifications: boolean;
   teamInvites: { name: string; email: string; role: string }[];
   acceptedTerms: boolean;
@@ -41,7 +40,6 @@ const DEFAULT_FORM_DATA: WizardFormData = {
   selectedPlan: '',
   billingCycle: 'annual',
   authorized: {},
-  fiscalYearStart: 1,
   emailNotifications: true,
   teamInvites: [],
   acceptedTerms: false,
