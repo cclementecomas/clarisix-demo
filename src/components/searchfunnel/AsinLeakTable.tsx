@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
+import { ArrowUp, ArrowDown } from 'lucide-react';
 import type { AsinLeakRow } from './selectors';
 import { productImageUrl } from './selectors';
 import type { TransitionKey } from '../../lib/sqp/types';
@@ -15,12 +16,34 @@ const PILLS: { v: Stage; label: string }[] = [
   { v: 'basket_purch', label: TRANSITION_NAME.basket_purch },
 ];
 
+type SortField = 'missed' | 'impr' | 'imprShare' | 'ctr' | 'atc' | 'close' | 'purch' | 'product' | 'topQuery';
+
 export default function AsinLeakTable({ rows, stage, onStageChange, onSelect }: {
   rows: AsinLeakRow[]; stage: Stage; onStageChange: (s: Stage) => void; onSelect: (asin: string) => void;
 }) {
   const [search, setSearch] = useState('');
+  const [sort, setSort] = useState<{ field: SortField; dir: 'asc' | 'desc' } | null>(null);
   const missedOf = useCallback((r: AsinLeakRow) => (stage === 'all' ? r.missedEurWk : r.byStage[stage]), [stage]);
   const leakOf = (r: AsinLeakRow): TransitionKey | null => (stage === 'all' ? r.leakKey : r.byStage[stage] > 0 ? stage : null);
+
+  const accessor = useCallback((r: AsinLeakRow, f: SortField): number | string | null => {
+    switch (f) {
+      case 'missed': return missedOf(r);
+      case 'impr': return r.impressionsWk;
+      case 'imprShare': return r.impShare;
+      case 'ctr': return r.ctrDeltaPp;
+      case 'atc': return r.atcDeltaPp;
+      case 'close': return r.closeDeltaPp;
+      case 'purch': return r.purchasesWk;
+      case 'product': return r.title.toLowerCase();
+      case 'topQuery': return r.topQuery.toLowerCase();
+    }
+  }, [missedOf]);
+
+  const toggleSort = (field: SortField) => setSort((prev) =>
+    prev?.field === field
+      ? { field, dir: prev.dir === 'desc' ? 'asc' : 'desc' }
+      : { field, dir: field === 'product' || field === 'topQuery' ? 'asc' : 'desc' });
 
   const total = useMemo(() => rows.reduce((s, r) => s + missedOf(r), 0), [rows, missedOf]);
   const top3Pct = useMemo(() => {
@@ -30,19 +53,40 @@ export default function AsinLeakTable({ rows, stage, onStageChange, onSelect }: 
 
   const shown = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const f = q ? rows.filter((r) => r.asin.toLowerCase().includes(q) || r.title.toLowerCase().includes(q)) : rows;
-    return [...f].sort((a, b) => missedOf(b) - missedOf(a));
-  }, [rows, missedOf, search]);
+    const f = q ? rows.filter((r) =>
+      r.asin.toLowerCase().includes(q) || r.title.toLowerCase().includes(q) || r.queries.some((kw) => kw.toLowerCase().includes(q))
+    ) : rows;
+    if (!sort) return [...f].sort((a, b) => missedOf(b) - missedOf(a));
+    const { field, dir } = sort;
+    return [...f].sort((a, b) => {
+      const va = accessor(a, field), vb = accessor(b, field);
+      if (typeof va === 'string' || typeof vb === 'string') return dir === 'asc' ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(va));
+      const na = va == null, nb = vb == null;                 // nulls (low-data cells) always last
+      if (na && nb) return 0; if (na) return 1; if (nb) return -1;
+      return dir === 'asc' ? va - vb : vb - va;
+    });
+  }, [rows, missedOf, search, sort, accessor]);
 
   const stageLabel = stage === 'all' ? 'their worst transition' : PILLS.find((p) => p.v === stage)!.label;
+  const SortHead = ({ field, thClass, reverse, children }: { field: SortField; thClass: string; reverse?: boolean; children: React.ReactNode }) => {
+    const active = sort?.field === field;
+    return (
+      <th className={`${thClass} cursor-pointer select-none hover:bg-gray-100 transition-colors`} onClick={() => toggleSort(field)}>
+        <span className={`inline-flex items-center gap-1 ${reverse ? 'flex-row-reverse' : ''}`}>
+          {children}
+          {active && (sort!.dir === 'asc' ? <ArrowUp className="w-3 h-3 text-cx-500 flex-shrink-0" /> : <ArrowDown className="w-3 h-3 text-cx-500 flex-shrink-0" />)}
+        </span>
+      </th>
+    );
+  };
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden" id="asin-leak-table">
       <div className="px-5 py-3 border-b border-gray-100">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <h3 className="text-sm font-semibold text-gray-900">ASINs causing the leak</h3>
-          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search ASIN or product…"
-            className="px-3 py-1.5 text-xs w-56 border border-gray-200 rounded-md focus:ring-1 focus:ring-cx-500/30 focus:border-cx-400 outline-none" />
+          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search ASIN, product or keyword…"
+            className="px-3 py-1.5 text-xs w-64 border border-gray-200 rounded-md focus:ring-1 focus:ring-cx-500/30 focus:border-cx-400 outline-none" />
         </div>
         <div className="flex items-center gap-1.5 mt-2 flex-wrap">
           {PILLS.map((p) => (
@@ -58,17 +102,17 @@ export default function AsinLeakTable({ rows, stage, onStageChange, onSelect }: 
         <table className="w-full text-left text-[12px]">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-100 text-[10px] font-bold uppercase tracking-wider text-gray-500 align-bottom">
-              <th className="px-3 py-2 text-left min-w-[210px]">Product / ASIN</th>
-              <th className="px-3 py-2 text-right">Missed €/wk</th>
-              <th className="px-3 py-2 text-right">Search impr/wk</th>
-              <th className="px-3 py-2 text-right">Impr share</th>
-              <th className="px-3 py-2 text-right"><span className="inline-flex items-center gap-1 flex-row-reverse">CTR Δ<InfoTooltip content="Your CTR minus market CTR (pp). Muted below the 200-impr/wk floor." /></span></th>
-              <th className="px-3 py-2 text-right">Basket-<br />add Δ</th>
-              <th className="px-3 py-2 text-right">Purchase-<br />rate Δ</th>
+              <SortHead field="product" thClass="px-3 py-2 text-left min-w-[210px]">Product / ASIN</SortHead>
+              <SortHead field="missed" thClass="px-3 py-2 text-right" reverse>Missed €/wk</SortHead>
+              <SortHead field="impr" thClass="px-3 py-2 text-right" reverse>Search impr/wk</SortHead>
+              <SortHead field="imprShare" thClass="px-3 py-2 text-right" reverse>Impr share</SortHead>
+              <SortHead field="ctr" thClass="px-3 py-2 text-right" reverse><span className="inline-flex items-center gap-1 flex-row-reverse">CTR Δ<InfoTooltip content="Your CTR minus market CTR (pp) — CTR = clicks ÷ impressions. Muted below the 200-impr/wk floor." /></span></SortHead>
+              <SortHead field="atc" thClass="px-3 py-2 text-right" reverse>Basket-<br />add Δ</SortHead>
+              <SortHead field="close" thClass="px-3 py-2 text-right" reverse>Purchase-<br />rate Δ</SortHead>
               <th className="px-3 py-2 text-left">Leak stage</th>
-              <th className="px-3 py-2 text-right">SQP purch/wk</th>
+              <SortHead field="purch" thClass="px-3 py-2 text-right" reverse>SQP purch/wk</SortHead>
               <th className="px-3 py-2 text-center">Click share 4wk</th>
-              <th className="px-3 py-2 text-left">Top query</th>
+              <SortHead field="topQuery" thClass="px-3 py-2 text-left">Top query</SortHead>
             </tr>
           </thead>
           <tbody>

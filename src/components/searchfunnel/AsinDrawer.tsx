@@ -21,7 +21,7 @@ export default function AsinDrawer({ asin, rows, onClose, onOpenKeyword }: { asi
 
   const open = asin !== null;
   const d = asin ? asinDetail(rows, asin) : null;
-  const aspSource = d ? (d.asp.source === 'purchases' ? 'median purchase price' : d.asp.source === 'clicks' ? 'median click price' : 'default') : '';
+  const aspSource = d ? (d.asp.source === 'purchases' ? 'avg purchase price' : d.asp.source === 'clicks' ? 'avg click price' : 'default') : '';
 
   return (
     <>
@@ -69,10 +69,10 @@ export default function AsinDrawer({ asin, rows, onClose, onOpenKeyword }: { asi
                 <div className="space-y-2">{d.transitions.map((t) => <TransitionRow key={t.key} t={t} />)}</div>
               </Section>
 
-              <Section title="Your price vs market" subtitle="Median click price">
+              <Section title="Your price vs market" subtitle="Weighted-avg click price">
                 <div className="flex items-center gap-3">
                   <PriceChip label="Your price" value={money(d.price.your)} />
-                  <PriceChip label="Market median" value={money(d.price.mkt)} muted />
+                  <PriceChip label="Market avg" value={money(d.price.mkt)} muted />
                   {d.price.your != null && d.price.mkt != null && d.price.mkt > 0 && <span className={`text-[12px] font-bold tabular-nums ${d.price.your > d.price.mkt ? 'text-rose-700' : 'text-emerald-700'}`}>{d.price.your > d.price.mkt ? '+' : ''}{Math.round((d.price.your / d.price.mkt - 1) * 100)}% vs market</span>}
                 </div>
               </Section>

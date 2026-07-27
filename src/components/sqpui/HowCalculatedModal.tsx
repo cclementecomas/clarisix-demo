@@ -28,6 +28,12 @@ export default function HowCalculatedModal({ open, onClose }: { open: boolean; o
 CTR = clicks÷impr · ATC = baskets÷clicks · close = purch÷baskets  (yours AND market)
 identity: share(next) ÷ share(prev) = your_rate ÷ market_rate`}</Code>
             A drop in share between two stages <b>is</b> underperforming the market at that transition — that's why the waterfall detects leaks.
+            <div className="mt-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-md text-[11px] text-amber-800">
+              <b>Cross-checking Seller Central?</b> Our funnel rates are <b>per-impression</b> (CTR = clicks ÷ impressions). Amazon's native SQP “Click Rate %” divides by <b>search volume</b> (clicks ÷ searches), so it reads much higher (often 45–70%). Both are correct — they answer different questions and aren't directly comparable.
+            </div>
+          </Block>
+          <Block title="Is the gap real? (statistical gate)">
+            We only call a transition a <b>leak</b> (badge + €) when the market rate sits <b>outside your 95% confidence interval</b> — otherwise the gap is inside sampling noise and we show the rate but attach no €. A 3pp basket-add gap on 22 clicks, say, can't be told apart from chance, so it isn't flagged. This replaces flat count thresholds and is applied to every transition the same way.
           </Block>
           <Block title="Leak & € impact (per transition)">
             <Code>{`gap(pp)          = your_rate − market_rate
@@ -59,7 +65,7 @@ basket-add: ≥ ${MIN_CLICKS_FOR_ATC} clicks/wk
 close     : ≥ ${MIN_BASKETS_FOR_CLOSE} basket adds/wk`}</Code>
           </Block>
           <Block title="Quadrants & ASP">
-            Volume split = P{Math.round(VOLUME_SPLIT_PCTL * 100)} of your visible queries; share split = weighted-average click share of that set. ASP = purchases-weighted median price (falls back to clicks-weighted, then €{DEFAULT_ASP}); the source is shown wherever ASP is used.
+            Volume split = P{Math.round(VOLUME_SPLIT_PCTL * 100)} of your visible queries; share split = weighted-average click share of that set. ASP = purchases-weighted <b>average</b> price (a weighted mean of Amazon's per-query median prices; falls back to clicks-weighted, then €{DEFAULT_ASP}); the source is shown wherever ASP is used. Note prices are weighted by <i>your</i> query mix — comparing to a market price weighted by the market's different mix can bias the delta.
           </Block>
         </div>
       </div>

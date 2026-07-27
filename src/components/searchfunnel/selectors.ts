@@ -2,7 +2,7 @@
 // Thin adapters over lib/sqp/metrics so the components hold no formulas.
 
 import type { SqpRow, LeakResult, TransitionKey, Flag } from '../../lib/sqp/types';
-import { aggregate, stageMetrics, computeLeak, computeAsp, queryStats } from '../../lib/sqp/metrics';
+import { aggregate, stageMetrics, computeLeak, computeAsp, queryStats, isCallableLeak } from '../../lib/sqp/metrics';
 import { playbookActions, type PlaybookAction, type SeverityLevel } from '../../lib/sqp/verdict';
 import { MIN_IMP_FOR_CTR_GAP, MIN_CLICKS_FOR_ATC, MIN_BASKETS_FOR_CLOSE } from '../../lib/sqp/constants';
 import { SQP_ASINS } from '../../lib/sqp/fixture';
@@ -43,6 +43,7 @@ export interface AsinLeakRow {
   leakKey: TransitionKey | null; leakLabel: string | null;
   missedEurWk: number; byStage: Record<TransitionKey, number>;
   clickSpark: number[]; topQuery: string;
+  queries: string[];   // every query this ASIN ranks on — powers keyword search
 }
 
 export function asinLeakRows(rows: SqpRow[]): { rows: AsinLeakRow[]; brandMissedTotal: number } {
@@ -53,7 +54,7 @@ export function asinLeakRows(rows: SqpRow[]): { rows: AsinLeakRow[]; brandMissed
     const leakRes = computeLeak(ar);
     const leak = leakRes.mainLeak;
     const byStage: Record<TransitionKey, number> = { imp_click: 0, click_basket: 0, basket_purch: 0 };
-    for (const t of leakRes.transitions) if (!t.belowFloor && t.impactEurWk > 0) byStage[t.key] = t.impactEurWk;
+    for (const t of leakRes.transitions) if (isCallableLeak(t)) byStage[t.key] = t.impactEurWk;
     const byQ = new Map<string, number>();
     for (const r of ar) byQ.set(r.query, (byQ.get(r.query) ?? 0) + r.clicks_asin);
     const topQuery = [...byQ.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? '—';
@@ -67,6 +68,7 @@ export function asinLeakRows(rows: SqpRow[]): { rows: AsinLeakRow[]; brandMissed
       leakKey: leak?.key ?? null, leakLabel: leak?.label ?? null,
       missedEurWk: leak?.impactEurWk ?? 0, byStage,
       clickSpark: weeklyStageShares(ar).map((w) => w.clickShare), topQuery,
+      queries: [...byQ.keys()],
     } as AsinLeakRow;
   });
   const brandMissedTotal = built.reduce((s, r) => s + r.missedEurWk, 0);

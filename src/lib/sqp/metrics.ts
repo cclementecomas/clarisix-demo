@@ -99,34 +99,54 @@ export function computeAsp(rows: SqpRow[]): { value: number; source: 'purchases'
   return { value: settings.default_asp, source: 'default' };
 }
 
+// ─── Statistical sufficiency (§2.6) ──────────────────────────────────────────
+// Wilson 95% score interval for a rate k/n. We call a transition a leak only when
+// the market rate sits OUTSIDE this interval — otherwise the gap is inside sampling
+// noise (e.g. 2 basket-adds on 22 clicks can't distinguish a 3pp gap). This replaces
+// the old fixed count floors as the leak/€ gate; the floors remain only as a "low-data"
+// display hint. See knowledge_base "Methodology corrections".
+const WILSON_Z = 1.96;
+function wilsonUpper(k: number, n: number): number {
+  if (n <= 0) return 1;
+  const p = k / n, z2 = WILSON_Z * WILSON_Z, denom = 1 + z2 / n;
+  const center = (p + z2 / (2 * n)) / denom;
+  const half = (WILSON_Z / denom) * Math.sqrt((p * (1 - p)) / n + z2 / (4 * n * n));
+  return Math.min(1, center + half);
+}
+
+/** A callable leak: a real gap (market above your CI), positive €, above the low-data floor. */
+export const isCallableLeak = (t: Transition): boolean => !t.belowFloor && t.impactEurWk > 0 && t.significant;
+
 // ─── Leak model (§2.3) ────────────────────────────────────────────────────────
 export function computeLeak(rows: SqpRow[], aspOverride?: { value: number; source: 'purchases' | 'clicks' | 'default' }): LeakResult {
   const a = aggregate(rows);
   const nW = a.nWeeks;
   const m = stageMetrics(a);
   const asp = aspOverride ?? computeAsp(rows);
-  const { I, C, B } = a.asin;
+  const { I, C, B, P } = a.asin;
 
   const defs = [
-    { key: 'imp_click' as const, up: I, your: m.ctr, mkt: m.ctrM, downstream: (m.atcM ?? 0) * (m.closeM ?? 0), floorOk: I / nW >= MIN_IMP_FOR_CTR_GAP },
-    { key: 'click_basket' as const, up: C, your: m.atc, mkt: m.atcM, downstream: m.closeM ?? 0, floorOk: C / nW >= MIN_CLICKS_FOR_ATC },
-    { key: 'basket_purch' as const, up: B, your: m.close, mkt: m.closeM, downstream: 1, floorOk: B / nW >= MIN_BASKETS_FOR_CLOSE },
+    { key: 'imp_click' as const, up: I, down: C, your: m.ctr, mkt: m.ctrM, downstream: (m.atcM ?? 0) * (m.closeM ?? 0), floorOk: I / nW >= MIN_IMP_FOR_CTR_GAP },
+    { key: 'click_basket' as const, up: C, down: B, your: m.atc, mkt: m.atcM, downstream: m.closeM ?? 0, floorOk: C / nW >= MIN_CLICKS_FOR_ATC },
+    { key: 'basket_purch' as const, up: B, down: P, your: m.close, mkt: m.closeM, downstream: 1, floorOk: B / nW >= MIN_BASKETS_FOR_CLOSE },
   ];
 
   const transitions: Transition[] = defs.map((d) => {
     const your = d.your ?? 0, mkt = d.mkt ?? 0;
     const missedNext = d.up * Math.max(0, mkt - your);
     const missedPurchases = missedNext * d.downstream;
+    // significant = you trail AND the market rate is above the upper bound of your CI
+    const significant = d.mkt != null && d.up > 0 && d.mkt > wilsonUpper(d.down, d.up);
     return {
       key: d.key, label: TRANSITION_LABEL[d.key],
       yourRate: d.your, marketRate: d.mkt,
       gapPp: d.your == null || d.mkt == null ? null : +((your - mkt) * 100).toFixed(2),
       missedPurchases, impactEurWk: (missedPurchases * asp.value) / nW,
-      belowFloor: !d.floorOk,
+      belowFloor: !d.floorOk, significant,
     };
   });
 
-  const eligible = transitions.filter((t) => !t.belowFloor && t.impactEurWk > 0);
+  const eligible = transitions.filter(isCallableLeak);
   const mainLeak = eligible.length ? eligible.reduce((x, y) => (y.impactEurWk > x.impactEurWk ? y : x)) : null;
   return { transitions, mainLeak, asp };
 }

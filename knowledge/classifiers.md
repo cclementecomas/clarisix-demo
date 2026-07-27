@@ -434,6 +434,15 @@ IS=impressionShare, CLK=clickShare
 4. cvrGapPp > 0.5                       → CVR problem     → "Fix CVR — A+, price, reviews, delivery"
 5. else                                 → Consistent      → "Hold — defend rank and bids"
 ```
+> **CORRECTION (Jul 27 2026 — DE b.box reconciliation; see knowledge_base "Methodology
+> corrections"):** apply the **Wilson-CI sufficiency gate BEFORE these rules** — never diagnose
+> a "problem" off a gap whose market rate sits inside your 95% CI (a 3pp gap on 22 clicks is
+> noise). And the Visibility rule must also fire on **exceptional CTR + very low impression
+> share** (strong clicks despite tiny share = a rank/bid opportunity), not only IS<2% &
+> volume≥8000 — otherwise premium-priced, high-CTR ASINs get mis-diagnosed as a price/CVR
+> problem. Recommendations are evidence-weighted: don't rank "price test" first when a premium
+> price still converts impressions→clicks well above market (price is visible pre-click).
+
 Shown as a color chip (Diagnosis column + drawer): cannibalization=indigo,
 visibility=amber, ctr/cvr=rose, healthy=emerald. The drawer's "You vs market"
 cards show yourCtr/marketCtr + yourCvr/marketCvr; "Your share by funnel stage"

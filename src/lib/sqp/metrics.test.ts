@@ -1,7 +1,7 @@
 // ─── SQP metrics tests (§6) — run: npm run test:sqp ─────────────────────────
 import type { SqpRow } from './types';
 import { sqpWeekly } from './fixture';
-import { aggregate, stageMetrics, computeLeak, queryStats, filterScope, computeAsp, maxWeek, resolveRange, latestWeekStatus } from './metrics';
+import { aggregate, stageMetrics, computeLeak, isCallableLeak, queryStats, filterScope, computeAsp, maxWeek, resolveRange, latestWeekStatus } from './metrics';
 
 let pass = 0, fail = 0;
 function ok(name: string, cond: boolean, extra = '') {
@@ -55,6 +55,17 @@ console.log('§2.6 — noise floors: sub-floor transition is flagged and never w
   const clickBasket = leak.transitions.find((t) => t.key === 'click_basket')!;
   ok('click→basket below floor (5 clicks < 20)', clickBasket.belowFloor);
   ok('main leak is not the sub-floor transition', leak.mainLeak?.key !== 'click_basket' || leak.mainLeak == null);
+}
+
+console.log('§2.6b — CI gate: a gap on thin data (n=22, like DE b.box) is shown but not called a leak');
+{
+  const rows = [row({ imp_total: 49941, imp_asin: 284, clicks_total: 1000, clicks_asin: 22, baskets_total: 122, baskets_asin: 2, purch_total: 40, purch_asin: 0 })];
+  const leak = computeLeak(rows, { value: 24, source: 'default' });
+  const cb = leak.transitions.find((t) => t.key === 'click_basket')!;
+  ok('click→basket is above the low-data floor (22 ≥ 20)', !cb.belowFloor);
+  ok('but the market rate is inside your Wilson CI → not significant', !cb.significant);
+  ok('so it is NOT a callable leak', !isCallableLeak(cb));
+  ok('no callable leak on this thin-data ASIN', leak.mainLeak === null);
 }
 
 console.log('§2.2 — null purchase price renders as null (never 0)');

@@ -3,7 +3,7 @@
 // AND the temporal share trajectory, so the banner never contradicts the trend.
 
 import type { SqpRow, TransitionKey, Flag } from './types';
-import { aggregate, stageMetrics, computeLeak, computeAsp } from './metrics';
+import { aggregate, stageMetrics, computeLeak, computeAsp, isCallableLeak } from './metrics';
 
 export const TRANSITIONS: TransitionKey[] = ['imp_click', 'click_basket', 'basket_purch'];
 export const TRANSITION_TO_STAGE: Record<TransitionKey, 'clicks' | 'baskets' | 'purchases'> = {
@@ -17,7 +17,7 @@ export function addressableByStage(rows: SqpRow[]): Record<TransitionKey, number
   const out: Record<TransitionKey, number> = { imp_click: 0, click_basket: 0, basket_purch: 0 };
   for (const asin of new Set(rows.map((r) => r.asin))) {
     const leak = computeLeak(rows.filter((r) => r.asin === asin));
-    for (const t of leak.transitions) if (!t.belowFloor && t.impactEurWk > 0) out[t.key] += t.impactEurWk;
+    for (const t of leak.transitions) if (isCallableLeak(t)) out[t.key] += t.impactEurWk;
   }
   return out;
 }
@@ -89,11 +89,11 @@ export function computeVerdict(window: SqpRow[], prior: SqpRow[]): Verdict {
 
   const brand = computeLeak(window);
   const brandT = brand.transitions.find((t) => t.key === stage);
-  const netEurWk = brandT && !brandT.belowFloor && brandT.impactEurWk > 0 ? brandT.impactEurWk : 0;
+  const netEurWk = brandT && isCallableLeak(brandT) ? brandT.impactEurWk : 0;
   let convAsins = 0;
   for (const asin of new Set(window.map((r) => r.asin))) {
     const lk = computeLeak(window.filter((r) => r.asin === asin)).transitions.find((t) => t.key === stage);
-    if (lk && !lk.belowFloor && lk.impactEurWk > 0) convAsins++;
+    if (lk && isCallableLeak(lk)) convAsins++;
   }
 
   const share = shareTrajectory(window, prior);

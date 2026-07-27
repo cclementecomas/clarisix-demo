@@ -63,7 +63,8 @@ export interface Transition {
   gapPp: number | null;         // (yourRate − marketRate) × 100
   missedPurchases: number;      // per range
   impactEurWk: number;          // per week
-  belowFloor: boolean;
+  belowFloor: boolean;          // below the fixed data floor — rate still shown, just low-data
+  significant: boolean;         // market rate is outside your Wilson 95% CI (a real, callable gap)
 }
 
 export interface LeakResult {

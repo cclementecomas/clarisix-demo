@@ -89,7 +89,7 @@ export default function KeywordDrawer({ row, rows, onClose }: { row: QueryRow | 
                 </div>
               </Section>
 
-              <Section title="Your price vs market" subtitle="Median price at each stage">
+              <Section title="Your price vs market" subtitle="Weighted-avg price at each stage">
                 <div className="grid grid-cols-3 gap-2">
                   {d.priceByStage.map((p) => (
                     <div key={p.stage} className="rounded-md bg-gray-50/60 border border-gray-200 px-2 py-2">

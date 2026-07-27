@@ -2732,3 +2732,66 @@ Follow-up tweaks to the SP-API/Ads onboarding above:
 - Removed the "Fiscal Year Starts" field from the Preferences step (no need for now).
   fiscalYearStart dropped from WizardFormData; the step's local CustomSelect + fiscalYearMonths
   import removed (fiscalYearMonths export left unused).
+
+════════════════════════════════════════════════════════════════════════════
+METHODOLOGY CORRECTIONS — from the DE b.box (B0CR1X65N3) reconciliation (Jul 27 2026)
+
+An AI reconciled a live staging panel against a raw DE SQP weekly export and found 5+
+issues. Root cause across most of them: the method was tuned on our fat synthetic demo
+(thousands of impressions/clicks per query) and meets thin real long-tail data (n=22
+clicks, ~0.6% share, premium price), where fixed thresholds and fixed-priority playbooks
+break. Below: the corrected rules, tagged [wireframe: done] where fixed in this repo and
+[staging] where it's a rule for the production app to implement.
+
+1. STATISTICAL SUFFICIENCY — CI gate replaces the fixed count floors. [wireframe: done]
+   - OLD: a transition was a "leak" if it passed a fixed floor (≥200 impr, ≥20 clicks,
+     ≥10 baskets per wk). 22 clicks passes → we called a 3pp basket-add gap that's pure
+     noise (Wilson 95% CI ≈ 2.5%–27.8%, market's 12.2% sits inside it). Inconsistent, too:
+     purchase rate was correctly suppressed at n=2 while basket-add fired at n=22.
+   - NEW RULE: call a leak (badge + €) ONLY when the market rate is OUTSIDE your Wilson 95%
+     CI for that transition. Otherwise show the rate but attach no leak and no €. Applied
+     identically to every transition. Fixed floors stay only as a "low-data" display hint.
+   - Code: metrics.ts wilsonUpper() + `significant` on Transition + isCallableLeak(t) =
+     !belowFloor && impact>0 && significant. Used in computeLeak, verdict (addressable,
+     netEurWk, convAsins) and selectors.byStage. Locked by test §2.6b.
+
+2. RECOMMENDATIONS — evidence-weighted, not fixed-priority; add a visibility diagnosis. [staging]
+   - Ranking "price/coupon test #1" contradicted our own evidence: the ASIN converts
+     impressions→clicks at ~3.8× market AT a +32% price, and price is visible pre-click —
+     strong proof price isn't the blocker. Don't rank a fix #1 when the evidence refutes it.
+   - Add the missing diagnosis: exceptional CTR + very low impression share ⇒ a VISIBILITY /
+     rank opportunity (bid/rank/placement), not a conversion/price problem. Surface it.
+   - Note most of this evaporates once #1 stops calling the noise leak.
+
+3. PRICE COMPARISON — reweight + relabel. [wireframe: relabel done · reweight = staging]
+   - Your price is weighted by YOUR clicks; the market price by the MARKET's clicks — different
+     query mixes, so the delta is biased (reweighting market onto your mix gave +37%, not +32%).
+     Staging should reweight the market price onto your own click distribution before comparing.
+   - Both were labelled "median" but are weighted MEANS of Amazon's per-query medians. Relabelled
+     to "weighted-avg" (AsinDrawer, KeywordDrawer, How-calculated modal).
+
+4. MARKET-INCLUDES-SELF. [staging] Market benchmarks use Amazon's Total column, which includes
+   this ASIN. Negligible at 0.6% share (2.036% vs 2.004% ex-self) but material for high-share
+   ASINs — offer an ex-self market rate there.
+
+5. DISPLAY PRECISION. [wireframe: ok · staging] Shares rounded to integers collapse 0.1/0.4/0.5%
+   into "0%". Show ≥1 decimal under 1% (our format.pct already uses 1 decimal; staging rounded).
+
+6. CTR DENOMINATOR — disclose vs Amazon's native column. [wireframe: done]
+   Our funnel CTR = clicks ÷ impressions (~2%). Amazon's SQP "Click Rate %" = clicks ÷ search
+   volume (10/14 = 71.4% in this file). Both valid, different questions. A seller cross-checking
+   Seller Central sees 45–70% vs our 2% and assumes we're broken. Added an amber disclosure in
+   the How-calculated modal + a note in the ASIN-table CTR tooltip. (Big trust item.)
+
+7. IMPRESSION-SHARE WINDOW. [staging] 1.9% doesn't reconcile with anything — true weekly share =
+   284/49,941 = 0.57%. Our formula is right; staging is almost certainly showing a 4-week share
+   next to a 1-week impression count (or a filtered denominator). Compute share and the counts
+   shown on the SAME window, and label the period.
+
+8. BRAND-TOKEN NORMALISATION. [wireframe: done] The branded filter caught "b.box" but not "bbox".
+   isBranded now normalises punctuation/spacing (b.box = bbox = b box) before matching aliases.
+
+9. TOP-QUERY LIST. [staging] Two bugs: (a) the scope/branded filter was applied to the card list
+   but not the header (header resolved fine) — apply the same scope everywhere; (b) the sort "by
+   € impact of worst transition" is degenerate when every listed query has zero adds/purchases
+   (€ impact ≈ 0) — fall back to volume/impressions when € ties at 0.

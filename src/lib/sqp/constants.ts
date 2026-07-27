@@ -62,7 +62,9 @@ export const settings: SqpSettings = {
   closure: DEFAULT_CLOSURE,
 };
 
+/** Normalise brand tokens so "b.box", "bbox" and "b box" all match the same alias. */
+const normBrand = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '');
 export function isBranded(query: string, aliases: string[] = settings.brand_aliases): boolean {
-  const q = query.toLowerCase();
-  return aliases.some((a) => q.includes(a.toLowerCase()));
+  const q = normBrand(query);
+  return aliases.some((a) => q.includes(normBrand(a)));
 }
