@@ -2795,3 +2795,26 @@ break. Below: the corrected rules, tagged [wireframe: done] where fixed in this 
    but not the header (header resolved fine) — apply the same scope everywhere; (b) the sort "by
    € impact of worst transition" is degenerate when every listed query has zero adds/purchases
    (€ impact ≈ 0) — fall back to volume/impressions when € ties at 0.
+
+────────────────────────────────────────────────────────────────────────────
+Parity bridge — rate-vs-share clarity pass (Jul 28 2026)
+
+Users kept confusing the two number systems in "Where your market share is won & lost": the
+bars are market SHARE (10.x%), the table showed conversion RATE (1.9% etc.), and nothing
+labelled which was which or bridged them ("why is 1.9% not on the bars?"). Fixed in
+searchfunnel/ParityBridge.tsx — copy/layout only, no logic change:
+- The ×market MULTIPLIER now sits on each bar step (under the transition name), coloured
+  green ≥1 / red <1. This is the actual bridge — it's what moves the bar, so the bar's
+  flat/up/down now has its cause labelled on it (e.g. Basket → Purchase · 0.97× market).
+- The rate table gained labelled column HEADERS — Step · Your rate · Market rate · × market ·
+  Your slice — so "1.9%" is explicitly under "Your rate" (a rate, not a share). The "Your
+  slice" column shows the same "10.5% → 10.6%" endpoints as the bar, so each row maps 1:1 to a
+  bar (removes the old +0.0pp-vs-10.5→10.6 rounding mismatch too).
+- A footnote states it plainly: "'Your rate' is your conversion at that step (click rate =
+  clicks ÷ impressions) — a different number from your market share. It's the ×market that
+  grows or shrinks your slice."
+- Subtitle rewritten to define both: bars = your share of the market; each step multiplies it
+  by your conversion rate ÷ the market's (the ×market); over 1× grows, under 1× shrinks.
+Mental model to teach: RATE = how your own shoppers behave step-to-step (of those who got
+this far, what % moved on); SHARE = your slice of the whole category. Share only changes when
+you convert differently from the average seller — that difference IS the ×market.

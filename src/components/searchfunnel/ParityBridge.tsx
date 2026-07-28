@@ -37,7 +37,7 @@ export default function ParityBridge({ rows, onFocusStage }: {
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
       <div className="px-5 py-3 border-b border-gray-100">
         <h3 className="text-sm font-semibold text-gray-900 inline-flex items-center gap-1">Where your market share is won &amp; lost<InfoTooltip content={IDENTITY_NOTE} wide /></h3>
-        <p className="text-[11px] text-gray-500 mt-0.5">Your slice of the market, and what each conversion step does to it — beat the market and your slice grows, trail it and your slice shrinks.</p>
+        <p className="text-[11px] text-gray-500 mt-0.5">The bars are your <span className="font-semibold text-gray-600">share of the market</span> ({pct(b.impShare)} of impressions → {pct(b.purchShare)} of purchases). Each step multiplies that share by your <span className="font-semibold text-gray-600">conversion rate ÷ the market's</span> — the <span className="font-semibold text-gray-600">×market</span> under each bar. Over 1× your slice grows; under 1× it shrinks.</p>
         <p className="text-[12px] text-gray-700 leading-relaxed mt-1 max-w-4xl"><span className="font-semibold">So what:</span> <span className="text-gray-600">{soWhat}</span></p>
       </div>
       <div className="px-4 py-3">
@@ -51,6 +51,7 @@ export default function ParityBridge({ rows, onFocusStage }: {
           {b.steps.map((s, j) => {
             const from = cum[STEP_FROM[s.key]], to = cum[STEP_FROM[s.key] + 1];
             const up = s.deltaShare >= 0;
+            const ratio = s.marketRate ? (s.yourRate ?? 0) / s.marketRate : null;
             const yTop = Math.min(y(from), y(to)), h = Math.max(1.5, Math.abs(y(from) - y(to)));
             const col = up ? '#10B981' : '#EF4444';
             const isLeak = b.biggestLeakKey === s.key;
@@ -61,6 +62,7 @@ export default function ParityBridge({ rows, onFocusStage }: {
                 <rect x={cx(j + 1) - barW / 2} y={yTop} width={barW} height={h} rx={2} fill={col} fillOpacity={hover === j ? 1 : 0.85} stroke={isLeak ? '#B45309' : 'none'} strokeWidth={isLeak ? 1.5 : 0} />
                 <text x={cx(j + 1)} y={yTop - 7} textAnchor="middle" fontSize="11" fontWeight="700" fill={up ? '#059669' : '#DC2626'}>{pct(from)} → {pct(to)}</text>
                 <text x={cx(j + 1)} y={base + 16} textAnchor="middle" fontSize="9" fontWeight="600" fill="#475569">{TRANSITION_NAME[s.key]}</text>
+                {ratio != null && <text x={cx(j + 1)} y={base + 29} textAnchor="middle" fontSize="9" fontWeight="700" fill={up ? '#059669' : '#DC2626'}>{ratio.toFixed(2)}× market</text>}
                 {isLeak && (
                   <g>
                     <rect x={cx(j + 1) - 42} y={yTop - 34} width={84} height={15} rx={7} fill="#DC2626" />
@@ -95,28 +97,44 @@ export default function ParityBridge({ rows, onFocusStage }: {
         })()}
         </div>
 
-        {/* Rates driving each step — kept OUT of the bars so share (above) and rate (here) never collide */}
+        {/* Rates driving each step — labelled columns so "your rate" is never mistaken for share */}
         <div className="mt-2 rounded-lg border border-gray-100 bg-gray-50/50 px-3 py-2.5">
-          <div className="text-[11px] font-semibold text-gray-600 mb-1.5">Why your slice moves — your conversion rate vs the market at each step</div>
+          <div className="text-[11px] font-semibold text-gray-600 mb-1.5">How each step moves your slice — your conversion rate vs the market</div>
           <table className="w-full text-[12px]">
+            <thead>
+              <tr className="text-[9px] font-bold uppercase tracking-wider text-gray-400 border-b border-gray-100">
+                <th className="py-1 pr-3 text-left">Step</th>
+                <th className="py-1 px-2 text-right">Your rate</th>
+                <th className="py-1 px-2 text-right">Market rate</th>
+                <th className="py-1 pl-2 text-right">× market</th>
+                <th className="py-1 pl-2 text-right">Your slice</th>
+              </tr>
+            </thead>
             <tbody>
               {b.steps.map((s) => {
                 const up = s.deltaShare >= 0;
                 const ratio = s.marketRate ? (s.yourRate ?? 0) / s.marketRate : null;
                 const isDrop = b.biggestLeakKey === s.key;
                 const col = up ? 'text-emerald-700' : 'text-rose-700';
+                const from = cum[STEP_FROM[s.key]], to = cum[STEP_FROM[s.key] + 1];
                 return (
-                  <tr key={s.key} className="border-t border-gray-100 first:border-t-0">
+                  <tr key={s.key} className="border-t border-gray-100">
                     <td className="py-1.5 pr-3 font-semibold text-gray-700 whitespace-nowrap">{TRANSITION_NAME[s.key]}</td>
-                    <td className="py-1.5 px-2 text-right tabular-nums text-gray-600 whitespace-nowrap">you <span className={`font-bold ${col}`}>{pct(s.yourRate ?? 0)}</span></td>
-                    <td className="py-1.5 px-2 text-right tabular-nums text-gray-500 whitespace-nowrap">market {pct(s.marketRate ?? 0)}</td>
-                    <td className={`py-1.5 pl-2 text-right tabular-nums font-semibold whitespace-nowrap ${col}`}>{ratio != null ? `${ratio.toFixed(2)}× the market` : '—'}</td>
-                    <td className="py-1.5 pl-2 text-right whitespace-nowrap">{isDrop ? <span className="text-[9px] font-bold text-rose-700 bg-rose-50 ring-1 ring-inset ring-rose-200 rounded px-1.5 py-0.5">BIGGEST DROP</span> : <span className={`text-[10px] font-semibold ${up ? 'text-emerald-600' : 'text-rose-600'}`}>{up ? '+' : ''}{(s.deltaShare * 100).toFixed(1)}pp share</span>}</td>
+                    <td className="py-1.5 px-2 text-right tabular-nums"><span className={`font-bold ${col}`}>{pct(s.yourRate ?? 0)}</span></td>
+                    <td className="py-1.5 px-2 text-right tabular-nums text-gray-500">{pct(s.marketRate ?? 0)}</td>
+                    <td className={`py-1.5 pl-2 text-right tabular-nums font-semibold ${col}`}>{ratio != null ? `${ratio.toFixed(2)}×` : '—'}</td>
+                    <td className="py-1.5 pl-2 text-right whitespace-nowrap tabular-nums">
+                      <span className={`font-semibold ${col}`}>{pct(from)} → {pct(to)}</span>
+                      {isDrop && <span className="ml-2 text-[9px] font-bold text-rose-700 bg-rose-50 ring-1 ring-inset ring-rose-200 rounded px-1 py-0.5">BIGGEST DROP</span>}
+                    </td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
+          <p className="text-[10px] text-gray-400 mt-2 leading-snug">
+            <span className="font-semibold text-gray-500">“Your rate”</span> is your conversion at that step (e.g. click rate = clicks ÷ impressions) — a <span className="italic">different</span> number from your market share. It's the <span className="font-semibold text-gray-500">×market</span> that grows or shrinks your slice, shown on the bars above.
+          </p>
         </div>
 
         <div className="mt-2 text-[10px] text-gray-500 border-t border-gray-100 pt-2 flex flex-wrap gap-x-3 gap-y-0.5">
