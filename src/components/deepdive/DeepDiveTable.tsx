@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import { ArrowUp, ArrowDown, ChevronRight, ChevronsUpDown, Download, Sheet, MousePointer2, Copy, Check } from 'lucide-react';
+import { ArrowUp, ArrowDown, ChevronRight, Download, Sheet, MousePointer2, Copy, Check } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import ColumnToggle from './ColumnToggle';
 import SelectionStats from './SelectionStats';
@@ -43,6 +43,8 @@ interface DeepDiveTableProps {
   childRowsMap?: Record<string, any[]>;
   rowKeyField?: string;
   childLabelField?: string;
+  groupNoun?: string;   // parent-row noun for the view switch (e.g. "ASIN", "Product"); defaults from rowKeyField
+  childNoun?: string;   // child-row noun (e.g. "SKU"); defaults from childLabelField
   hideHeader?: boolean;
   tooltip?: string;
   subtitle?: string;
@@ -161,14 +163,16 @@ function getRectCells(
   return cells;
 }
 
-export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottomRowData, childRowsMap, rowKeyField, childLabelField, tooltip, subtitle, hideHeader = false, embedded = false, showPoP: propShowPoP, onPoPChange, showLY: propShowLY, onLYChange, selectMode: propSelectMode, onSelectModeChange, onSelectedValuesChange, visibleColumnsOverride, copyablePinnedCell = false }: DeepDiveTableProps) {
+export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottomRowData, childRowsMap, rowKeyField, childLabelField, groupNoun, childNoun: childNounProp, tooltip, subtitle, hideHeader = false, embedded = false, showPoP: propShowPoP, onPoPChange, showLY: propShowLY, onLYChange, selectMode: propSelectMode, onSelectModeChange, onSelectedValuesChange, visibleColumnsOverride, copyablePinnedCell = false }: DeepDiveTableProps) {
   const [selectedCells, setSelectedCells] = useState<SelectedCell[]>([]);
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>(null);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [flatView, setFlatView] = useState(false);
   const hasChildren = !!childRowsMap && !!rowKeyField;
-  const childNoun = childLabelField === 'sku' ? 'SKU' : childLabelField === 'asin' ? 'ASIN' : childLabelField === 'placement' ? 'placement' : (childLabelField ?? 'item');
+  const NOUN: Record<string, string> = { asin: 'ASIN', sku: 'SKU', placement: 'placement', campaign: 'Campaign', product: 'Product' };
+  const childNoun = childNounProp ?? (childLabelField === 'sku' ? 'SKU' : childLabelField === 'asin' ? 'ASIN' : childLabelField === 'placement' ? 'placement' : (childLabelField ?? 'item'));
+  const parentNoun = groupNoun ?? (rowKeyField ? (NOUN[rowKeyField] ?? rowKeyField.toUpperCase()) : 'Group');
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => {
     return new Set(columnDefs.filter((c) => !c.hide).map((c) => c.field));
   });
@@ -255,6 +259,19 @@ export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottom
 
   const flat = hasChildren && flatView;
   const baseData = flat ? flatData : rowData;
+
+  // 3-way view switch: {parent}s (collapsed) · {parent}s & {child}s (expanded) · {child}s (flat).
+  const allParentKeys = useMemo(
+    () => (hasChildren ? rowData.map((r) => r[rowKeyField!] as string).filter((k) => childRowsMap![k]?.length) : []),
+    [hasChildren, rowData, childRowsMap, rowKeyField],
+  );
+  const allExpanded = allParentKeys.length > 0 && allParentKeys.every((k) => expandedRows.has(k));
+  const view: 'group' | 'both' | 'flat' = flat ? 'flat' : allExpanded ? 'both' : 'group';
+  const setView = (v: 'group' | 'both' | 'flat') => {
+    if (v === 'flat') { setFlatView(true); return; }
+    setFlatView(false);
+    setExpandedRows(v === 'both' ? new Set(allParentKeys) : new Set());
+  };
 
   const sortedData = useMemo(() => {
     if (!sortField || !sortDir) return baseData;
@@ -510,40 +527,21 @@ export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottom
         </div>
         <div className="flex items-center gap-3">
           {hasChildren && (
-            <div className="inline-flex rounded-lg border border-gray-200 p-0.5" title={`Switch between the parent view and a flat list of every ${childNoun}`}>
-              <button
-                onClick={() => setFlatView(false)}
-                className={`px-2 py-0.5 text-[11px] font-semibold rounded-md transition-colors ${!flat ? 'bg-gray-900 text-white' : 'text-gray-500 hover:text-gray-700'}`}
-              >
-                Grouped
-              </button>
-              <button
-                onClick={() => setFlatView(true)}
-                className={`px-2 py-0.5 text-[11px] font-semibold rounded-md transition-colors ${flat ? 'bg-cx-500 text-white' : 'text-gray-500 hover:text-gray-700'}`}
-              >
-                All {childNoun}s
-              </button>
+            <div className="inline-flex rounded-lg border border-gray-200 p-0.5" title={`Show ${parentNoun}s, ${parentNoun}s with their ${childNoun}s, or a flat list of ${childNoun}s`}>
+              {([
+                { v: 'group' as const, label: `${parentNoun}s` },
+                { v: 'both' as const, label: `${parentNoun}s & ${childNoun}s` },
+                { v: 'flat' as const, label: `${childNoun}s` },
+              ]).map((o) => (
+                <button
+                  key={o.v}
+                  onClick={() => setView(o.v)}
+                  className={`px-2.5 py-0.5 text-[11px] font-semibold rounded-md transition-colors whitespace-nowrap ${view === o.v ? 'bg-gray-900 text-white' : 'text-gray-500 hover:text-gray-700'}`}
+                >
+                  {o.label}
+                </button>
+              ))}
             </div>
-          )}
-          {hasChildren && !flat && (
-            <button
-              onClick={() => {
-                const allKeys = sortedData.map((r) => r[rowKeyField!] as string).filter((k) => childRowsMap![k]);
-                const allExpanded = allKeys.every((k) => expandedRows.has(k));
-                if (allExpanded) {
-                  setExpandedRows(new Set());
-                } else {
-                  setExpandedRows(new Set(allKeys));
-                }
-              }}
-              className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold border border-gray-200 rounded-lg text-gray-500 hover:text-cx-500 hover:border-cx-300 transition-colors"
-            >
-              <ChevronsUpDown className="w-3.5 h-3.5" />
-              {sortedData.map((r) => r[rowKeyField!] as string).filter((k) => childRowsMap![k]).every((k) => expandedRows.has(k))
-                ? 'Collapse All'
-                : 'Expand All'
-              }
-            </button>
           )}
           <button
             onClick={() => {

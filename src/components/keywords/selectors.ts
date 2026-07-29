@@ -17,6 +17,28 @@ function trendOf(flags: Flag[]): 'up' | 'down' | 'flat' {
   return 'flat';
 }
 
+/** MRP-style keyword segment filter: contains (AND by default), OR for either, ! / - to exclude.
+ *  e.g. "vitamin d3" → both · "vitamin OR d3" → either · "vitamin !gummy" → contains vitamin, not gummy. */
+export function makeKeywordMatcher(filter: string): (query: string) => boolean {
+  const f = filter.trim().toLowerCase();
+  if (!f) return () => true;
+  const tokens = f.split(/\s+/);
+  const isOr = tokens.some((t) => t === 'or' || t === '|');
+  const includes: string[] = [];
+  const excludes: string[] = [];
+  for (const t of tokens) {
+    if (t === 'and' || t === '&' || t === 'or' || t === '|') continue;
+    if ((t.startsWith('!') || t.startsWith('-')) && t.length > 1) excludes.push(t.slice(1));
+    else includes.push(t);
+  }
+  return (query: string) => {
+    const q = query.toLowerCase();
+    if (excludes.some((e) => q.includes(e))) return false;
+    if (includes.length === 0) return true;
+    return isOr ? includes.some((t) => q.includes(t)) : includes.every((t) => q.includes(t));
+  };
+}
+
 export interface QueryRow {
   query: string; branded: boolean; quadrant: Quadrant; volumeWk: number; purchases: number;
   impShare: number; clickShare: number; basketShare: number; purchShare: number;

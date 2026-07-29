@@ -6,8 +6,11 @@ import { eur } from '../searchfunnel/format';
 
 const CLOSURES = [0.25, 0.5, 0.75];
 
-export default function MainIssueBanner({ banner, nTracked, closure, setClosure, onNextStep }: {
+export type KeywordFilter = 'all' | 'top5' | 'under_indexed';
+
+export default function MainIssueBanner({ banner, nTracked, closure, setClosure, onNextStep, activeFilter = 'all', onFilter }: {
   banner: PortfolioBanner; nTracked: number; closure: number; setClosure: (c: number) => void; onNextStep: () => void;
+  activeFilter?: KeywordFilter; onFilter?: (f: 'top5' | 'under_indexed') => void;
 }) {
   const opportunityWk = banner.opportunityWkFull * closure;
   const q = QUADRANT_META[banner.dominant];
@@ -37,16 +40,18 @@ export default function MainIssueBanner({ banner, nTracked, closure, setClosure,
               ))}
             </div>
           </div>
-          <div className="rounded-lg border border-gray-200 bg-white/80 px-3 py-2 min-w-[120px]">
+          <button onClick={() => onFilter?.('top5')} title="Show the top 5 keywords by purchases"
+            className={`text-left rounded-lg border bg-white/80 px-3 py-2 min-w-[120px] transition-all ${activeFilter === 'top5' ? 'border-cx-400 ring-1 ring-cx-400/40 bg-white' : 'border-gray-200 hover:border-cx-300 hover:bg-white'}`}>
             <div className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-gray-500"><Target className="w-3.5 h-3.5 text-rose-600" />Concentration<InfoTooltip content="Top-5 queries' share of your SQP purchases. High = a short to-do list." /></div>
             <div className="text-lg font-bold text-gray-900 tabular-nums leading-tight mt-1">{Math.round(banner.concentration)}%</div>
-            <div className="text-[10px] text-gray-500 mt-0.5">of purchases in top 5</div>
-          </div>
-          <div className="rounded-lg border border-gray-200 bg-white/80 px-3 py-2 min-w-[120px]">
+            <div className="text-[10px] text-gray-500 mt-0.5 flex items-center justify-between gap-1">of purchases in top 5<span className="text-cx-600 font-semibold">{activeFilter === 'top5' ? 'showing' : 'view →'}</span></div>
+          </button>
+          <button onClick={() => onFilter?.('under_indexed')} title="Show the under-indexed keywords"
+            className={`text-left rounded-lg border bg-white/80 px-3 py-2 min-w-[120px] transition-all ${activeFilter === 'under_indexed' ? 'border-cx-400 ring-1 ring-cx-400/40 bg-white' : 'border-gray-200 hover:border-cx-300 hover:bg-white'}`}>
             <div className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-gray-500"><Layers className="w-3.5 h-3.5 text-indigo-600" />Under-indexed</div>
             <div className="text-lg font-bold text-gray-900 tabular-nums leading-tight mt-1">{banner.underIndexed}</div>
-            <div className="text-[10px] text-gray-500 mt-0.5">of {nTracked} tracked</div>
-          </div>
+            <div className="text-[10px] text-gray-500 mt-0.5 flex items-center justify-between gap-1">of {nTracked} tracked<span className="text-cx-600 font-semibold">{activeFilter === 'under_indexed' ? 'showing' : 'view →'}</span></div>
+          </button>
         </div>
 
         <button onClick={onNextStep} className="flex-shrink-0 inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-gray-900 hover:bg-gray-800 text-white text-[12px] font-semibold shadow-sm transition-colors group">

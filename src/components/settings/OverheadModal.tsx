@@ -4,7 +4,8 @@ import { useCurrency } from '../../contexts/CurrencyContext';
 import { fc } from '../../utils/currency';
 import {
   OVERHEAD_CATEGORIES, ALLOCATION_LABEL, ALLOCATION_HINT, monthlyRunRate, nextId,
-  type OverheadEntry, type OverheadKind, type FixedFrequency, type VariableBasis, type AllocationBasis,
+  SCOPE_LEVELS, scopeValues, scopeOf, DEFAULT_SCOPE,
+  type OverheadEntry, type OverheadKind, type FixedFrequency, type VariableBasis, type AllocationBasis, type ScopeLevel,
 } from '../../data/overheadsData';
 
 const FREQS: { v: FixedFrequency; label: string }[] = [
@@ -41,6 +42,9 @@ export default function OverheadModal({ entry, onClose, onSave }: {
 
   const forever = d.endDate == null;
   const rateUnit = d.basis === 'pct_sales' ? '%' : '€ / ' + (d.basis === 'per_order' ? 'order' : 'unit');
+
+  const scope = scopeOf(d);
+  const setScopeLevel = (level: ScopeLevel) => set('scope', level === 'all' ? DEFAULT_SCOPE : { level, value: scopeValues(level)[0] ?? '' });
 
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center p-4" onClick={onClose}>
@@ -123,6 +127,22 @@ export default function OverheadModal({ entry, onClose, onSave }: {
               </div>
             )}
 
+            <Field label="Applies to" hint="Which slice of the account carries this cost">
+              <div className="grid grid-cols-2 gap-2">
+                <select value={scope.level} onChange={(e) => setScopeLevel(e.target.value as ScopeLevel)}
+                  className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-cx-500/30 focus:border-cx-400 outline-none bg-white">
+                  {SCOPE_LEVELS.map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}
+                </select>
+                {scope.level !== 'all' && (
+                  <select value={scope.value} onChange={(e) => set('scope', { level: scope.level, value: e.target.value })}
+                    className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-cx-500/30 focus:border-cx-400 outline-none bg-white">
+                    {scopeValues(scope.level).map((v) => <option key={v} value={v}>{v}</option>)}
+                  </select>
+                )}
+              </div>
+              <p className="mt-1 text-[10px] text-gray-400 leading-snug">{scope.level === 'all' ? 'Charged across the whole account.' : `Charged only to ${scope.value || 'the selected ' + scope.level} — and allocated within that slice below.`}</p>
+            </Field>
+
             <Field label="Allocation to SKUs" hint="How this cost is spread onto per-product profit">
               <select value={d.allocation} onChange={(e) => set('allocation', e.target.value as AllocationBasis)}
                 className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-cx-500/30 focus:border-cx-400 outline-none bg-white">
@@ -175,7 +195,7 @@ export default function OverheadModal({ entry, onClose, onSave }: {
               )}
             </div>
             <div className="mt-3 text-[10px] text-gray-500 leading-snug">
-              Allocated to SKUs <span className="font-semibold text-gray-700">{ALLOCATION_LABEL[d.allocation].toLowerCase()}</span>, posted to <span className="font-semibold text-gray-700">{OVERHEAD_CATEGORIES.find((c) => c.id === d.categoryId)?.code}</span> on the P&L.
+              Applies to <span className="font-semibold text-gray-700">{scope.level === 'all' ? 'the whole account' : scope.value || scope.level}</span>, allocated <span className="font-semibold text-gray-700">{ALLOCATION_LABEL[d.allocation].toLowerCase()}</span>, posted to <span className="font-semibold text-gray-700">{OVERHEAD_CATEGORIES.find((c) => c.id === d.categoryId)?.code}</span> on the P&L.
             </div>
           </div>
         </div>

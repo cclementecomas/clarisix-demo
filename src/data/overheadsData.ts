@@ -5,10 +5,40 @@
 // sum of these, normalised to a monthly run-rate and allocated to SKUs by the
 // chosen basis. Amounts are stored in EUR (base); display converts per currency.
 
+import { filterOptions } from './dashboardData';
+
 export type OverheadKind = 'fixed' | 'variable';
 export type FixedFrequency = 'monthly' | 'quarterly' | 'yearly' | 'one_time';
 export type VariableBasis = 'pct_sales' | 'per_order' | 'per_unit';
 export type AllocationBasis = 'revenue' | 'units' | 'equal' | 'none';
+
+// ─── Scope — which slice of the account a cost applies to (marketplace / brand / …) ──
+export type ScopeLevel = 'all' | 'marketplace' | 'brand' | 'category' | 'subcategory';
+export interface OverheadScope { level: ScopeLevel; value: string } // value '' when level === 'all'
+export const DEFAULT_SCOPE: OverheadScope = { level: 'all', value: '' };
+
+export const SCOPE_LEVELS: { id: ScopeLevel; label: string }[] = [
+  { id: 'all', label: 'Entire account' },
+  { id: 'marketplace', label: 'Marketplace' },
+  { id: 'brand', label: 'Brand' },
+  { id: 'category', label: 'Category' },
+  { id: 'subcategory', label: 'Subcategory' },
+];
+const SCOPE_LEVEL_LABEL: Record<ScopeLevel, string> = { all: 'Account-wide', marketplace: 'Marketplace', brand: 'Brand', category: 'Category', subcategory: 'Subcategory' };
+export const scopeLevelLabel = (l: ScopeLevel) => SCOPE_LEVEL_LABEL[l];
+
+/** Value options for a level, from the app's shared filters (drops the leading "All …"). */
+export const scopeValues = (level: ScopeLevel): string[] => {
+  switch (level) {
+    case 'marketplace': return filterOptions.marketplace.slice(1);
+    case 'brand': return filterOptions.brand.slice(1);
+    case 'category': return filterOptions.category.slice(1);
+    case 'subcategory': return filterOptions.subcategory.slice(1);
+    default: return [];
+  }
+};
+export const scopeOf = (e: { scope?: OverheadScope }): OverheadScope => e.scope ?? DEFAULT_SCOPE;
+export const scopeLabel = (s: OverheadScope): string => (s.level === 'all' ? 'Account-wide' : s.value);
 
 /** Chart of accounts — anchored on the codes already documented in the P&L tooltip. */
 export interface OverheadCategory { id: string; code: string; label: string; color: string; }
@@ -37,6 +67,7 @@ export interface OverheadEntry {
   startDate: string;          // ISO yyyy-mm-dd
   endDate: string | null;     // null = forever
   allocation: AllocationBasis;
+  scope?: OverheadScope;      // which slice it applies to (default: account-wide)
   note?: string;
   paused?: boolean;
 }
@@ -110,12 +141,12 @@ export const nextId = () => `oh_${++_seq}`;
 export const SEED_OVERHEADS: OverheadEntry[] = [
   { id: 'oh_1', name: 'Amazon team salaries', kind: 'fixed', categoryId: 'payroll', amount: 14_500, frequency: 'monthly', startDate: '2026-01-01', endDate: null, allocation: 'revenue', note: '3 FTE — brand, ads, ops' },
   { id: 'oh_2', name: 'Software stack (Helium 10, Clarisix, Sellerboard)', kind: 'fixed', categoryId: 'software', amount: 1_250, frequency: 'monthly', startDate: '2025-06-01', endDate: null, allocation: 'equal' },
-  { id: 'oh_3', name: 'Warehouse & office rent (Amazon share)', kind: 'fixed', categoryId: 'facilities', amount: 2_400, frequency: 'monthly', startDate: '2025-01-01', endDate: null, allocation: 'units' },
+  { id: 'oh_3', name: 'Warehouse & office rent (DE)', kind: 'fixed', categoryId: 'facilities', amount: 2_400, frequency: 'monthly', startDate: '2025-01-01', endDate: null, allocation: 'units', scope: { level: 'marketplace', value: 'Amazon DE' } },
   { id: 'oh_4', name: 'Accounting & EU VAT compliance', kind: 'fixed', categoryId: 'services', amount: 900, frequency: 'monthly', startDate: '2025-03-01', endDate: null, allocation: 'revenue' },
-  { id: 'oh_5', name: 'Trademark renewal & product liability insurance', kind: 'fixed', categoryId: 'services', amount: 7_200, frequency: 'yearly', startDate: '2026-01-01', endDate: null, allocation: 'equal' },
-  { id: 'oh_6', name: 'A+ photography & content refresh', kind: 'fixed', categoryId: 'agency', amount: 3_500, frequency: 'one_time', startDate: '2026-07-05', endDate: null, allocation: 'equal', note: 'Q3 catalogue refresh' },
-  { id: 'oh_7', name: 'Agency management fee', kind: 'variable', categoryId: 'agency', basis: 'pct_sales', rate: 2, startDate: '2025-09-01', endDate: null, allocation: 'revenue' },
-  { id: 'oh_8', name: 'Prep, labelling & polybagging', kind: 'variable', categoryId: 'other', basis: 'per_unit', rate: 0.18, startDate: '2025-01-01', endDate: null, allocation: 'units' },
+  { id: 'oh_5', name: 'Trademark renewal & product liability insurance', kind: 'fixed', categoryId: 'services', amount: 7_200, frequency: 'yearly', startDate: '2026-01-01', endDate: null, allocation: 'equal', scope: { level: 'brand', value: 'Brand A' } },
+  { id: 'oh_6', name: 'A+ photography & content refresh', kind: 'fixed', categoryId: 'agency', amount: 3_500, frequency: 'one_time', startDate: '2026-07-05', endDate: null, allocation: 'equal', note: 'Q3 catalogue refresh', scope: { level: 'category', value: 'Wellness' } },
+  { id: 'oh_7', name: 'Agency management fee (Brand A)', kind: 'variable', categoryId: 'agency', basis: 'pct_sales', rate: 2, startDate: '2025-09-01', endDate: null, allocation: 'revenue', scope: { level: 'brand', value: 'Brand A' } },
+  { id: 'oh_8', name: 'Prep, labelling & polybagging (DE)', kind: 'variable', categoryId: 'other', basis: 'per_unit', rate: 0.18, startDate: '2025-01-01', endDate: null, allocation: 'units', scope: { level: 'marketplace', value: 'Amazon DE' } },
   { id: 'oh_9', name: 'Payment & FX fees', kind: 'variable', categoryId: 'services', basis: 'pct_sales', rate: 0.6, startDate: '2025-01-01', endDate: null, allocation: 'revenue' },
   { id: 'oh_10', name: 'Q4 seasonal contractor', kind: 'fixed', categoryId: 'payroll', amount: 1_800, frequency: 'monthly', startDate: '2026-09-01', endDate: '2026-12-31', allocation: 'revenue', note: 'Peak-season support' },
   { id: 'oh_11', name: 'Legacy keyword tool', kind: 'fixed', categoryId: 'software', amount: 300, frequency: 'monthly', startDate: '2024-01-01', endDate: '2026-03-31', allocation: 'equal', note: 'Replaced by Clarisix' },

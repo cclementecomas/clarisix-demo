@@ -2,9 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { Search, X } from 'lucide-react';
 import { sqpWeekly } from '../lib/sqp/fixture';
 import { maxWeek, listWeeks, resolveRange, filterScope, latestWeekStatus } from '../lib/sqp/metrics';
-import { portfolioView } from './keywords/selectors';
+import { portfolioView, makeKeywordMatcher } from './keywords/selectors';
 import type { QueryRow } from './keywords/selectors';
-import MainIssueBanner from './keywords/MainIssueBanner';
+import MainIssueBanner, { type KeywordFilter } from './keywords/MainIssueBanner';
 import PortfolioMap from './keywords/PortfolioMap';
 import KeywordTable from './keywords/KeywordTable';
 import KeywordDrawer from './keywords/KeywordDrawer';
@@ -12,6 +12,7 @@ import TrustBar from './sqpui/TrustBar';
 import LatestWeekBanner from './sqpui/LatestWeekBanner';
 import WeekRangePicker from './sqpui/WeekRangePicker';
 import BrandedToggle, { type Brand } from './sqpui/BrandedToggle';
+import InfoTooltip from './InfoTooltip';
 
 /** Sales → SQP → "Keyword Portfolio" (§5). Query pivot. Non-branded by default (§5.5). */
 export default function SQP({ focusQuery, onFocusConsumed }: {
@@ -24,15 +25,21 @@ export default function SQP({ focusQuery, onFocusConsumed }: {
   const [brand, setBrand] = useState<Brand>('nonbranded');
   const [closure, setClosure] = useState(0.5);
   const [selected, setSelected] = useState<QueryRow | null>(null);
+  const [tableFilter, setTableFilter] = useState<KeywordFilter>('all');
+  const [kwFilter, setKwFilter] = useState('');
   const [noteDismissed, setNoteDismissed] = useState(false);
 
   const latest = latestWeekStatus(sqpWeekly);
 
-  const { view, currRows } = useMemo(() => {
+  const currRows = useMemo(() => {
     const { weeks } = resolveRange(sqpWeekly, endWeek, nWeeks);
-    const currRows = filterScope(sqpWeekly, { weeks, branded: brand });
-    return { view: portfolioView(currRows), currRows };
+    return filterScope(sqpWeekly, { weeks, branded: brand });
   }, [endWeek, nWeeks, brand]);
+
+  // Keyword segment filter recomputes the WHOLE page (banner, map, table) so share reflects the segment.
+  const matcher = useMemo(() => makeKeywordMatcher(kwFilter), [kwFilter]);
+  const view = useMemo(() => portfolioView(currRows.filter((r) => matcher(r.query))), [currRows, matcher]);
+  const totalQueries = useMemo(() => new Set(currRows.map((r) => r.query)).size, [currRows]);
 
   const scrollToTable = () => document.getElementById('keyword-table')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
@@ -58,6 +65,13 @@ export default function SQP({ focusQuery, onFocusConsumed }: {
             <p className="text-[11px] text-gray-500 mt-0.5">Treat each keyword as an asset. Defend / Invest / Harvest / Tail. Amazon search (SQP), weekly.</p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+              <input type="text" value={kwFilter} onChange={(e) => setKwFilter(e.target.value)} placeholder="Filter keywords… e.g. vitamin AND d3, !gummy"
+                className="pl-8 pr-7 py-1.5 text-xs w-72 border border-gray-200 rounded-md focus:ring-1 focus:ring-cx-500/30 focus:border-cx-400 outline-none" />
+              {kwFilter && <button onClick={() => setKwFilter('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"><X className="w-3 h-3" /></button>}
+            </div>
+            <InfoTooltip content="Isolate a segment (a category, ingredient or use case). Words are AND by default — “vitamin d3” needs both. Use OR for either (“vitamin OR d3”), and ! or - to exclude (“vitamin !gummy”). The whole page reflects the segment." wide />
             <WeekRangePicker weeks={allWeeks} endWeek={endWeek} nWeeks={nWeeks} onChange={(e, n) => { setEndWeek(e); setNWeeks(n); }} />
             <BrandedToggle value={brand} onChange={setBrand} />
           </div>
@@ -66,6 +80,13 @@ export default function SQP({ focusQuery, onFocusConsumed }: {
         <LatestWeekBanner status={latest} />
       </div>
 
+      {kwFilter.trim() && (
+        <div className="flex items-start justify-between gap-3 bg-cx-50 border border-cx-200 rounded-lg px-3 py-2 text-[11px] text-cx-800">
+          <span>Segment: <span className="font-semibold">{view.nTracked} of {totalQueries}</span> keywords match <span className="font-mono bg-white/70 px-1 rounded">{kwFilter}</span> — banner, quadrant map and table all reflect this segment.</span>
+          <button onClick={() => setKwFilter('')} className="flex-shrink-0 font-semibold text-cx-600 hover:text-cx-700 inline-flex items-center gap-1">Clear <X className="w-3 h-3" /></button>
+        </div>
+      )}
+
       {brand === 'nonbranded' && !noteDismissed && (
         <div className="flex items-start justify-between gap-3 bg-sky-50 border border-sky-200 rounded-lg px-3 py-2 text-[11px] text-sky-800">
           <span>Showing <span className="font-semibold">non-branded</span> queries — branded terms have inflated CTR/CVR (the shopper already wanted you) and mask true listing &amp; PPC performance.</span>
@@ -73,9 +94,10 @@ export default function SQP({ focusQuery, onFocusConsumed }: {
         </div>
       )}
 
-      <MainIssueBanner banner={view.banner} nTracked={view.nTracked} closure={closure} setClosure={setClosure} onNextStep={scrollToTable} />
+      <MainIssueBanner banner={view.banner} nTracked={view.nTracked} closure={closure} setClosure={setClosure} onNextStep={scrollToTable}
+        activeFilter={tableFilter} onFilter={(f) => { setTableFilter((prev) => (prev === f ? 'all' : f)); scrollToTable(); }} />
       <PortfolioMap rows={view.rows} thresholds={view.thresholds} onSelect={setSelected} />
-      <KeywordTable rows={view.rows} selected={selected?.query ?? null} onSelect={setSelected} />
+      <KeywordTable rows={view.rows} selected={selected?.query ?? null} onSelect={setSelected} filter={tableFilter} onClearFilter={() => setTableFilter('all')} />
 
       <KeywordDrawer row={selected} rows={currRows} onClose={() => setSelected(null)} />
     </div>

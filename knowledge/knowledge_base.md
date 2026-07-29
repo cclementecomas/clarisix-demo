@@ -2818,3 +2818,82 @@ searchfunnel/ParityBridge.tsx — copy/layout only, no logic change:
 Mental model to teach: RATE = how your own shoppers behave step-to-step (of those who got
 this far, what % moved on); SHARE = your slice of the whole category. Share only changes when
 you convert differently from the average seller — that difference IS the ×market.
+
+────────────────────────────────────────────────────────────────────────────
+Keyword Portfolio — banner stat cards filter the table (Jul 28 2026)
+
+The MainIssueBanner's Concentration and Under-indexed stat cards were dead numbers. Now they
+FILTER the keyword table to exactly the keywords behind the number and scroll to it:
+- Concentration (top-5 share of purchases) → filter = top 5 keywords by purchases.
+- Under-indexed (count flagged UNDER_INVESTED) → filter = those under-indexed keywords.
+Cards are buttons with hover + a "view →" hint; the active card shows a cx ring + "showing".
+Clicking the active card toggles the filter off. KeywordTable shows a dismissible chip
+("Filtered to … — N shown · Clear filter ×") and updates its count ("3 of 22 queries"); empty
+state handled. Wiring: SQP holds `tableFilter` state, passes activeFilter/onFilter to the
+banner and filter/onClearFilter to the table (KeywordFilter type exported from MainIssueBanner).
+The portfolio map is intentionally left unfiltered — it's the overview; the table is the
+actionable list. (Opportunity/wk card keeps its 25/50/75% closure toggle, unchanged.)
+
+────────────────────────────────────────────────────────────────────────────
+DeepDiveTable — 3-way view switch replaces Grouped/All-SKUs + Expand All (Jul 29 2026)
+
+The old two-control approach (a "Grouped | All {child}s" segmented toggle PLUS a separate
+"Expand All" button that vanished in flat mode) was clunky. Replaced with ONE segmented
+control offering the three views users actually want: {Parent}s · {Parent}s & {Child}s ·
+{Child}s. For Sales → Diagnostics that reads "ASINs · ASINs & SKUs · SKUs".
+- group  ('ASINs')        = grouped, all collapsed
+- both   ('ASINs & SKUs') = grouped, all expanded (this is the old "Expand All")
+- flat   ('SKUs')         = flat list of every child (the old "All SKUs")
+The active segment is derived from state (flat? / all-parents-expanded?), so manually
+expanding every row via the per-row chevrons lights up "ASINs & SKUs" too — and per-row
+chevron drill still works in the grouped views. Nouns: parentNoun from rowKeyField (asin→ASIN)
+or a new `groupNoun` prop; childNoun from childLabelField or a new `childNoun` prop.
+Profitability by Product passes groupNoun="Product" childNoun="SKU" (its children are SKUs
+shown in the asin column), giving "Products · Products & SKUs · SKUs". The embedded Advertising
+campaign→placement table has no toolbar, unchanged. Removed the ChevronsUpDown import.
+
+────────────────────────────────────────────────────────────────────────────
+Keyword Portfolio — rich keyword segment filter (Jul 29 2026)
+
+Added an MRP-style keyword filter to the Keyword Portfolio so execs can isolate a segment (a
+category, ingredient or use case) and see their market share WITHIN it. Input in the page
+controls; syntax (makeKeywordMatcher in keywords/selectors.ts):
+- words are AND by default ("vitamin d3" → needs both),
+- OR for either ("vitamin OR d3"),
+- ! or - to exclude ("vitamin !gummy").
+It filters the raw SQP rows BEFORE portfolioView, so the WHOLE page recomputes on the segment —
+banner (opportunity/concentration/under-indexed, quadrant thresholds), portfolio map and table
+all reflect the subset (matches MRP's "share within this segment" behaviour). A cx info strip
+shows "Segment: N of M keywords match … · Clear"; an InfoTooltip documents the syntax. Composes
+with the existing brand toggle and the banner-card table filters. The drawer still gets the full
+brand-filtered rows (keywordDetail re-filters by the selected query).
+
+Context: this is item 4 of the competitor (My Real Profit) gap analysis. Still-open proposals
+for later: a "Quick wins" synthesis panel (top € ÷ effort actions, typed visibility/conversion/
+defend-slip/ad-dependency/price-explained), a period-over-period Compare/Audit view ("what
+slipped — you vs the market"), PPC integration (organic-vs-paid share, ad-dependency flag; gated
+on the Ads connection), a scannable 0–10 funnel score (+ the breaking stage), and a portfolio
+share-over-time trend.
+
+────────────────────────────────────────────────────────────────────────────
+Overheads — scope a cost to a marketplace / brand / category (Jul 29 2026)
+
+Overheads were account-wide only. Added a "scope" so a cost can target a specific slice —
+what users asked for ("specific costs per level: marketplace, brand, category…").
+- Model (overheadsData.ts): OverheadEntry.scope?: { level: ScopeLevel; value } where
+  ScopeLevel = all | marketplace | brand | category | subcategory (default = account-wide).
+  Value options come from the app's shared filterOptions (scopeValues()), so scope stays in
+  sync with the rest of the app's filters. Helpers: scopeOf, scopeLabel, scopeLevelLabel,
+  SCOPE_LEVELS, DEFAULT_SCOPE.
+- Modal (OverheadModal): an "Applies to" field — a level select + a value select (shown when
+  not account-wide). Impact-preview note now reads "Applies to {slice}, allocated {basis},
+  posted to {GL} on the P&L." Scope (WHICH slice) and allocation (HOW it spreads to SKUs
+  within that slice) are orthogonal and sit next to each other.
+- Table (OverheadsSection): new "Applies to" column — an indigo "{Level} {value}" chip, or a
+  grey "Account-wide". A "All scopes" filter dropdown (Account-wide / By marketplace / brand /
+  category / subcategory) in the toolbar; the search box also matches the scope value.
+- Seed examples: rent + prep scoped to Amazon DE (marketplace); agency fee + trademark to
+  Brand A (brand); photography to Wellness (category).
+- Backend note: scope narrows which slice the cost belongs to; within that slice it still
+  allocates to SKUs by the allocation basis. The P&L wiring (still the 5% placeholder) should
+  sum scoped costs onto the matching slice's overheads and only push to SKUs inside it.

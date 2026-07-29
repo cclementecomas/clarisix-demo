@@ -6,7 +6,8 @@ import OverheadModal from './OverheadModal';
 import {
   SEED_OVERHEADS, OVERHEAD_CATEGORIES, catOf,
   monthlyRunRate, statusOf, isLive, nextId, FREQ_LABEL, ALLOCATION_LABEL,
-  type OverheadEntry, type OverheadStatus,
+  scopeOf, scopeLabel, scopeLevelLabel, SCOPE_LEVELS,
+  type OverheadEntry, type OverheadStatus, type ScopeLevel,
 } from '../../data/overheadsData';
 
 const STATUS_PILL: Record<OverheadStatus, string> = {
@@ -21,6 +22,7 @@ export default function OverheadsSection() {
   const { currency } = useCurrency();
   const [entries, setEntries] = useState<OverheadEntry[]>(SEED_OVERHEADS);
   const [kind, setKind] = useState<KindFilter>('all');
+  const [scopeFilter, setScopeFilter] = useState<'any' | ScopeLevel>('any');
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<OverheadEntry | null>(null);
   const [creating, setCreating] = useState(false);
@@ -40,9 +42,10 @@ export default function OverheadsSection() {
     const q = search.trim().toLowerCase();
     return entries
       .filter((e) => kind === 'all' || e.kind === kind)
-      .filter((e) => !q || e.name.toLowerCase().includes(q) || catOf(e.categoryId).label.toLowerCase().includes(q))
+      .filter((e) => scopeFilter === 'any' || scopeOf(e).level === scopeFilter)
+      .filter((e) => !q || e.name.toLowerCase().includes(q) || catOf(e.categoryId).label.toLowerCase().includes(q) || scopeLabel(scopeOf(e)).toLowerCase().includes(q))
       .sort((a, b) => monthlyRunRate(b) - monthlyRunRate(a));
-  }, [entries, kind, search]);
+  }, [entries, kind, scopeFilter, search]);
 
   const save = (e: OverheadEntry) => {
     setEntries((prev) => prev.some((x) => x.id === e.id) ? prev.map((x) => (x.id === e.id ? e : x)) : [...prev, e]);
@@ -97,12 +100,19 @@ export default function OverheadsSection() {
 
       {/* toolbar */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="inline-flex rounded-lg border border-gray-200 p-0.5 bg-white">
-          {(['all', 'fixed', 'variable'] as KindFilter[]).map((k) => (
-            <button key={k} onClick={() => setKind(k)} className={`px-3 py-1.5 rounded-md text-[12px] font-semibold capitalize transition-colors ${kind === k ? 'bg-gray-900 text-white' : 'text-gray-500 hover:text-gray-700'}`}>
-              {k === 'all' ? 'All' : k === 'fixed' ? 'Recurring' : 'Variable'}
-            </button>
-          ))}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="inline-flex rounded-lg border border-gray-200 p-0.5 bg-white">
+            {(['all', 'fixed', 'variable'] as KindFilter[]).map((k) => (
+              <button key={k} onClick={() => setKind(k)} className={`px-3 py-1.5 rounded-md text-[12px] font-semibold capitalize transition-colors ${kind === k ? 'bg-gray-900 text-white' : 'text-gray-500 hover:text-gray-700'}`}>
+                {k === 'all' ? 'All' : k === 'fixed' ? 'Recurring' : 'Variable'}
+              </button>
+            ))}
+          </div>
+          <select value={scopeFilter} onChange={(e) => setScopeFilter(e.target.value as 'any' | ScopeLevel)}
+            className="px-2.5 py-1.5 text-[12px] font-semibold text-gray-600 border border-gray-200 rounded-lg bg-white focus:ring-1 focus:ring-cx-500/30 focus:border-cx-400 outline-none">
+            <option value="any">All scopes</option>
+            {SCOPE_LEVELS.map((l) => <option key={l.id} value={l.id}>{l.id === 'all' ? 'Account-wide' : `By ${l.label.toLowerCase()}`}</option>)}
+          </select>
         </div>
         <div className="relative">
           <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
@@ -118,6 +128,7 @@ export default function OverheadsSection() {
               <tr className="bg-gray-50 border-b border-gray-100 text-[10px] font-bold uppercase tracking-wider text-gray-500">
                 <th className="px-4 py-2.5 min-w-[220px]">Overhead</th>
                 <th className="px-3 py-2.5">Category</th>
+                <th className="px-3 py-2.5">Applies to</th>
                 <th className="px-3 py-2.5">Type</th>
                 <th className="px-3 py-2.5 text-right">Monthly</th>
                 <th className="px-3 py-2.5">Allocation</th>
@@ -138,6 +149,9 @@ export default function OverheadsSection() {
                       {e.note && <div className="text-[10px] text-gray-400 mt-0.5">{e.note}</div>}
                     </td>
                     <td className="px-3 py-2.5"><span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ backgroundColor: c.color }} /><span className="text-gray-700">{c.label}</span><span className="text-[9px] text-gray-400 font-mono">{c.code}</span></span></td>
+                    <td className="px-3 py-2.5">{(() => { const sc = scopeOf(e); return sc.level === 'all'
+                      ? <span className="text-[11px] text-gray-400">Account-wide</span>
+                      : <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 ring-1 ring-inset ring-indigo-200 text-[10px] font-semibold" title={`${scopeLevelLabel(sc.level)}: ${sc.value}`}><span className="text-indigo-400 font-normal">{scopeLevelLabel(sc.level)}</span> {sc.value}</span>; })()}</td>
                     <td className="px-3 py-2.5 text-gray-600">{rateText(e, currency)}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums font-semibold text-gray-900">{oneOff ? <span className="text-gray-400 font-normal">one-off</span> : <span className={st === 'active' ? '' : 'text-gray-400 font-normal'}>{fc(mo, currency, { compact: false })}</span>}</td>
                     <td className="px-3 py-2.5"><span className="text-[11px] text-gray-500">{ALLOCATION_LABEL[e.allocation]}</span></td>

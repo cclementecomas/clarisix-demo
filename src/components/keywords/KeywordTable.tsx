@@ -1,4 +1,6 @@
+import { X } from 'lucide-react';
 import type { QueryRow } from './selectors';
+import type { KeywordFilter } from './MainIssueBanner';
 import { QUADRANT_META } from './quadrant';
 import { LEAK_CHIP } from '../searchfunnel/leakChip';
 import { eur, int } from '../searchfunnel/format';
@@ -6,15 +8,33 @@ import { flags } from '../../lib/sqp/constants';
 import MiniWaterfall from '../sqpui/MiniWaterfall';
 import InfoTooltip from '../InfoTooltip';
 
-export default function KeywordTable({ rows, selected, onSelect }: {
+const FILTER_LABEL: Record<Exclude<KeywordFilter, 'all'>, string> = {
+  top5: 'top 5 keywords by purchases',
+  under_indexed: 'under-indexed keywords',
+};
+
+export default function KeywordTable({ rows, selected, onSelect, filter = 'all', onClearFilter }: {
   rows: QueryRow[]; selected: string | null; onSelect: (r: QueryRow) => void;
+  filter?: KeywordFilter; onClearFilter?: () => void;
 }) {
+  const shown = filter === 'top5'
+    ? [...rows].sort((a, b) => b.purchases - a.purchases).slice(0, 5)
+    : filter === 'under_indexed'
+      ? rows.filter((r) => r.flags.some((f) => f.key === 'UNDER_INVESTED'))
+      : rows;
+
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden" id="keyword-table">
       <div className="px-5 py-2.5 border-b border-gray-100 flex items-center justify-between">
         <h3 className="text-sm font-semibold text-gray-900">Prioritized keywords</h3>
-        <span className="text-[10px] text-gray-400">{rows.length} queries · sorted by opportunity · click a row for detail</span>
+        <span className="text-[10px] text-gray-400">{shown.length}{filter !== 'all' ? ` of ${rows.length}` : ''} queries · sorted by opportunity · click a row for detail</span>
       </div>
+      {filter !== 'all' && (
+        <div className="px-5 py-2 bg-cx-50/60 border-b border-cx-100 flex items-center justify-between">
+          <span className="text-[11px] text-cx-800">Filtered to the <span className="font-semibold">{FILTER_LABEL[filter]}</span> — {shown.length} shown.</span>
+          <button onClick={onClearFilter} className="inline-flex items-center gap-1 text-[11px] font-semibold text-cx-600 hover:text-cx-700">Clear filter <X className="w-3 h-3" /></button>
+        </div>
+      )}
       <div className="overflow-x-auto">
         <table className="w-full text-left text-[12px]">
           <thead>
@@ -33,7 +53,7 @@ export default function KeywordTable({ rows, selected, onSelect }: {
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => {
+            {shown.map((r) => {
               const q = QUADRANT_META[r.quadrant];
               const isSel = selected === r.query;
               return (
@@ -77,6 +97,7 @@ export default function KeywordTable({ rows, selected, onSelect }: {
                 </tr>
               );
             })}
+            {shown.length === 0 && <tr><td colSpan={11} className="px-5 py-8 text-center text-[12px] text-gray-400">No keywords match this filter.</td></tr>}
           </tbody>
         </table>
       </div>
