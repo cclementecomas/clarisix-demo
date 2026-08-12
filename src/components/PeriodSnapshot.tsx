@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ChevronRight, Download, Image } from 'lucide-react';
+import { ChevronRight, Download, Image, Sparkles } from 'lucide-react';
 import { periodSnapshots } from '../data/dashboardData';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { fc } from '../utils/currency';
+import { hasRootCause, rootCauseFor } from '../data/rootCauseData';
+import RootCausePanel from './RootCausePanel';
 
 const KPI_KEYS = ['Sales', 'TACOS', 'Profitability', 'Out of Stock', 'Content Score', 'Customer Experience'] as const;
 const PCT_KPIS = new Set(['TACOS', 'Out of Stock']);
@@ -226,6 +228,10 @@ export default function PeriodSnapshot({ onCardClick }: PeriodSnapshotProps) {
   const [sharing, setSharing] = useState(false);
   const [shareSuccess, setShareSuccess] = useState<string | null>(null);
   const [activePeriod, setActivePeriod] = useState(0);
+  const [diag, setDiag] = useState<{ kpi: string; period: string } | null>(null);
+
+  const toggleDiag = (kpi: string, period: string) =>
+    setDiag((prev) => (prev?.kpi === kpi && prev.period === period ? null : { kpi, period }));
 
   // Pre-load logo on mount so it's ready when user clicks share
   useEffect(() => { preloadLogo(); }, []);
@@ -364,9 +370,20 @@ export default function PeriodSnapshot({ onCardClick }: PeriodSnapshotProps) {
               ? `${metric.change > 0 ? '+' : ''}${metric.change}${changeSuffix}`
               : '';
 
+            const periodLabel = periodSnapshots[activePeriod].label;
+            const canDiag = hasRootCause(kpi) && !!rootCauseFor(kpi, periodLabel);
+            const isActive = diag?.kpi === kpi && diag?.period === periodLabel;
+
             return (
-              <div key={kpi} className={`flex items-center justify-between px-4 py-3 ${colors.bg}`}>
-                <span className="text-xs font-semibold text-gray-600">{kpi}</span>
+              <div
+                key={kpi}
+                onClick={canDiag ? () => toggleDiag(kpi, periodLabel) : undefined}
+                className={`flex items-center justify-between px-4 py-3 ${colors.bg} ${canDiag ? 'cursor-pointer' : ''} ${isActive ? 'ring-2 ring-inset ring-cx-400' : ''}`}
+              >
+                <span className="text-xs font-semibold text-gray-600 inline-flex items-center gap-1">
+                  {kpi}
+                  {canDiag && <Sparkles className="w-2.5 h-2.5 text-cx-400" />}
+                </span>
                 <div className="text-right">
                   <span className={`text-sm font-bold ${colors.text} tabular-nums`}>{displayValue}</span>
                   {changeStr && (
@@ -409,8 +426,11 @@ export default function PeriodSnapshot({ onCardClick }: PeriodSnapshotProps) {
                 className="py-1.5 px-2.5 flex items-center justify-between cursor-pointer group/label bg-gray-50/30 border-r border-gray-100"
                 onClick={() => onCardClick?.(nav.section, nav.sub)}
               >
-                <span className="text-[11px] font-semibold text-gray-600 group-hover/label:text-cx-600 transition-colors">
+                <span className="text-[11px] font-semibold text-gray-600 group-hover/label:text-cx-600 transition-colors inline-flex items-center gap-1">
                   {kpi}
+                  {hasRootCause(kpi) && (
+                    <Sparkles className="w-2.5 h-2.5 text-cx-400" aria-label="Click a cell to see why it moved" />
+                  )}
                 </span>
                 <ChevronRight className="w-3 h-3 text-gray-300 opacity-0 group-hover/label:opacity-100 group-hover/label:text-cx-400 transition-all" />
               </div>
@@ -434,10 +454,16 @@ export default function PeriodSnapshot({ onCardClick }: PeriodSnapshotProps) {
                   ? `${metric.change > 0 ? '+' : ''}${metric.change}${changeSuffix}`
                   : '';
 
+                const canDiag = hasRootCause(kpi) && !!rootCauseFor(kpi, period.label);
+                const isActive = diag?.kpi === kpi && diag?.period === period.label;
+
                 return (
                   <div
                     key={period.label}
-                    className={`py-1.5 px-2.5 border-l ${colors.border} ${colors.bg} transition-colors`}
+                    onClick={canDiag ? () => toggleDiag(kpi, period.label) : undefined}
+                    className={`relative py-1.5 px-2.5 border-l ${colors.border} ${colors.bg} transition-colors ${
+                      canDiag ? 'cursor-pointer group/cell hover:brightness-[0.97]' : ''
+                    } ${isActive ? 'ring-2 ring-inset ring-cx-400' : ''}`}
                   >
                     <span className={`text-sm font-bold ${colors.text} tabular-nums leading-tight`}>
                       {displayValue}
@@ -447,6 +473,11 @@ export default function PeriodSnapshot({ onCardClick }: PeriodSnapshotProps) {
                         {changeStr}
                       </p>
                     )}
+                    {canDiag && !isActive && (
+                      <span className="absolute top-1 right-1.5 items-center gap-0.5 text-[9px] font-bold text-cx-600 opacity-0 group-hover/cell:opacity-100 transition-opacity hidden sm:inline-flex">
+                        <Sparkles className="w-2.5 h-2.5" /> Why?
+                      </span>
+                    )}
                   </div>
                 );
               })}
@@ -454,6 +485,30 @@ export default function PeriodSnapshot({ onCardClick }: PeriodSnapshotProps) {
           );
         })}
       </div>
+
+      {/* Cross-metric root cause — the "why" behind the selected cell */}
+      {(() => {
+        if (!diag) return null;
+        const cause = rootCauseFor(diag.kpi, diag.period);
+        const period = periodSnapshots.find((p) => p.label === diag.period);
+        const metric = period?.metrics[diag.kpi];
+        if (!cause || !metric) return null;
+        const displayValue = metric.rawValue !== undefined ? fc(metric.rawValue, currency) : String(metric.value);
+        const changeSuffix = PCT_KPIS.has(diag.kpi) ? 'pp' : '%';
+        const changeStr = metric.change !== undefined ? `${metric.change > 0 ? '+' : ''}${metric.change}${changeSuffix}` : '';
+        return (
+          <RootCausePanel
+            metric={diag.kpi}
+            periodLabel={diag.period}
+            displayValue={displayValue}
+            changeStr={changeStr}
+            isPositive={metric.changePositive ?? true}
+            cause={cause}
+            onClose={() => setDiag(null)}
+            onNavigate={(section, sub) => onCardClick?.(section, sub)}
+          />
+        );
+      })()}
     </div>
   );
 }
