@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Search, X } from 'lucide-react';
+import { Search, X, Sparkles, Table } from 'lucide-react';
 import { sqpWeekly } from '../lib/sqp/fixture';
 import { maxWeek, listWeeks, resolveRange, filterScope, latestWeekStatus } from '../lib/sqp/metrics';
 import { portfolioView, makeKeywordMatcher } from './keywords/selectors';
@@ -8,6 +8,7 @@ import MainIssueBanner, { type KeywordFilter } from './keywords/MainIssueBanner'
 import PortfolioMap from './keywords/PortfolioMap';
 import KeywordTable from './keywords/KeywordTable';
 import KeywordDrawer from './keywords/KeywordDrawer';
+import SqpDeepDive from './sqptables/SqpDeepDive';
 import TrustBar from './sqpui/TrustBar';
 import LatestWeekBanner from './sqpui/LatestWeekBanner';
 import WeekRangePicker from './sqpui/WeekRangePicker';
@@ -28,6 +29,7 @@ export default function SQP({ focusQuery, onFocusConsumed }: {
   const [tableFilter, setTableFilter] = useState<KeywordFilter>('all');
   const [kwFilter, setKwFilter] = useState('');
   const [noteDismissed, setNoteDismissed] = useState(false);
+  const [mode, setMode] = useState<'insights' | 'tables'>('insights');
 
   const latest = latestWeekStatus(sqpWeekly);
 
@@ -38,7 +40,8 @@ export default function SQP({ focusQuery, onFocusConsumed }: {
 
   // Keyword segment filter recomputes the WHOLE page (banner, map, table) so share reflects the segment.
   const matcher = useMemo(() => makeKeywordMatcher(kwFilter), [kwFilter]);
-  const view = useMemo(() => portfolioView(currRows.filter((r) => matcher(r.query))), [currRows, matcher]);
+  const scopedRows = useMemo(() => currRows.filter((r) => matcher(r.query)), [currRows, matcher]);
+  const view = useMemo(() => portfolioView(scopedRows), [scopedRows]);
   const totalQueries = useMemo(() => new Set(currRows.map((r) => r.query)).size, [currRows]);
 
   const scrollToTable = () => document.getElementById('keyword-table')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -80,6 +83,18 @@ export default function SQP({ focusQuery, onFocusConsumed }: {
         <LatestWeekBanner status={latest} />
       </div>
 
+      <div className="inline-flex rounded-lg border border-gray-200 p-0.5 bg-white w-max">
+        {([
+          { id: 'insights', label: 'Insights', icon: Sparkles },
+          { id: 'tables', label: 'Tables', icon: Table },
+        ] as const).map((m) => (
+          <button key={m.id} onClick={() => setMode(m.id)}
+            className={`inline-flex items-center gap-1.5 px-3 py-1 text-[11px] font-semibold rounded-md transition-colors ${mode === m.id ? 'bg-cx-500 text-white' : 'text-gray-500 hover:text-gray-700'}`}>
+            <m.icon className="w-3 h-3" />{m.label}
+          </button>
+        ))}
+      </div>
+
       {kwFilter.trim() && (
         <div className="flex items-start justify-between gap-3 bg-cx-50 border border-cx-200 rounded-lg px-3 py-2 text-[11px] text-cx-800">
           <span>Segment: <span className="font-semibold">{view.nTracked} of {totalQueries}</span> keywords match <span className="font-mono bg-white/70 px-1 rounded">{kwFilter}</span> — banner, quadrant map and table all reflect this segment.</span>
@@ -94,12 +109,17 @@ export default function SQP({ focusQuery, onFocusConsumed }: {
         </div>
       )}
 
-      <MainIssueBanner banner={view.banner} nTracked={view.nTracked} closure={closure} setClosure={setClosure} onNextStep={scrollToTable}
-        activeFilter={tableFilter} onFilter={(f) => { setTableFilter((prev) => (prev === f ? 'all' : f)); scrollToTable(); }} />
-      <PortfolioMap rows={view.rows} thresholds={view.thresholds} onSelect={setSelected} />
-      <KeywordTable rows={view.rows} selected={selected?.query ?? null} onSelect={setSelected} filter={tableFilter} onClearFilter={() => setTableFilter('all')} />
+      {mode === 'insights' && (
+        <>
+          <MainIssueBanner banner={view.banner} nTracked={view.nTracked} closure={closure} setClosure={setClosure} onNextStep={scrollToTable}
+            activeFilter={tableFilter} onFilter={(f) => { setTableFilter((prev) => (prev === f ? 'all' : f)); scrollToTable(); }} />
+          <PortfolioMap rows={view.rows} thresholds={view.thresholds} onSelect={setSelected} />
+          <KeywordTable rows={view.rows} selected={selected?.query ?? null} onSelect={setSelected} filter={tableFilter} onClearFilter={() => setTableFilter('all')} />
+          <KeywordDrawer row={selected} rows={currRows} onClose={() => setSelected(null)} />
+        </>
+      )}
 
-      <KeywordDrawer row={selected} rows={currRows} onClose={() => setSelected(null)} />
+      {mode === 'tables' && <SqpDeepDive rows={scopedRows} />}
     </div>
   );
 }

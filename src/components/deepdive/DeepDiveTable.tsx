@@ -58,6 +58,8 @@ interface DeepDiveTableProps {
   onSelectedValuesChange?: (values: number[]) => void;
   visibleColumnsOverride?: Set<string>;
   copyablePinnedCell?: boolean;
+  autoExpand?: boolean;       // start (and re-sync on data change) with every parent expanded
+  hideViewControl?: boolean;  // hide the group/both/flat switch (e.g. when an external pivot drives the grain)
 }
 
 // Higher-is-better cell style. Positive change = green, negative = red.
@@ -163,7 +165,7 @@ function getRectCells(
   return cells;
 }
 
-export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottomRowData, childRowsMap, rowKeyField, childLabelField, groupNoun, childNoun: childNounProp, tooltip, subtitle, hideHeader = false, embedded = false, showPoP: propShowPoP, onPoPChange, showLY: propShowLY, onLYChange, selectMode: propSelectMode, onSelectModeChange, onSelectedValuesChange, visibleColumnsOverride, copyablePinnedCell = false }: DeepDiveTableProps) {
+export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottomRowData, childRowsMap, rowKeyField, childLabelField, groupNoun, childNoun: childNounProp, tooltip, subtitle, hideHeader = false, embedded = false, showPoP: propShowPoP, onPoPChange, showLY: propShowLY, onLYChange, selectMode: propSelectMode, onSelectModeChange, onSelectedValuesChange, visibleColumnsOverride, copyablePinnedCell = false, autoExpand = false, hideViewControl = false }: DeepDiveTableProps) {
   const [selectedCells, setSelectedCells] = useState<SelectedCell[]>([]);
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>(null);
@@ -265,6 +267,10 @@ export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottom
     () => (hasChildren ? rowData.map((r) => r[rowKeyField!] as string).filter((k) => childRowsMap![k]?.length) : []),
     [hasChildren, rowData, childRowsMap, rowKeyField],
   );
+  // When an external pivot drives the grain, start expanded and re-sync whenever the rows change.
+  useEffect(() => {
+    if (autoExpand) setExpandedRows(new Set(allParentKeys));
+  }, [autoExpand, allParentKeys]);
   const allExpanded = allParentKeys.length > 0 && allParentKeys.every((k) => expandedRows.has(k));
   const view: 'group' | 'both' | 'flat' = flat ? 'flat' : allExpanded ? 'both' : 'group';
   const setView = (v: 'group' | 'both' | 'flat') => {
@@ -526,7 +532,7 @@ export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottom
           )}
         </div>
         <div className="flex items-center gap-3">
-          {hasChildren && (
+          {hasChildren && !hideViewControl && (
             <div className="inline-flex rounded-lg border border-gray-200 p-0.5" title={`Show ${parentNoun}s, ${parentNoun}s with their ${childNoun}s, or a flat list of ${childNoun}s`}>
               {([
                 { v: 'group' as const, label: `${parentNoun}s` },
