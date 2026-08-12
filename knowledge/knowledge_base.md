@@ -2897,3 +2897,180 @@ what users asked for ("specific costs per level: marketplace, brand, category…
 - Backend note: scope narrows which slice the cost belongs to; within that slice it still
   allocates to SKUs by the allocation basis. The P&L wiring (still the 5% placeholder) should
   sum scoped costs onto the matching slice's overheads and only push to SKUs inside it.
+
+────────────────────────────────────────────────────────────────────────────
+Period Snapshot — cross-metric root cause ("Why did it move?") (Jul 30 2026)
+
+Problem: the Home → Period Snapshot is a 6-pillar × 5-period grid of red/green deltas. A user
+sees "TACOS up 3%" or "Sales −7.2%" but can't tell WHY — the grid shows six metrics as isolated
+squares, so the user has to correlate them in their head. And KPIs are entangled: one stockout
+drags Sales down, spikes Out-of-Stock, and pushes TACOS up — one root cause, three red cells.
+
+Solution — a "Diagnosis" that does the correlation for the user. Click any eligible cell → an
+inline panel opens under the snapshot, scoped to that exact metric × period, that sorts the OTHER
+five pillars into three roles:
+  • Cause       — moved the focused metric (hurt or helped), ranked by contribution
+  • Knock-on    — moved BECAUSE the metric moved (downstream, not a new problem)
+  • Ruled out   — healthy; explicitly NOT the cause (so the user stops looking)
+…topped by a one-line plain-English verdict and a "nature" tag (Supply / Demand / Efficiency /
+Healthy / Mix). Example (Sales, Month-to-date, −7.2%): tag "Supply problem"; verdict "3 hero SKUs
+went out of stock mid-month — demand is healthy, supply isn't"; cause = Out of Stock +1.3pp
+(~78% of the move) with a contribution bar, plus TACOS −1.7pp tagged "helped · offset" (ads got
+cheaper — NOT an ad problem); knock-on = Profitability −25.6% (fixed costs over less revenue);
+ruled out = Content +2.8, Customer Experience +0.4; action = "Restock the 3 SKUs to recover
+~€2.1k/week · Open Planner".
+
+Why this limits cognitive load (design rationale):
+1. Inverts the default. Dashboards make you FIND the cause among many metrics; this ELIMINATES
+   candidates (the ruled-out ledger) and NAMES the one that matters. "Read 6 numbers" → "read 1
+   sentence."
+2. Ruling-out is first-class. Telling the user what's FINE is as valuable as what's broken — it
+   stops them chasing red herrings (they panic at a red TACOS; the panel says "that's not it").
+3. Cause ≠ consequence. Separating knock-on effects (Profitability fell BECAUSE Sales did) from
+   root causes stops the user treating a symptom as a second problem.
+4. Causal direction, not a heatmap. The cause → focused-metric chain encodes "A caused B" — how
+   people actually reason — far less load than inferring direction from a colour grid.
+5. Progressive disclosure with a fixed apex. Verdict (glance) → chain (mechanism) → drill (the
+   SKUs). The verdict is always one sentence no matter how deep the data goes.
+6. Consistent across all 6 pillars. Learn the card once; TACOS / Profitability / etc. read
+   identically — pattern reuse lowers load as you move across pillars.
+
+Implementation:
+- Data (src/data/rootCauseData.ts): ROOT_CAUSES[metric][periodLabel] → { nature, verdict,
+  causes[], consequences[], ruledOut[], action? }. NATURE_META maps the tag → label + colour.
+  hasRootCause(metric) drives the affordance; rootCauseFor(metric, period) fetches the diagnosis.
+  Metric-agnostic — extend to the other pillars by adding entries. SALES IS IMPLEMENTED FIRST
+  (all 5 periods curated); TACOS / Profitability / Out of Stock / Content / CX are next.
+- Panel (src/components/RootCausePanel.tsx): the diagnosis card (verdict, causal chain with a
+  contribution bar + a focused-metric node, knock-on list, ruled-out chips, action button).
+- Wiring (PeriodSnapshot.tsx): eligible cells (metric has a diagnosis for that period) are
+  clickable — a hover "✨ Why?" hint on desktop, an active cx-400 ring, and a sparkle beside the
+  metric label so the row reads as diagnosable. Works on the mobile card layout too. The action
+  button deep-links via onCardClick (e.g. Sales stockout → Inventory → Planner).
+- Backend note: in production the verdict/causes should be generated from the same driver/attribution
+  engine as Diagnostics + classifiers.md (numerator-vs-denominator decomposition, top movers),
+  not hand-authored — the wireframe curates them to define the target UX.
+
+────────────────────────────────────────────────────────────────────────────
+SQP funnel — swapped the app to a clean, hand-reconcilable demo dataset (Aug 11 2026)
+
+Why: to review the share bridge with round, add-them-up numbers ("easier to reconcile
+numbers to see how it looks"), not the rich synthetic export. Scaled ×10 from a worked
+example: impressions market 1000 / brand 200, clicks 160 / 80, cart 40 / 20, purchases
+20 / 10 (per week) → shares 20% → 50% → 50% → 50%.
+
+How (src/lib/sqp/fixture.ts):
+- Kept the rich generator, now exported as `sqpRich`, and pointed the 45-test methodology
+  suite at it (metrics.test.ts: `import { sqpRich as sqpWeekly }`) so ALL tests stay green —
+  the rich data still exercises leaks, price bias, low-data ASINs and the branded mix that
+  uniform data can't.
+- The app's `sqpWeekly` is now `buildCleanRows()`: one uniform profile on every
+  (ASIN × query × week) — impression share 20%, your CTR 40% vs market 16% (2.50×),
+  basket-add 25% = 25% (1.0×), purchase 50% = 50% (1.0×). Because the profile is uniform,
+  EVERY subset (all / branded / non-branded / one ASIN / one keyword) reconciles to the same
+  20/50/50/50 bridge. 5 keywords, each carried by one owning ASIN (B0DCBQC3JX, B0DEMOG201–204),
+  3 non-branded + 2 branded, 8 identical weeks (any window reconciles). Prices equal (€10) so
+  no price flags; all shipping = 2-day.
+
+Consequences (expected, not bugs):
+- Traffic funnel bridge shows 20%→50%→50%→50% with NO "biggest drop" (your only deviation
+  from market is CTR, and it's in your favour). Banner: "No material leak."
+- The bridge "So what" line still names a worst step ("Basket-add costs the most (0.0pp)")
+  because that copy always cites the least-good step even when nothing leaks — harmless
+  artifact of zero-leak data, left as-is (out of scope).
+- Keyword portfolio shows €0 recoverable / no opportunity and clusters in Harvest/Defend —
+  the honest read of an at-or-above-market funnel.
+To restore realism later, point the app back at `sqpRich` (or delete buildCleanRows and
+rename the export).
+
+────────────────────────────────────────────────────────────────────────────
+Parity bridge → 4-bar share funnel (Aug 11 2026)
+
+Collapsed the 5-column waterfall ("Where your market share is won & lost",
+searchfunnel/ParityBridge.tsx) into a 4-bar share funnel for lower cognitive load.
+
+Why: the old chart was a waterfall bridge — 2 level anchors (Impression share,
+Purchase share) + 3 floating transition bars. That mixed two bar meanings (levels vs
+step-deltas) and the end anchor duplicated the last transition's top. Users found it hard
+to read, and with a healthy (no-drop) funnel the floating-bar machinery was pure cost.
+
+Now: 4 bars, one meaning = SHARE (Impression / Click / Basket / Purchase share), colored by
+the shared STAGE_COLOR palette (impression bar muted, purchase bar solid = the outcome).
+The 3 transitions live on the GAPS between bars: a slope connector (green up / red down /
+grey flat) plus the ×market multiplier and Δpp. 0-based y-axis (honest funnel). Gaps stay
+clickable → onFocusStage, with the same hover tooltip; the rates table below is unchanged.
+Drop case preserved: a losing step slopes down in red with a "BIGGEST DROP" badge, and the
+"So what" line only names a worst step when something actually loses share — otherwise it
+reads "you're at or above the market at every step, so your slice only grows."
+Removed the now-unused Anchor sub-component.
+
+────────────────────────────────────────────────────────────────────────────
+Keyword portfolio — "Tables" deep-dive (SQP full metric tables) (Aug 11 2026)
+
+Added a full-metric-tables deep dive as a "Tables" toggle inside Keyword portfolio
+([Insights] · [Tables]) — the "show me everything" counterpart to the insight-first
+Insights view. Built on the existing DeepDiveTable engine (no new table): sortable
+columns, column show/hide, band-header groups, 3-way group/both/flat view, cell-select,
+Excel/Google-Sheets export all reused.
+
+Structure = a TWO-AXIS pivot, not rigid tabs (revised Aug 11 after feedback that
+grouping "by parent ASIN" but still nesting under keyword was backwards). Two selectors:
+  • Rows by  — the top-level row grain: Keyword | Parent ASIN | Child ASIN | Week
+  • then by  — optional single nested breakdown (None + the other three)
+So "Rows by Parent ASIN" shows parent rows at the top (pinned header relabels to
+"Parent ASIN"); add "then by Keyword" to drill. The collapsed primary row carries the
+group aggregates so it doubles as that group's Total; a grand-total footer spans all.
+One nesting level maps onto DeepDiveTable's parent/child model (3+ levels would need
+extending it). "then by" always excludes the current primary. The pivot selectors ARE
+the level control (Rows by = level 1, then by = level 2), so the table auto-expands and
+the old group/both/flat switch is hidden — DeepDiveTable gained `autoExpand` (start &
+re-sync every parent expanded when the pivot changes) and `hideViewControl` props for
+exactly this. Per-row chevrons still allow collapsing a single group.
+
+Files (src/components/sqptables/):
+- buildTables.ts — buildPivot(rows, primary, secondary) → { rowData, footer, primaryLabel,
+  childRowsMap, childNoun }. DIMS maps each dimension → keyOf/labelOf; nodes use a canonical
+  'rowLabel' (primary) / 'childLabel' (secondary) so columns are dimension-agnostic. Weeks
+  sort newest-first; others by brand clicks. metricsOf() reuses aggregate + stageMetrics.
+- columns.ts — sqpColumns(currency, rowLabel): pinned 'rowLabel' col with a dynamic header;
+  Search Volume, Purchases (Market/Brand),
+  Clicks (Brand/Market, market hidden by default), Impr/Clicks/ATC/Purchases Share %,
+  PPC Spend + ACoS (Ads-gated → muted "—", tooltip "Unlocks with the Ads connection"),
+  Avg Price (Market/Brand). Band groups: Volume / Purchases / Clicks / Share of market /
+  Advertising / Price.
+- parentMap.ts — synthetic parent→child ASIN grouping (SqpRow has only child asin).
+- SqpDeepDive.tsx — preset chips + DeepDiveTable wiring.
+Wiring: SQP.tsx gained a mode toggle; Tables renders SqpDeepDive over the SAME scoped
+rows as Insights (week range + branded + keyword filter all apply). Reuses the page's
+existing filters — no new filter UI in phase 1.
+
+Data note: parentMap groups the 5 clean ASINs into SOFTPICKS (interdentalbürsten,
+zahnseide stick) + BRUSHES (zahnstocher, gum soft picks, gum), so "Rows by Parent ASIN"
+is meaningful (2 parents rolling up multiple keywords). "then by Child ASIN" under a
+keyword is still 1:1 under the single-ASIN-per-keyword fixture; richer data fans it out.
+Deferred (phase 2/3): Compare (PoP Δ/%Δ columns), the Above/Average/Below Funnel Score,
+vs-market heatmap coloring, then live PPC/ACoS + saved views. Chip note says as much.
+
+────────────────────────────────────────────────────────────────────────────
+Portfolio map — ranked axes + median quadrant split (Aug 11 2026)
+
+Problem: the quadrant scatter (Keyword portfolio → Insights → PortfolioMap) crowded
+every keyword into the bottom-left. Cause: raw log-volume x + linear-share y let the
+long-tail (skewed volume, zero-inflated share) pile in one corner, and the dividers hugged
+the edges — vertical at P75 volume (~30% across on log), horizontal at the portfolio-average
+share (near 0). So three cells looked empty and one was a dense blob; the x-ticks bunched too.
+
+Fix (PortfolioMap.tsx): position dots by PERCENTILE RANK on both axes (ranker() → uniform
+spread, midrank for ties) and draw both split lines at the median (dead centre) → four even
+cells by area, dots fill the plot, x-axis de-crowds to 3 ticks at the 25/50/75th-pctile VALUES
+(e.g. 686 · 1.2k · 2.6k). y-ticks likewise, median bold. thresholds prop no longer used by the map.
+
+Quadrant CLASSIFICATION also moved to the median so tint/hover/banner agree (metrics.ts
+queryStats): added volMid = P50 volume and shareMid = P50 click-share; quadrantOf now uses
+them. DECOUPLED on purpose — volSplit (P75) still drives the UNDER_INVESTED "big keyword"
+flag, and shareSplit (portfolio-average share) is still the opportunity TARGET — so opportunity
+€ and flags are unchanged; only the four-way split rebalanced. No test coupling (45 still pass).
+
+Note: even with median splits the cells aren't equally populated — volume and share are
+negatively correlated (win small terms, lose big ones), so keywords cluster on the
+Harvest↔Invest anti-diagonal. That's real signal, not a layout bug.
