@@ -3074,3 +3074,25 @@ flag, and shareSplit (portfolio-average share) is still the opportunity TARGET �
 Note: even with median splits the cells aren't equally populated — volume and share are
 negatively correlated (win small terms, lose big ones), so keywords cluster on the
 Harvest↔Invest anti-diagonal. That's real signal, not a layout bug.
+
+────────────────────────────────────────────────────────────────────────────
+SQP demo data — expanded to 24 varied keywords (Aug 11 2026)
+
+Supersedes the uniform 5-keyword clean dataset (which made the portfolio map a single
+dot cluster). buildCleanRows() now generates 24 keywords from a KwSpec table {q, imp,
+share, ctr, trend, price, asins} so every Keyword-portfolio surface is alive:
+- Portfolio map spreads across all four quadrants (non-branded: Defend 5 / Invest 4 /
+  Harvest 4 / Tail 4) with a real mix of up/flat/down trend colours and dot sizes.
+- Tables pivot: several keywords carry 2 ASINs, so By-Parent / By-Child fan out.
+Design: market rates stay clean (CTR 16%, ATC 25%, close 50%); each keyword sets its
+impression share + a CTR ratio (click share = impShare × ctrR), basket/purchase held at
+parity (1.0×). Trend = a per-week share drift (slope ±0.09) tuned to clear the trend gate
+(≥15% relative AND ≥0.3pp over the trailing 4 weeks); CTR ratios kept so click shares land
+in ~3–55% (below the 0.95 clamp) or the drift would be flattened. Prices vary per keyword,
+own = market (no price bias). Reuses the 9 SQP_ASINS so titles + parentMap resolve.
+
+Trade-off vs the old uniform data: the Traffic funnel bridge is no longer exactly
+20/50/50/50 — the blended aggregate is ~14.5% impressions → ~20% clicks/baskets/purchases
+(still a readable "punch above impression weight" bridge). The rich generator (sqpRich) is
+untouched, so the 45 methodology tests still pass. To restore an exactly-clean funnel we'd
+need to decouple the two surfaces onto separate datasets.

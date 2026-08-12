@@ -232,66 +232,95 @@ function buildRows(): SqpRow[] {
  *  uniform demo data can't). The app itself ships the clean dataset below. */
 export const sqpRich: SqpRow[] = buildRows();
 
-// ─── Clean, hand-reconcilable demo dataset (the app's `sqpWeekly`) ────────────
-// Purpose: make the funnel show round, add-them-up numbers. Every (ASIN × query ×
-// week) shares ONE profile — impression share 20%, your CTR 40% vs market 16%
-// (2.5×), basket-add 25% = market 25% (1.0×), purchase 50% = market 50% (1.0×) —
-// so EVERY subset (all / branded / non-branded / one ASIN / one keyword) reconciles
-// to the SAME share bridge: 20% → 50% → 50% → 50%, with no "biggest drop" (your only
-// deviation from the market is the CTR, and it's in your favour).
-//
-// Per (query, week) the market impressions are the `mktImp` below (identical every
-// week, so ANY week-window reconciles); the rest derive by fixed ratios:
-//   market:  clicks = imp×16%,  baskets = clicks×25%,  purchases = baskets×50%
-//   yours :  imp    = mktImp×20% (your share), clicks = imp×40%, basket = clicks×25%, purch = basket×50%
-// Each keyword is carried by a single owning ASIN so the columns add up by hand.
-// Scaled ×10 from the worked example (100/20 · 16/8 · 4/2 · 2/1 → 1000/200 total/wk).
+// ─── Demo dataset (the app's `sqpWeekly`) ────────────────────────────────────
+// Tidy but VARIED so every Keyword-portfolio surface looks alive: the portfolio map
+// spreads across all four quadrants with up/flat/down trends, the Tables pivot has
+// multiple ASINs per keyword, and the funnel stays readable. Market rates are held
+// clean (CTR 16%, ATC 25%, close 50%); each keyword sets its impression share, a CTR
+// ratio vs the market (click share = impShare × ctrR), a 4-week trend, an average
+// price (own = market, no price bias) and the ASIN(s) carrying it (brand split evenly).
+// Basket/purchase steps stay at parity (1.0×), so the funnel reads impShare → clickShare
+// → hold → hold. Reused ASIN ids resolve titles + parentMap for the By-Parent/Child pivots.
 
-interface CleanSpec { query: string; asin: string; mktImp: number; }
-const CLEAN_SPEC: CleanSpec[] = [
-  { query: 'interdentalbürsten', asin: 'B0DCBQC3JX', mktImp: 400 }, // non-branded
-  { query: 'zahnseide stick',    asin: 'B0DEMOG201', mktImp: 300 }, // non-branded
-  { query: 'zahnstocher',        asin: 'B0DEMOG202', mktImp: 100 }, // non-branded
-  { query: 'gum soft picks',     asin: 'B0DEMOG203', mktImp: 100 }, // branded
-  { query: 'gum',                asin: 'B0DEMOG204', mktImp: 100 }, // branded
+type Trend = 'up' | 'flat' | 'down';
+interface KwSpec { q: string; imp: number; share: number; ctr: number; trend: Trend; price: number; asins: string[] }
+
+const KW: KwSpec[] = [
+  // high volume · low share → INVEST (big terms you under-index)
+  { q: 'interdentalbürsten',         imp: 6000, share: 0.06, ctr: 0.85, trend: 'down', price: 12, asins: ['B0DCBQC3JX', 'B0DEMOG201'] },
+  { q: 'zahnseide',                  imp: 4200, share: 0.05, ctr: 0.80, trend: 'flat', price: 9,  asins: ['B0DEMOG202'] },
+  { q: 'zahnzwischenraumbürsten',    imp: 3600, share: 0.08, ctr: 0.90, trend: 'up',   price: 14, asins: ['B0DEMOG203', 'B0DEMOG204'] },
+  { q: 'zahnstocher',                imp: 3000, share: 0.04, ctr: 0.90, trend: 'down', price: 8,  asins: ['B0DEMOG205'] },
+  { q: 'mundhygiene set',            imp: 2400, share: 0.05, ctr: 0.90, trend: 'flat', price: 22, asins: ['B0DEMOG206'] },
+  // high volume · high share → DEFEND
+  { q: 'interdentalbürsten set',     imp: 2000, share: 0.22, ctr: 1.90, trend: 'up',   price: 16, asins: ['B0DCBQC3JX', 'B0DEMOG201'] },
+  { q: 'zahnzwischenraum reinigung', imp: 1500, share: 0.18, ctr: 2.10, trend: 'flat', price: 15, asins: ['B0DEMOG202'] },
+  // low volume · high share → HARVEST (niche you dominate)
+  { q: 'interdentalbürsten 0.6mm',   imp: 600,  share: 0.30, ctr: 1.60, trend: 'up',   price: 18, asins: ['B0DEMOG203'] },
+  { q: 'interdentalbürsten weich',   imp: 500,  share: 0.28, ctr: 1.55, trend: 'flat', price: 17, asins: ['B0DEMOG204'] },
+  { q: 'silikon interdentalbürsten', imp: 400,  share: 0.34, ctr: 1.45, trend: 'up',   price: 19, asins: ['B0DEMOG205'] },
+  { q: 'zahnsticks weich',           imp: 350,  share: 0.31, ctr: 1.45, trend: 'down', price: 11, asins: ['B0DEMOG206'] },
+  { q: 'interdental reiniger',       imp: 300,  share: 0.38, ctr: 1.35, trend: 'flat', price: 20, asins: ['B0DEMOG207'] },
+  { q: 'zahnbürste zwischenräume',   imp: 250,  share: 0.29, ctr: 1.50, trend: 'up',   price: 13, asins: ['B0DEMOG202', 'B0DEMOG203'] },
+  // low volume · low share → TAIL
+  { q: 'zahnpflege reise',           imp: 200,  share: 0.05, ctr: 0.90, trend: 'flat', price: 24, asins: ['B0DEMOG208'] },
+  { q: 'zahnreinigung stäbchen',     imp: 160,  share: 0.06, ctr: 0.85, trend: 'down', price: 10, asins: ['B0DEMOG206'] },
+  { q: 'dental picks',               imp: 120,  share: 0.04, ctr: 0.90, trend: 'flat', price: 9,  asins: ['B0DEMOG207'] },
+  { q: 'zahnzwischenräume säubern',  imp: 90,   share: 0.05, ctr: 0.80, trend: 'up',   price: 12, asins: ['B0DEMOG208'] },
+  // branded (GUM / Sunstar) — you own these → mostly high share
+  { q: 'gum soft picks',             imp: 1600, share: 0.40, ctr: 1.30, trend: 'up',   price: 15, asins: ['B0DCBQC3JX', 'B0DEMOG201'] },
+  { q: 'gum interdentalbürsten',     imp: 800,  share: 0.45, ctr: 1.20, trend: 'flat', price: 16, asins: ['B0DEMOG202'] },
+  { q: 'gum zahnsticks',             imp: 400,  share: 0.42, ctr: 1.20, trend: 'up',   price: 12, asins: ['B0DEMOG206'] },
+  { q: 'gum soft picks pro',         imp: 300,  share: 0.38, ctr: 1.25, trend: 'flat', price: 18, asins: ['B0DCBQC3JX'] },
+  { q: 'sunstar gum',                imp: 200,  share: 0.35, ctr: 1.30, trend: 'down', price: 14, asins: ['B0DEMOG201'] },
+  { q: 'gum trav-ler',               imp: 150,  share: 0.30, ctr: 1.40, trend: 'flat', price: 17, asins: ['B0DEMOG203'] },
+  { q: 'gum ortho',                  imp: 100,  share: 0.33, ctr: 1.35, trend: 'up',   price: 15, asins: ['B0DEMOG204'] },
 ];
-const CLEAN_PRICE = 10; // equal own vs market price → no price bias, clean €-impact
+
+const M_CTR = 0.16, M_ATC = 0.25, M_CLOSE = 0.50;      // market base rates (held clean)
+const TREND_SLOPE: Record<Trend, number> = { up: 0.09, flat: 0, down: -0.09 }; // per-week share drift → clears the 15% trend gate
 
 function buildCleanRows(): SqpRow[] {
   const rows: SqpRow[] = [];
-  for (const s of CLEAN_SPEC) {
-    // market per (query, week)
-    const imp_total = s.mktImp;
-    const clicks_total = Math.round(imp_total * 0.16);
-    const baskets_total = Math.round(clicks_total * 0.25);
-    const purch_total = Math.round(baskets_total * 0.50);
-    // yours (brand) — 20% impression share, then CTR 2.5× market, parity thereafter
-    const imp_asin = Math.round(imp_total * 0.20);
-    const clicks_asin = Math.round(imp_asin * 0.40);
-    const baskets_asin = Math.round(clicks_asin * 0.25);
-    const purch_asin = Math.round(baskets_asin * 0.50);
+  const nW = SQP_WEEKS.length;
+  for (const k of KW) {
+    const imp_total = k.imp;
+    const clicks_total = Math.round(imp_total * M_CTR);
+    const baskets_total = Math.round(clicks_total * M_ATC);
+    const purch_total = Math.round(baskets_total * M_CLOSE);
     const sq_volume = imp_total; // 1 impression per search → per-search rates stay sane
+    const branded = isBranded(k.q);
 
-    for (const week of SQP_WEEKS) {
-      rows.push({
-        asin: s.asin, week_ending: week, query: s.query,
-        query_score: 1, sq_volume, marketplace: MARKETPLACE, currency: CURRENCY,
-        branded: isBranded(s.query),
-        imp_total, imp_asin, imp_share: imp_asin / imp_total,
-        clicks_total, clicks_asin, clicks_share: clicks_asin / clicks_total,
-        mkt_click_rate_per_search: clicks_total / sq_volume,
-        price_click_mkt: CLEAN_PRICE, price_click_asin: CLEAN_PRICE,
-        ship_same_click: 0, ship_1d_click: 0, ship_2d_click: clicks_total,
-        baskets_total, baskets_asin, baskets_share: baskets_asin / baskets_total,
-        mkt_basket_rate_per_search: baskets_total / sq_volume,
-        price_basket_mkt: CLEAN_PRICE, price_basket_asin: CLEAN_PRICE,
-        ship_same_basket: 0, ship_1d_basket: 0, ship_2d_basket: baskets_total,
-        purch_total, purch_asin, purch_share: purch_asin / purch_total,
-        mkt_purchase_rate_per_search: purch_total / sq_volume,
-        price_purch_mkt: CLEAN_PRICE, price_purch_asin: CLEAN_PRICE,
-        ship_same_purch: 0, ship_1d_purch: 0, ship_2d_purch: purch_total,
+    SQP_WEEKS.forEach((week, wi) => {
+      const drift = 1 + TREND_SLOPE[k.trend] * (wi - (nW - 1) / 2);
+      const impShare = clamp(k.share * drift, 0.004, 0.75);
+      const clickShare = clamp(impShare * k.ctr, 0.002, 0.95);
+      k.asins.forEach((asin, ai) => {
+        const frac = 1 / k.asins.length;
+        const imp_asin = Math.round(imp_total * impShare * frac);
+        const clicks_asin = Math.round(clicks_total * clickShare * frac);
+        const baskets_asin = Math.round(clicks_asin * M_ATC); // basket/purchase at parity (1.0×)
+        const purch_asin = Math.round(baskets_asin * M_CLOSE);
+        rows.push({
+          asin, week_ending: week, query: k.q,
+          query_score: ai + 1, sq_volume, marketplace: MARKETPLACE, currency: CURRENCY,
+          branded,
+          imp_total, imp_asin, imp_share: imp_total ? imp_asin / imp_total : 0,
+          clicks_total, clicks_asin, clicks_share: clicks_total ? clicks_asin / clicks_total : 0,
+          mkt_click_rate_per_search: clicks_total / sq_volume,
+          price_click_mkt: k.price, price_click_asin: clicks_asin > 0 ? k.price : null,
+          ship_same_click: 0, ship_1d_click: 0, ship_2d_click: clicks_total,
+          baskets_total, baskets_asin, baskets_share: baskets_total ? baskets_asin / baskets_total : 0,
+          mkt_basket_rate_per_search: baskets_total / sq_volume,
+          price_basket_mkt: k.price, price_basket_asin: baskets_asin > 0 ? k.price : null,
+          ship_same_basket: 0, ship_1d_basket: 0, ship_2d_basket: baskets_total,
+          purch_total, purch_asin, purch_share: purch_total ? purch_asin / purch_total : 0,
+          mkt_purchase_rate_per_search: purch_total / sq_volume,
+          price_purch_mkt: k.price, price_purch_asin: purch_asin > 0 ? k.price : null,
+          ship_same_purch: 0, ship_1d_purch: 0, ship_2d_purch: purch_total,
+        });
       });
-    }
+    });
   }
   return rows;
 }
