@@ -8,7 +8,27 @@ const AXES: { key: Axis; label: string }[] = [
   { key: 'clickShare', label: 'Click share' }, { key: 'impShare', label: 'Impression share' }, { key: 'purchShare', label: 'Purchase share' },
 ];
 
-export default function PortfolioMap({ rows, thresholds, onSelect }: {
+/** Rank (percentile) position of a value in [0,1] — midrank for ties. Spreads a skewed
+ *  set (long-tail volume, zero-inflated share) uniformly instead of piling it in a corner. */
+function ranker(values: number[]): (v: number) => number {
+  const sorted = [...values].sort((a, b) => a - b);
+  const n = sorted.length;
+  if (n <= 1) return () => 0.5;
+  return (v: number) => {
+    let lo = 0; while (lo < n && sorted[lo] < v) lo++;
+    let hi = lo; while (hi < n && sorted[hi] === v) hi++;
+    return ((lo + hi - 1) / 2) / (n - 1);
+  };
+}
+/** Value at percentile p of an already-sorted array (linear interpolation). */
+function quantile(sorted: number[], p: number): number {
+  if (!sorted.length) return 0;
+  const idx = (sorted.length - 1) * p, lo = Math.floor(idx), hi = Math.ceil(idx);
+  return sorted[lo] + (sorted[hi] - sorted[lo]) * (idx - lo);
+}
+const fmtVol = (v: number) => (v >= 1000 ? `${(v / 1000).toFixed(v >= 10000 ? 0 : 1)}k` : String(Math.round(v)));
+
+export default function PortfolioMap({ rows, onSelect }: {
   rows: QueryRow[]; thresholds: { volSplit: number; shareSplit: number }; onSelect: (r: QueryRow) => void;
 }) {
   const [axis, setAxis] = useState<Axis>('clickShare');
@@ -20,26 +40,29 @@ export default function PortfolioMap({ rows, thresholds, onSelect }: {
   const geom = useMemo(() => {
     if (!plotted.length) return null;
     const vols = plotted.map((r) => r.volumeWk);
-    const logMin = Math.log10(Math.max(1, Math.min(...vols)));
-    const logMax = Math.log10(Math.max(1, Math.max(...vols)));
-    const yMax = Math.max(0.01, ...plotted.map((r) => r[axis])) * 1.08;
+    const ys = plotted.map((r) => r[axis]);
     const maxPurch = Math.max(1, ...plotted.map((r) => r.purchases));
-    const yStdSplit = axis === 'clickShare' ? thresholds.shareSplit : plotted.reduce((s, r) => s + r[axis], 0) / plotted.length;
-    return { logMin, logMax, yMax, maxPurch, yStdSplit };
-  }, [plotted, axis, thresholds]);
+    const vSorted = [...vols].sort((a, b) => a - b);
+    const ySorted = [...ys].sort((a, b) => a - b);
+    return {
+      xRank: ranker(vols), yRank: ranker(ys), maxPurch,
+      volAt: (p: number) => quantile(vSorted, p), shareAt: (p: number) => quantile(ySorted, p),
+    };
+  }, [plotted, axis]);
   if (!geom) return null;
 
-  const x = (v: number) => padL + ((Math.log10(Math.max(1, v)) - geom.logMin) / (geom.logMax - geom.logMin || 1)) * plotW;
-  const y = (v: number) => padT + (1 - v / geom.yMax) * plotH;
-  const xDiv = x(thresholds.volSplit);
-  const yDiv = y(geom.yStdSplit);
+  // Rank axes → uniform spread; median split (dead centre) → four balanced cells.
+  const x = (v: number) => padL + geom.xRank(v) * plotW;
+  const y = (v: number) => padT + (1 - geom.yRank(v)) * plotH;
+  const xDiv = padL + plotW / 2;
+  const yDiv = padT + plotH / 2;
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
       <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h3 className="text-sm font-semibold text-gray-900">Portfolio map</h3>
-          <p className="text-[11px] text-gray-500 mt-0.5">Volume × your share. Dot size = your purchases, colour = 4-week trend. Split lines from your visible set.</p>
+          <p className="text-[11px] text-gray-500 mt-0.5">Volume × your share, <span className="font-medium text-gray-600">ranked</span> so every keyword is visible and split at the <span className="font-medium text-gray-600">median</span> into four even cells. Dot size = your purchases, colour = 4-week trend.</p>
         </div>
         <div className="flex items-center bg-gray-100 rounded-md p-0.5">
           {AXES.map((a) => (
@@ -64,13 +87,14 @@ export default function PortfolioMap({ rows, thresholds, onSelect }: {
           <line x1={padL} y1={padT + plotH} x2={padL + plotW} y2={padT + plotH} stroke="#E5E7EB" strokeWidth={1} />
           <line x1={padL} y1={padT} x2={padL} y2={padT + plotH} stroke="#E5E7EB" strokeWidth={1} />
 
-          {[0, 0.5, 1].map((f) => (
-            <text key={f} x={padL - 6} y={y(geom.yMax * f) + 3} textAnchor="end" fontSize="9" fill="#94A3B8">{pct(geom.yMax * f, 0)}</text>
+          {[0.25, 0.5, 0.75].map((p) => (
+            <text key={p} x={padL - 6} y={padT + (1 - p) * plotH + 3} textAnchor="end" fontSize="9" fontWeight={p === 0.5 ? 700 : 400} fill={p === 0.5 ? '#64748B' : '#94A3B8'}>{pct(geom.shareAt(p), 0)}</text>
           ))}
-          {[100, 500, 1000, 5000].filter((v) => v >= Math.min(...plotted.map((r) => r.volumeWk)) && v <= Math.max(...plotted.map((r) => r.volumeWk))).map((v) => (
-            <text key={v} x={x(v)} y={padT + plotH + 16} textAnchor="middle" fontSize="9" fill="#6B7280">{v >= 1000 ? `${v / 1000}k` : v}</text>
+          {[0.25, 0.5, 0.75].map((p) => (
+            <text key={p} x={padL + p * plotW} y={padT + plotH + 16} textAnchor="middle" fontSize="9" fontWeight={p === 0.5 ? 700 : 400} fill={p === 0.5 ? '#475569' : '#6B7280'}>{fmtVol(geom.volAt(p))}</text>
           ))}
-          <text x={padL + plotW / 2} y={H - 4} textAnchor="middle" fontSize="9" fontWeight="600" fill="#4B5563">Search volume / wk (log)</text>
+          <text x={xDiv} y={padT + 30} textAnchor="middle" fontSize="8" fontWeight="600" fill="#94A3B8">median</text>
+          <text x={padL + plotW / 2} y={H - 4} textAnchor="middle" fontSize="9" fontWeight="600" fill="#4B5563">Search volume / wk — ranked, ticks at 25 / 50 / 75th pct</text>
 
           {plotted.map((r) => {
             const rad = 4 + Math.sqrt(r.purchases / geom.maxPurch) * 12;
@@ -103,7 +127,7 @@ export default function PortfolioMap({ rows, thresholds, onSelect }: {
         <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />Trending up</span>
         <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-slate-400" />Flat</span>
         <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-rose-500" />Trending down</span>
-        <span className="ml-auto text-gray-400">Dot size = weekly purchases · quadrant tint by click share</span>
+        <span className="ml-auto text-gray-400">Dot size = weekly purchases · axes ranked · quadrants split at the median</span>
       </div>
     </div>
   );

@@ -176,14 +176,19 @@ export function queryStats(rows: SqpRow[]): { stats: QueryStat[]; thresholds: { 
 
   // thresholds over the visible set (§2.5)
   const volsWk: number[] = [];
+  const clickShares: number[] = [];
   let sumC = 0, sumCm = 0;
   for (const [, qr] of byQuery) {
     const a = aggregate(qr);
     volsWk.push(a.market.vol / a.nWeeks);
+    clickShares.push(a.market.Cm > 0 ? a.asin.C / a.market.Cm : 0);
     sumC += a.asin.C; sumCm += a.market.Cm;
   }
-  const volSplit = percentile(volsWk, VOLUME_SPLIT_PCTL);
-  const shareSplit = sumCm > 0 ? sumC / sumCm : 0;
+  const volSplit = percentile(volsWk, VOLUME_SPLIT_PCTL);  // P75 — drives the UNDER_INVESTED "big keyword" flag
+  const shareSplit = sumCm > 0 ? sumC / sumCm : 0;         // portfolio-average share — the opportunity target
+  // Median splits classify the quadrant, so the four cells stay balanced (~25% each) on any keyword set.
+  const volMid = percentile(volsWk, 0.5);
+  const shareMid = percentile(clickShares, 0.5);
   const maxWk = maxWeek(rows);
 
   const stats: QueryStat[] = [];
@@ -198,7 +203,7 @@ export function queryStats(rows: SqpRow[]): { stats: QueryStat[]; thresholds: { 
       volumeWk, agg: a, metrics: m, asp: aspV,
       opportunity: opp,
       flags: computeFlags(qr, { volSplit, maxWeek: maxWk }),
-      quadrant: quadrantOf(volumeWk, m.clickShare, { volSplit, shareSplit }),
+      quadrant: quadrantOf(volumeWk, m.clickShare, { volSplit: volMid, shareSplit: shareMid }),
       topAsin: topAsinByClicks(qr),
       weeklyClickShare: weeklySeries(qr, 'click'),
     });
