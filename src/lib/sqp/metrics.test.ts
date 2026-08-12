@@ -1,6 +1,6 @@
 // ─── SQP metrics tests (§6) — run: npm run test:sqp ─────────────────────────
 import type { SqpRow } from './types';
-import { sqpWeekly } from './fixture';
+import { sqpRich as sqpWeekly } from './fixture'; // tests validate the methodology against the rich fixture; the app ships the clean demo data
 import { aggregate, stageMetrics, computeLeak, isCallableLeak, queryStats, filterScope, computeAsp, maxWeek, resolveRange, latestWeekStatus } from './metrics';
 
 let pass = 0, fail = 0;

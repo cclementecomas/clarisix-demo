@@ -227,4 +227,73 @@ function buildRows(): SqpRow[] {
   return rows;
 }
 
-export const sqpWeekly: SqpRow[] = buildRows();
+/** Rich, realistic generator — kept as the METHODOLOGY fixture the tests run against
+ *  (it exercises leaks, price bias, low-data ASINs and the branded/competitor mix that
+ *  uniform demo data can't). The app itself ships the clean dataset below. */
+export const sqpRich: SqpRow[] = buildRows();
+
+// ─── Clean, hand-reconcilable demo dataset (the app's `sqpWeekly`) ────────────
+// Purpose: make the funnel show round, add-them-up numbers. Every (ASIN × query ×
+// week) shares ONE profile — impression share 20%, your CTR 40% vs market 16%
+// (2.5×), basket-add 25% = market 25% (1.0×), purchase 50% = market 50% (1.0×) —
+// so EVERY subset (all / branded / non-branded / one ASIN / one keyword) reconciles
+// to the SAME share bridge: 20% → 50% → 50% → 50%, with no "biggest drop" (your only
+// deviation from the market is the CTR, and it's in your favour).
+//
+// Per (query, week) the market impressions are the `mktImp` below (identical every
+// week, so ANY week-window reconciles); the rest derive by fixed ratios:
+//   market:  clicks = imp×16%,  baskets = clicks×25%,  purchases = baskets×50%
+//   yours :  imp    = mktImp×20% (your share), clicks = imp×40%, basket = clicks×25%, purch = basket×50%
+// Each keyword is carried by a single owning ASIN so the columns add up by hand.
+// Scaled ×10 from the worked example (100/20 · 16/8 · 4/2 · 2/1 → 1000/200 total/wk).
+
+interface CleanSpec { query: string; asin: string; mktImp: number; }
+const CLEAN_SPEC: CleanSpec[] = [
+  { query: 'interdentalbürsten', asin: 'B0DCBQC3JX', mktImp: 400 }, // non-branded
+  { query: 'zahnseide stick',    asin: 'B0DEMOG201', mktImp: 300 }, // non-branded
+  { query: 'zahnstocher',        asin: 'B0DEMOG202', mktImp: 100 }, // non-branded
+  { query: 'gum soft picks',     asin: 'B0DEMOG203', mktImp: 100 }, // branded
+  { query: 'gum',                asin: 'B0DEMOG204', mktImp: 100 }, // branded
+];
+const CLEAN_PRICE = 10; // equal own vs market price → no price bias, clean €-impact
+
+function buildCleanRows(): SqpRow[] {
+  const rows: SqpRow[] = [];
+  for (const s of CLEAN_SPEC) {
+    // market per (query, week)
+    const imp_total = s.mktImp;
+    const clicks_total = Math.round(imp_total * 0.16);
+    const baskets_total = Math.round(clicks_total * 0.25);
+    const purch_total = Math.round(baskets_total * 0.50);
+    // yours (brand) — 20% impression share, then CTR 2.5× market, parity thereafter
+    const imp_asin = Math.round(imp_total * 0.20);
+    const clicks_asin = Math.round(imp_asin * 0.40);
+    const baskets_asin = Math.round(clicks_asin * 0.25);
+    const purch_asin = Math.round(baskets_asin * 0.50);
+    const sq_volume = imp_total; // 1 impression per search → per-search rates stay sane
+
+    for (const week of SQP_WEEKS) {
+      rows.push({
+        asin: s.asin, week_ending: week, query: s.query,
+        query_score: 1, sq_volume, marketplace: MARKETPLACE, currency: CURRENCY,
+        branded: isBranded(s.query),
+        imp_total, imp_asin, imp_share: imp_asin / imp_total,
+        clicks_total, clicks_asin, clicks_share: clicks_asin / clicks_total,
+        mkt_click_rate_per_search: clicks_total / sq_volume,
+        price_click_mkt: CLEAN_PRICE, price_click_asin: CLEAN_PRICE,
+        ship_same_click: 0, ship_1d_click: 0, ship_2d_click: clicks_total,
+        baskets_total, baskets_asin, baskets_share: baskets_asin / baskets_total,
+        mkt_basket_rate_per_search: baskets_total / sq_volume,
+        price_basket_mkt: CLEAN_PRICE, price_basket_asin: CLEAN_PRICE,
+        ship_same_basket: 0, ship_1d_basket: 0, ship_2d_basket: baskets_total,
+        purch_total, purch_asin, purch_share: purch_asin / purch_total,
+        mkt_purchase_rate_per_search: purch_total / sq_volume,
+        price_purch_mkt: CLEAN_PRICE, price_purch_asin: CLEAN_PRICE,
+        ship_same_purch: 0, ship_1d_purch: 0, ship_2d_purch: purch_total,
+      });
+    }
+  }
+  return rows;
+}
+
+export const sqpWeekly: SqpRow[] = buildCleanRows();
