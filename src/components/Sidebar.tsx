@@ -115,7 +115,7 @@ export default function Sidebar({
         }`}
       >
         <div className="px-4 py-5 flex items-center gap-2.5 border-b border-white/[0.06]">
-          <img src="/clarisix_logo_white.png" alt="Clarisix" className="h-9 flex-1 object-contain object-left" />
+          <img src="/clarisix-logo-white-tm-transparent.png" alt="Clarisix" className="h-9 flex-1 object-contain object-left" />
           <button
             onClick={onToggleCollapse}
             className="w-7 h-7 flex items-center justify-center rounded-md text-gray-500 hover:text-gray-300 hover:bg-white/[0.06] transition-colors"
