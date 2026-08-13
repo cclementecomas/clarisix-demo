@@ -10,9 +10,8 @@
 import type { SqpRow } from '../../lib/sqp/types';
 import { aggregate, stageMetrics } from '../../lib/sqp/metrics';
 import { ASIN_TITLE } from '../searchfunnel/selectors';
-import { parentOf } from './parentMap';
 
-export type Dim = 'keyword' | 'parent' | 'child' | 'week';
+export type Dim = 'keyword' | 'child' | 'week';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const fmtWeek = (iso: string): string => { const [y, m, d] = iso.split('-').map(Number); return `${d} ${MONTHS[m - 1]}, ${y}`; };
@@ -20,12 +19,11 @@ const fmtWeek = (iso: string): string => { const [y, m, d] = iso.split('-').map(
 interface DimMeta { label: string; keyOf: (r: SqpRow) => string; labelOf: (key: string) => string; }
 const DIMS: Record<Dim, DimMeta> = {
   keyword: { label: 'Keyword', keyOf: (r) => r.query, labelOf: (k) => k },
-  parent: { label: 'Parent ASIN', keyOf: (r) => parentOf(r.asin), labelOf: (k) => k },
-  child: { label: 'Child ASIN', keyOf: (r) => r.asin, labelOf: (k) => (ASIN_TITLE[k] ? `${k} · ${ASIN_TITLE[k]}` : k) },
+  child: { label: 'ASIN', keyOf: (r) => r.asin, labelOf: (k) => (ASIN_TITLE[k] ? `${k} · ${ASIN_TITLE[k]}` : k) },
   week: { label: 'Week', keyOf: (r) => r.week_ending, labelOf: (k) => fmtWeek(k) },
 };
-export const DIM_LABEL: Record<Dim, string> = { keyword: 'Keyword', parent: 'Parent ASIN', child: 'Child ASIN', week: 'Week' };
-export const DIM_ORDER: Dim[] = ['keyword', 'parent', 'child', 'week'];
+export const DIM_LABEL: Record<Dim, string> = { keyword: 'Keyword', child: 'ASIN', week: 'Week' };
+export const DIM_ORDER: Dim[] = ['keyword', 'child', 'week'];
 
 export interface SqpTable {
   rowData: any[];

@@ -240,7 +240,7 @@ export const sqpRich: SqpRow[] = buildRows();
 // ratio vs the market (click share = impShare × ctrR), a 4-week trend, an average
 // price (own = market, no price bias) and the ASIN(s) carrying it (brand split evenly).
 // Basket/purchase steps stay at parity (1.0×), so the funnel reads impShare → clickShare
-// → hold → hold. Reused ASIN ids resolve titles + parentMap for the By-Parent/Child pivots.
+// → hold → hold. Reused ASIN ids resolve titles for the By-ASIN pivot.
 
 type Trend = 'up' | 'flat' | 'down';
 interface KwSpec { q: string; imp: number; share: number; ctr: number; trend: Trend; price: number; asins: string[] }
