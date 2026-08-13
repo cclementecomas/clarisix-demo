@@ -3096,3 +3096,35 @@ Trade-off vs the old uniform data: the Traffic funnel bridge is no longer exactl
 (still a readable "punch above impression weight" bridge). The rich generator (sqpRich) is
 untouched, so the 45 methodology tests still pass. To restore an exactly-clean funnel we'd
 need to decouple the two surfaces onto separate datasets.
+
+────────────────────────────────────────────────────────────────────────────
+Tables pivot — dropped the Parent ASIN dimension (Aug 11 2026)
+
+Per request, the SQP deep-dive pivot now offers only Keyword · ASIN · Week (Rows by /
+then by); the "Parent ASIN" grain and its synthetic parentMap.ts were removed
+(buildTables.ts DIMS/DIM_ORDER/DIM_LABEL). The remaining child-ASIN dimension is
+relabelled from "Child ASIN" to just "ASIN" (pinned header + chips).
+
+────────────────────────────────────────────────────────────────────────────
+Product identifier preference — show products by ASIN or SKU (Aug 13 2026)
+
+New global preference: view products mainly by ASIN (default = current behaviour) or by
+SKU. Modelled on CurrencyContext — src/contexts/ProductIdContext.tsx {productId, setProductId,
+resolve(asin,sku)}, localStorage-backed, applied LIVE (no Save click), provider mounted in
+main.tsx. Control lives in Settings → Preferences → "Product identifier": two preview tiles
+that show the exact primary/secondary rendering in each mode.
+
+Design: ASIN mode = status quo everywhere (untouched). Only SKU mode transforms surfaces, and
+only where BOTH ids exist. The relationship is 1 ASIN → 2 SKUs, so "by SKU" on an ASIN-parent
+table means showing the SKU GRAIN, not relabelling one cell. DeepDiveTable gained an
+`initialFlat` prop (+ effect) that opens the table at the flat child grain and re-syncs when the
+preference changes. Wired into the two ASIN-parent/SKU-child product tables:
+- Sales → Diagnostics → Full metric tables → "Best Selling ASINs" (DeepDive.tsx): title +
+  pinned header + tooltip flip to SKU; rows become SKUs.
+- Profitability → Deepdive (ProfitabilityDeepdive.tsx): pinned header "ASIN"→"SKU"; rows become SKUs.
+Both keep the group/both/flat view control, so users can flip back to ASIN without losing the pref.
+
+Deliberately NOT touched: surfaces already SKU-led (Settings→Products, Inventory, CoGS coverage,
+category mapping); ASIN-only surfaces with no SKU in the data (SQP/keyword/search-funnel,
+content tracker, advertising, sales-diagnostics drawers). Candidate next step: BreakdownCharts
+(sales-per-ASIN chart with nested SKUs) — left as-is for now (chart grain change is heavier).
