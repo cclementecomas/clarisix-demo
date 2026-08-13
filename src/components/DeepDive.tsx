@@ -34,6 +34,7 @@ import {
   type RankKey,
 } from '../data/deepdiveDiagnostics';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { useProductId } from '../contexts/ProductIdContext';
 import LastRefreshed from './LastRefreshed';
 
 type Row = Record<string, unknown>;
@@ -178,6 +179,8 @@ function metricColumns(currency: Parameters<typeof currencyFormatter>[0]): Colum
 
 export default function DeepDive() {
   const { currency } = useCurrency();
+  const { productId } = useProductId();
+  const bySku = productId === 'sku';
   const metrics = useMemo(() => metricColumns(currency), [currency]);
 
   // Defaults per the spec:
@@ -201,11 +204,11 @@ export default function DeepDive() {
   );
   const asinCols = useMemo<ColumnDef[]>(
     () => [
-      { field: 'asin', headerName: 'ASIN', pinned: 'left', width: 130 },
+      { field: 'asin', headerName: bySku ? 'SKU' : 'ASIN', pinned: 'left', width: 130 },
       { field: 'title', headerName: 'Title', width: 280 },
       ...metrics,
     ],
-    [metrics],
+    [metrics, bySku],
   );
 
   const marketplaceTotals = useMemo(() => [buildTotals(marketplaceData as unknown as Row[], 'marketplace', 'Total')], []);
@@ -274,8 +277,8 @@ export default function DeepDive() {
               pinnedBottomRowData={categoryTotals}
             />
             <DeepDiveTable
-              title="Best Selling ASINs"
-              tooltip="Sales and advertising metrics per ASIN. Expand a row to see SKU-level breakdown. PoP = period-over-period; LY = vs. last year."
+              title={bySku ? 'Best Selling SKUs' : 'Best Selling ASINs'}
+              tooltip={`Sales and advertising metrics per ${bySku ? 'SKU' : 'ASIN'}. ${bySku ? 'Grouped up to the ASIN when expanded' : 'Expand a row to see SKU-level breakdown'}. PoP = period-over-period; LY = vs. last year.`}
               subtitle="Columns read left to right: what I sold → who bought it → how they got there → what I paid → what's left."
               rowData={asinData}
               columnDefs={asinCols}
@@ -283,6 +286,7 @@ export default function DeepDive() {
               childRowsMap={skuDataByAsin}
               rowKeyField="asin"
               childLabelField="sku"
+              initialFlat={bySku}
               copyablePinnedCell
             />
           </div>

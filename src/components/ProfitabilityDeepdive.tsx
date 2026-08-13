@@ -9,6 +9,7 @@ import DeepDiveTable, {
   pctShareFormatter,
 } from './deepdive/DeepDiveTable';
 import { useCurrency, type Currency } from '../contexts/CurrencyContext';
+import { useProductId } from '../contexts/ProductIdContext';
 import { productProfitData, skuProfitMap } from '../data/profitabilityDeepdiveData';
 import type { ProductProfitRow } from '../data/profitabilityDeepdiveData';
 import { BarChart2, X } from 'lucide-react';
@@ -334,11 +335,13 @@ function WaterfallPanel({ product, currency, onClose }: {
 
 export default function ProfitabilityDeepdive() {
   const { currency } = useCurrency();
+  const { productId } = useProductId();
+  const bySku = productId === 'sku';
   const cf = currencyFormatter(currency);
   const [waterfallProduct, setWaterfallProduct] = useState<ProductProfitRow | null>(null);
 
   const columns: ColumnDef[] = useMemo(() => [
-    { field: 'asin', headerName: 'ASIN', pinned: 'left', width: 130 },
+    { field: 'asin', headerName: bySku ? 'SKU' : 'ASIN', pinned: 'left', width: 130 },
     // P&L waterfall action — prominent, right after ASIN
     { field: '_waterfall', headerName: 'P&L', width: 52, valueFormatter: ({ row }: { value: unknown; row: any }) => {
       if (row.asin === 'TOTAL' || row.sku) return '';
@@ -396,7 +399,7 @@ export default function ProfitabilityDeepdive() {
     // ── Returns ──────────────────────────────────────────────────────────
     { field: 'returnRate', headerName: 'Return Rate %', width: 125, valueFormatter: pctShareFormatter, cellStyle: returnCellStyle, subFields: ppSub('returnRate'), hide: true },
     { field: 'refundRate', headerName: 'Refund Rate %', width: 125, valueFormatter: pctShareFormatter, cellStyle: returnCellStyle, subFields: ppSub('refundRate'), hide: true },
-  ], [currency, cf, waterfallProduct]);
+  ], [currency, cf, waterfallProduct, bySku]);
 
   // Flatten data for table
   const rows = useMemo(() =>
@@ -504,6 +507,7 @@ export default function ProfitabilityDeepdive() {
         childLabelField="asin"
         groupNoun="Product"
         childNoun="SKU"
+        initialFlat={bySku}
         copyablePinnedCell
       />
       {waterfallProduct && (

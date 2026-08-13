@@ -60,6 +60,7 @@ interface DeepDiveTableProps {
   copyablePinnedCell?: boolean;
   autoExpand?: boolean;       // start (and re-sync on data change) with every parent expanded
   hideViewControl?: boolean;  // hide the group/both/flat switch (e.g. when an external pivot drives the grain)
+  initialFlat?: boolean;      // start in the flat child-grain view, re-syncing on change (e.g. "show products by SKU")
 }
 
 // Higher-is-better cell style. Positive change = green, negative = red.
@@ -165,7 +166,7 @@ function getRectCells(
   return cells;
 }
 
-export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottomRowData, childRowsMap, rowKeyField, childLabelField, groupNoun, childNoun: childNounProp, tooltip, subtitle, hideHeader = false, embedded = false, showPoP: propShowPoP, onPoPChange, showLY: propShowLY, onLYChange, selectMode: propSelectMode, onSelectModeChange, onSelectedValuesChange, visibleColumnsOverride, copyablePinnedCell = false, autoExpand = false, hideViewControl = false }: DeepDiveTableProps) {
+export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottomRowData, childRowsMap, rowKeyField, childLabelField, groupNoun, childNoun: childNounProp, tooltip, subtitle, hideHeader = false, embedded = false, showPoP: propShowPoP, onPoPChange, showLY: propShowLY, onLYChange, selectMode: propSelectMode, onSelectModeChange, onSelectedValuesChange, visibleColumnsOverride, copyablePinnedCell = false, autoExpand = false, hideViewControl = false, initialFlat = false }: DeepDiveTableProps) {
   const [selectedCells, setSelectedCells] = useState<SelectedCell[]>([]);
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>(null);
@@ -271,6 +272,10 @@ export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottom
   useEffect(() => {
     if (autoExpand) setExpandedRows(new Set(allParentKeys));
   }, [autoExpand, allParentKeys]);
+  // Product-identifier preference: "by SKU" opens these tables at the flat child (SKU) grain.
+  useEffect(() => {
+    if (hasChildren) setFlatView(!!initialFlat);
+  }, [initialFlat, hasChildren]);
   const allExpanded = allParentKeys.length > 0 && allParentKeys.every((k) => expandedRows.has(k));
   const view: 'group' | 'both' | 'flat' = flat ? 'flat' : allExpanded ? 'both' : 'group';
   const setView = (v: 'group' | 'both' | 'flat') => {
