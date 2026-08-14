@@ -440,12 +440,14 @@ export const menuItems = [
       'Experiments & Change Log',
     ],
     defaultSub: 'Overview',
-    // Only the four newly introduced pages ship as Coming Soon in Batch 1.
-    // DSP, AMC and Promotions already have real pages.
+    // Everything except Overview, Diagnostics and Budget & Pacing is still a stub.
     comingSoonSubs: [
       'Keywords & Search Terms',
       'Attribution & Halo',
       'Dayparting / Intraday',
+      'DSP',
+      'AMC',
+      'Promotions',
       'Experiments & Change Log',
     ],
   },
