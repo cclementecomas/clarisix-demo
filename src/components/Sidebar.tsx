@@ -16,9 +16,12 @@ import {
   Clock,
   Database,
   Zap,
+  FlaskConical,
 } from 'lucide-react';
 import { menuItems, adminItems, filterOptions } from '../data/dashboardData';
 import { useOnboarding } from '../contexts/OnboardingContext';
+import type { OnboardingStatus } from '../contexts/OnboardingContext';
+import { demoStatusOptions } from '../data/onboardingData';
 
 const iconMap: Record<string, React.FC<{ className?: string }>> = {
   BarChart3,
@@ -85,6 +88,50 @@ function AccountSelector() {
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+/** Demo-only: preview any onboarding state without leaving the tenant. Lives in the
+ *  footer so the account dropdown stays purely about tenants. Menu opens upward. */
+function OnboardingDemoSwitcher() {
+  const { onboardingState, setOnboardingStatus } = useOnboarding();
+  const [open, setOpen] = useState(false);
+  const current = demoStatusOptions.find((o) => o.value === onboardingState.status) ?? demoStatusOptions[1];
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center gap-3 px-2 py-2 text-sm rounded-md text-gray-500 hover:text-gray-300 hover:bg-white/[0.04] transition-colors"
+        title="Demo: preview an onboarding state"
+      >
+        <FlaskConical className="w-[18px] h-[18px] flex-shrink-0" />
+        <span className="flex-1 text-left">Demo onboarding</span>
+        <span className="text-[11px] text-gray-600 truncate max-w-[70px]">{current.label.split(' (')[0]}</span>
+        <ChevronDown className={`w-3.5 h-3.5 flex-shrink-0 text-gray-600 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute bottom-full left-0 right-0 mb-1 z-20 bg-navy-800 border border-white/[0.08] rounded-lg shadow-xl py-1">
+            <p className="px-3 py-1 text-[9px] font-semibold uppercase tracking-widest text-gray-600">Preview state</p>
+            {demoStatusOptions.map((o) => (
+              <button
+                key={o.value}
+                onClick={() => { setOnboardingStatus(o.value as OnboardingStatus); setOpen(false); }}
+                className={`block w-full text-left px-3 py-2 text-[13px] transition-colors ${
+                  onboardingState.status === o.value
+                    ? 'text-cx-300 bg-white/[0.06] font-medium'
+                    : 'text-gray-400 hover:text-gray-200 hover:bg-white/[0.04]'
+                }`}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -308,6 +355,7 @@ export default function Sidebar({
         </nav>
 
         <div className="border-t border-white/[0.06] py-2 px-3 space-y-0.5">
+          <OnboardingDemoSwitcher />
           <button
             onClick={() => onNavigate('settings')}
             className={`w-full flex items-center gap-3 px-2 py-2 text-sm rounded-md transition-colors relative ${

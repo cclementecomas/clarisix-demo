@@ -1,10 +1,9 @@
 import type { OnboardingStatus, SyncCategory } from '../contexts/OnboardingContext';
 
+// Tenants no longer drive onboarding — every account is a ready workspace. The onboarding
+// flow is demoed on demand via the sidebar "Demo onboarding" switcher (setOnboardingStatus).
 export const accountOnboardingStatus: Record<string, OnboardingStatus> = {
   'All Accounts': 'ready',
-  'Onboarded Account': 'ready',
-  'Connected Account': 'syncing',
-  'New Account': 'wizard',
 };
 
 export const defaultSyncCategories: SyncCategory[] = [

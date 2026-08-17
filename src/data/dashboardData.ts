@@ -379,7 +379,7 @@ export const salesByASIN: ASINDataItem[] = [
 ];
 
 export const filterOptions = {
-  accounts: ['All Accounts', 'Onboarded Account', 'Connected Account', 'New Account'],
+  accounts: ['All Accounts', 'Nordic Wellness Group', 'GreenLeaf Brands', 'Meridian Health Co.', 'Apex Consumer Goods'],
   marketplace: ['All Marketplaces', 'Amazon DE', 'Amazon FR', 'Amazon UK', 'Amazon US'],
   brand: ['All Brands', 'Brand A', 'Brand B', 'Brand C'],
   category: ['All Categories', 'Electronics', 'Wellness', 'Accessories'],

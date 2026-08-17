@@ -3128,3 +3128,20 @@ Deliberately NOT touched: surfaces already SKU-led (Settings→Products, Invento
 category mapping); ASIN-only surfaces with no SKU in the data (SQP/keyword/search-funnel,
 content tracker, advertising, sales-diagnostics drawers). Candidate next step: BreakdownCharts
 (sales-per-ASIN chart with nested SKUs) — left as-is for now (chart grain change is heavier).
+
+────────────────────────────────────────────────────────────────────────────
+Account dropdown → generic tenants; onboarding demo moved to a switcher (Aug 17 2026)
+
+The sidebar "All Accounts" dropdown used to list onboarding-flow accounts (Onboarded /
+Connected / New Account) that TRIGGERED onboarding on select — awkward for demoing tenants.
+Now:
+- filterOptions.accounts (dashboardData.ts) = generic tenants: All Accounts · Nordic Wellness
+  Group · GreenLeaf Brands · Meridian Health Co. · Apex Consumer Goods. Feeds both the sidebar
+  AccountSelector and the top-bar AccountSwitcher (Navigation.tsx), which share the list.
+- accountOnboardingStatus (onboardingData.ts) reduced to { 'All Accounts':'ready' } so no tenant
+  drives onboarding — selecting a tenant just switches context.
+- The onboarding flow is now demoed via a dedicated "Demo onboarding" switcher in the sidebar
+  footer (Sidebar.tsx, OnboardingDemoSwitcher) — a dark upward menu of demoStatusOptions
+  (Wizard / Ready / Pending / Connecting / Syncing / Error) that calls setOnboardingStatus.
+  During onboarding the sidebar is hidden (App gates on isOnboarding), and OnboardingGateway's
+  own state <select> returns to Ready — so the round-trip works.
