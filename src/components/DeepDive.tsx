@@ -8,7 +8,6 @@
 //      for power users / export)
 
 import { useMemo, useState } from 'react';
-import { ChevronDown, ChevronUp } from 'lucide-react';
 import type { ColumnDef } from './deepdive/DeepDiveTable';
 import DeepDiveTable, {
   percentCellStyle,
@@ -36,6 +35,7 @@ import {
 import { useCurrency } from '../contexts/CurrencyContext';
 import { useProductId } from '../contexts/ProductIdContext';
 import LastRefreshed from './LastRefreshed';
+import ViewModeToggle, { type ViewMode } from './ViewModeToggle';
 
 type Row = Record<string, unknown>;
 
@@ -191,7 +191,7 @@ export default function DeepDive() {
   const [entityFilter, setEntityFilter] = useState<EntityFilter>('all');
   const [rank, setRank] = useState<RankKey>('profit');
   const [selected, setSelected] = useState<Diagnostic | null>(null);
-  const [showFullMetrics, setShowFullMetrics] = useState(false);
+  const [view, setView] = useState<ViewMode>('decision');
 
   // ── Full-metrics column / data wiring (existing DeepDiveTable) ─────────
   const marketplaceCols = useMemo<ColumnDef[]>(
@@ -217,27 +217,75 @@ export default function DeepDive() {
 
   return (
     <div className="space-y-4 min-w-0">
-      {/* 1 — Issues detected (cross-entity, severity-ranked) */}
-      <IssuesPanel onIssueClick={setSelected} />
-
-      {/* Refresh row */}
-      <div className="flex items-center justify-end">
-        <LastRefreshed offsetMinutes={9} />
+      {/* Header — page title + Decision/Analyst toggle */}
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-lg font-bold text-gray-900">Diagnostics</h1>
+          <p className="text-[12px] text-gray-500 mt-0.5">
+            {view === 'decision'
+              ? 'What’s hurting sales, and what should I do about it?'
+              : 'Every metric across marketplaces, categories and products — for analysis and export.'}
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <LastRefreshed offsetMinutes={9} />
+          <ViewModeToggle mode={view} onChange={setView} />
+        </div>
       </div>
 
-      {/* 2 — Troubleshooting table with decision-mode tabs + Rank-by + entity filter */}
-      <TroubleshootingTable
-        diagnostics={allDiagnostics}
-        mode={mode}
-        onModeChange={setMode}
-        entityFilter={entityFilter}
-        onEntityFilterChange={setEntityFilter}
-        rank={rank}
-        onRankChange={setRank}
-        onRowClick={setSelected}
-      />
+      {view === 'decision' ? (
+        <>
+          {/* Issues detected (cross-entity, severity-ranked) */}
+          <IssuesPanel onIssueClick={setSelected} />
 
-      {/* 3 — Detail drawer */}
+          {/* Troubleshooting table with decision-mode tabs + Rank-by + entity filter */}
+          <TroubleshootingTable
+            diagnostics={allDiagnostics}
+            mode={mode}
+            onModeChange={setMode}
+            entityFilter={entityFilter}
+            onEntityFilterChange={setEntityFilter}
+            rank={rank}
+            onRankChange={setRank}
+            onRowClick={setSelected}
+          />
+        </>
+      ) : (
+        /* Analyst — full metric tables (Marketplace · Category · ASIN), every metric, no diagnostic filter */
+        <div className="space-y-6">
+          <DeepDiveTable
+            title="Best Selling Marketplaces"
+            tooltip="Sales and advertising metrics aggregated by Amazon marketplace. PoP = period-over-period; LY = vs. last year."
+            subtitle="Columns read left to right: what I sold → who bought it → how they got there → what I paid → what's left."
+            rowData={marketplaceData}
+            columnDefs={marketplaceCols}
+            pinnedBottomRowData={marketplaceTotals}
+          />
+          <DeepDiveTable
+            title="Best Selling Categories"
+            tooltip="Sales and advertising metrics aggregated by product category. PoP = period-over-period; LY = vs. last year."
+            subtitle="Columns read left to right: what I sold → who bought it → how they got there → what I paid → what's left."
+            rowData={categoryData}
+            columnDefs={categoryCols}
+            pinnedBottomRowData={categoryTotals}
+          />
+          <DeepDiveTable
+            title={bySku ? 'Best Selling SKUs' : 'Best Selling ASINs'}
+            tooltip={`Sales and advertising metrics per ${bySku ? 'SKU' : 'ASIN'}. ${bySku ? 'Grouped up to the ASIN when expanded' : 'Expand a row to see SKU-level breakdown'}. PoP = period-over-period; LY = vs. last year.`}
+            subtitle="Columns read left to right: what I sold → who bought it → how they got there → what I paid → what's left."
+            rowData={asinData}
+            columnDefs={asinCols}
+            pinnedBottomRowData={asinTotals}
+            childRowsMap={skuDataByAsin}
+            rowKeyField="asin"
+            childLabelField="sku"
+            initialFlat={bySku}
+            copyablePinnedCell
+          />
+        </div>
+      )}
+
+      {/* Detail drawer (opened from Decision issues / rows) */}
       <EntityDetailDrawer
         d={selected}
         onClose={() => setSelected(null)}
@@ -245,53 +293,6 @@ export default function DeepDive() {
           // Hook into App-level navigation when this lifts up.
         }}
       />
-
-      {/* 4 — Full metric tables (collapsed; all three entities stacked when open) */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <button
-          onClick={() => setShowFullMetrics((v) => !v)}
-          className="w-full px-5 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
-        >
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-gray-900">Full metric tables</span>
-            <span className="text-[11px] text-gray-500">Marketplace · Category · ASIN — every metric, no diagnostic filter</span>
-          </div>
-          {showFullMetrics ? <ChevronUp className="w-4 h-4 text-gray-500" /> : <ChevronDown className="w-4 h-4 text-gray-500" />}
-        </button>
-        {showFullMetrics && (
-          <div className="border-t border-gray-100 p-4 space-y-6">
-            <DeepDiveTable
-              title="Best Selling Marketplaces"
-              tooltip="Sales and advertising metrics aggregated by Amazon marketplace. PoP = period-over-period; LY = vs. last year."
-              subtitle="Columns read left to right: what I sold → who bought it → how they got there → what I paid → what's left."
-              rowData={marketplaceData}
-              columnDefs={marketplaceCols}
-              pinnedBottomRowData={marketplaceTotals}
-            />
-            <DeepDiveTable
-              title="Best Selling Categories"
-              tooltip="Sales and advertising metrics aggregated by product category. PoP = period-over-period; LY = vs. last year."
-              subtitle="Columns read left to right: what I sold → who bought it → how they got there → what I paid → what's left."
-              rowData={categoryData}
-              columnDefs={categoryCols}
-              pinnedBottomRowData={categoryTotals}
-            />
-            <DeepDiveTable
-              title={bySku ? 'Best Selling SKUs' : 'Best Selling ASINs'}
-              tooltip={`Sales and advertising metrics per ${bySku ? 'SKU' : 'ASIN'}. ${bySku ? 'Grouped up to the ASIN when expanded' : 'Expand a row to see SKU-level breakdown'}. PoP = period-over-period; LY = vs. last year.`}
-              subtitle="Columns read left to right: what I sold → who bought it → how they got there → what I paid → what's left."
-              rowData={asinData}
-              columnDefs={asinCols}
-              pinnedBottomRowData={asinTotals}
-              childRowsMap={skuDataByAsin}
-              rowKeyField="asin"
-              childLabelField="sku"
-              initialFlat={bySku}
-              copyablePinnedCell
-            />
-          </div>
-        )}
-      </div>
     </div>
   );
 }

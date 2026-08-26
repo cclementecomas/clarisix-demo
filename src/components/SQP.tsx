@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Search, X, Sparkles, Table } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 import { sqpWeekly } from '../lib/sqp/fixture';
 import { maxWeek, listWeeks, resolveRange, filterScope, latestWeekStatus } from '../lib/sqp/metrics';
 import { portfolioView, makeKeywordMatcher } from './keywords/selectors';
@@ -14,6 +14,7 @@ import LatestWeekBanner from './sqpui/LatestWeekBanner';
 import WeekRangePicker from './sqpui/WeekRangePicker';
 import BrandedToggle, { type Brand } from './sqpui/BrandedToggle';
 import InfoTooltip from './InfoTooltip';
+import ViewModeToggle, { type ViewMode } from './ViewModeToggle';
 
 /** Sales → SQP → "Keyword Portfolio" (§5). Query pivot. Non-branded by default (§5.5). */
 export default function SQP({ focusQuery, onFocusConsumed }: {
@@ -30,6 +31,9 @@ export default function SQP({ focusQuery, onFocusConsumed }: {
   const [kwFilter, setKwFilter] = useState('');
   const [noteDismissed, setNoteDismissed] = useState(false);
   const [mode, setMode] = useState<'insights' | 'tables'>('insights');
+  // Platform Decision/Analyst toggle mapped onto this page's insights vs tables views.
+  const viewMode: ViewMode = mode === 'insights' ? 'decision' : 'analyst';
+  const setViewMode = (m: ViewMode) => setMode(m === 'decision' ? 'insights' : 'tables');
 
   const latest = latestWeekStatus(sqpWeekly);
 
@@ -65,34 +69,27 @@ export default function SQP({ focusQuery, onFocusConsumed }: {
               <Search className="w-4 h-4 text-cx-500" />
               <h1 className="text-lg font-bold text-gray-900">Keyword portfolio</h1>
             </div>
-            <p className="text-[11px] text-gray-500 mt-0.5">Treat each keyword as an asset. Defend / Invest / Harvest / Tail. Amazon search (SQP), weekly.</p>
+            <p className="text-[11px] text-gray-500 mt-0.5">
+              {viewMode === 'decision'
+                ? 'Treat each keyword as an asset. Defend / Invest / Harvest / Tail. Amazon search (SQP), weekly.'
+                : 'Every keyword’s full SQP metrics across the segment — for analysis and export.'}
+            </p>
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-              <input type="text" value={kwFilter} onChange={(e) => setKwFilter(e.target.value)} placeholder="Filter keywords… e.g. vitamin AND d3, !gummy"
-                className="pl-8 pr-7 py-1.5 text-xs w-72 border border-gray-200 rounded-md focus:ring-1 focus:ring-cx-500/30 focus:border-cx-400 outline-none" />
-              {kwFilter && <button onClick={() => setKwFilter('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"><X className="w-3 h-3" /></button>}
-            </div>
-            <InfoTooltip content="Isolate a segment (a category, ingredient or use case). Words are AND by default — “vitamin d3” needs both. Use OR for either (“vitamin OR d3”), and ! or - to exclude (“vitamin !gummy”). The whole page reflects the segment." wide />
-            <WeekRangePicker weeks={allWeeks} endWeek={endWeek} nWeeks={nWeeks} onChange={(e, n) => { setEndWeek(e); setNWeeks(n); }} />
-            <BrandedToggle value={brand} onChange={setBrand} />
+          <ViewModeToggle mode={viewMode} onChange={setViewMode} />
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="relative">
+            <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+            <input type="text" value={kwFilter} onChange={(e) => setKwFilter(e.target.value)} placeholder="Filter keywords… e.g. vitamin AND d3, !gummy"
+              className="pl-8 pr-7 py-1.5 text-xs w-72 border border-gray-200 rounded-md focus:ring-1 focus:ring-cx-500/30 focus:border-cx-400 outline-none" />
+            {kwFilter && <button onClick={() => setKwFilter('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"><X className="w-3 h-3" /></button>}
           </div>
+          <InfoTooltip content="Isolate a segment (a category, ingredient or use case). Words are AND by default — “vitamin d3” needs both. Use OR for either (“vitamin OR d3”), and ! or - to exclude (“vitamin !gummy”). The whole page reflects the segment." wide />
+          <WeekRangePicker weeks={allWeeks} endWeek={endWeek} nWeeks={nWeeks} onChange={(e, n) => { setEndWeek(e); setNWeeks(n); }} />
+          <BrandedToggle value={brand} onChange={setBrand} />
         </div>
         <TrustBar throughWeek={endWeek} nAsins={latest.expected} nQueries={view.nTracked} />
         <LatestWeekBanner status={latest} />
-      </div>
-
-      <div className="inline-flex rounded-lg border border-gray-200 p-0.5 bg-white w-max">
-        {([
-          { id: 'insights', label: 'Insights', icon: Sparkles },
-          { id: 'tables', label: 'Tables', icon: Table },
-        ] as const).map((m) => (
-          <button key={m.id} onClick={() => setMode(m.id)}
-            className={`inline-flex items-center gap-1.5 px-3 py-1 text-[11px] font-semibold rounded-md transition-colors ${mode === m.id ? 'bg-cx-500 text-white' : 'text-gray-500 hover:text-gray-700'}`}>
-            <m.icon className="w-3 h-3" />{m.label}
-          </button>
-        ))}
       </div>
 
       {kwFilter.trim() && (

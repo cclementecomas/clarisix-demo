@@ -3145,3 +3145,321 @@ Now:
   (Wizard / Ready / Pending / Connecting / Syncing / Error) that calls setOnboardingStatus.
   During onboarding the sidebar is hidden (App gates on isOnboarding), and OnboardingGateway's
   own state <select> returns to Ready — so the round-trip works.
+
+────────────────────────────────────────────────────────────────────────────
+Customer Experience module — Decision/Analyst redesign (Aug 25 2026)
+
+Rebuilt the Customer Experience section around "insights first, complete evidence one
+click away". IA reshaped to Overview · Retention & Value · Ratings and Reviews (coming).
+No AI — deterministic rules only. No new libraries (reuses DeepDiveTable + bespoke SVG).
+
+Architecture (src/components/cx/, src/data/cxData.ts, src/contexts/CxContext.tsx):
+- CxContext: presentation mode (decision|analyst, default decision) + insight→evidence
+  (viewEvidence jumps to Analyst, opens the right tab, applies a rule filter, shows a banner).
+  Mounted globally in main.tsx so mode/selection persist across page navigation.
+- cxData.ts: ALL synthetic (IS_DEMO_DATA), no competitor identifiers. Configurable thresholds
+  (CX_CONFIG), METRIC_DEFS, product-level mix + subscription-quality + economics, weekly series,
+  a cohort generator (cohortValue → null when immature, never interpolated), and two deterministic
+  insight engines (overviewInsights / retentionInsights).
+- Overview: Decision (summary + 3 metrics + Customer-mix chart w/ lens + ≤3 insights + watchlist);
+  Analyst (Product analysis on DeepDiveTable — grouped cols/frozen identity/search/dir filter/
+  evidence filter/export; Portfolio trend — 6 lenses, chart/table toggle, CSV).
+- Retention & Value: Decision (3 value/retention metrics + cohort curve w/ Value/Retention/
+  Profitability lens + ≤3 insights + "Acquisition ceiling by product"); Analyst (Cohort analysis
+  — bespoke CohortMatrix with frozen cohort+context cols, sticky maturity headers, heatmap,
+  immature staircase blanks, weighted-avg total, CSV; Subscription economics on DeepDiveTable w/
+  Child/Parent grain toggle).
+- Naming: competitor "Breakeven ACoS"→"Acquisition ceiling"; cumulative cohort revenue→
+  "Customer value accumulation". (Subscription quality: we kept the Real S&S / Fake S&S
+  framing — see the "data sources & metric methodology" section below for the ≥2-orders rule.)
+- Missing data shown as "Not supplied"/blank, never coerced to 0; no current-vs-safe status when
+  current ACoS is null.
+
+Routing: App.tsx routes CX Overview → CxOverview, Retention & Value → CxRetention; legacy
+Retention/Subscriptions routes kept (unreachable from nav) for deep links. dashboardData.ts CX
+subItems reshaped. Definitions to validate against the real Clarisix data model: subscription-
+quality split, acquisition-ceiling formula, cohort metric definitions (see cxData.ts header).
+
+Update (Aug 25 2026): CX charts use the Clarisix data-viz palette from index.css (cx-d*),
+NOT the competitor purple. Centralised in cx/ui.tsx `CX` = { primary #0E5A8A (blue), brand
+#D55E00 (orange), teal #0F766E, amber #C68900, … }. Series: Repeat/primary = blue, New-to-brand
+= brand orange, Subscription = blue/teal; cohort heatmap = blue (neg = cx-error red). Metric
+rename: "Subscribe & Save sales" → "Subscription sales" (source term kept in the metric definition).
+
+Update (Aug 25 2026): CX analyst tables de-crowded — short per-column headers (band group
+supplies context), wider columns so headers don't truncate, and lower-value columns hidden by
+default (Previous/Share/1-mo) revealable via the Columns chooser. Cell-select summary stats work
+platform-consistently (Count/Sum/Avg/Median/Min/Max on raw values, not the $K/% display strings).
+
+Update (Aug 25 2026): Retention decision cohort curve made self-explanatory — plain title/subtitle,
+a computed one-sentence takeaway (newest cohort vs benchmark at its latest mature month, lens-aware),
+explicit x-axis label ("Months since a customer's first order"), a legend explaining the 3 cohorts
+(newest / strongest historical / portfolio average), and round y-axis ticks (niceCeil in charts.tsx).
+
+Update (Aug 25 2026): CX Decision-mode simplified for readability. Removed the "prioritized
+insights" rails from both Overview and Retention decision views (InsightList + overview/retention
+insight engines retained but unused, easy to re-enable). Customer mix over time is now a STACKED
+COLUMN chart (StackedBars in charts.tsx) with the % of total drawn on each segment (Repeat blue /
+New orange). The freed Overview space holds a "This period at a glance" widget (100% mix bar +
+subscription-share bar). Retention cohort curve runs full-width. Analyst Portfolio-trend chart also switched to StackedBars (dropped the redundant share line; single-series lenses hide the % labels). Terminology simplified across
+visuals: Repeat / New / Subscription (metric card "New-customer sales"; analyst band group
+"New customers"); summary CTAs now "Open detailed data".
+
+────────────────────────────────────────────────────────────────────────────
+Customer Experience — data sources & metric methodology (Aug 25 2026)
+
+This is the ground-truth reference for HOW every Customer-Experience metric is (or
+will be) computed from Amazon data. The wireframe ships synthetic data (cxData.ts,
+IS_DEMO_DATA) hand-tuned to match these formulas exactly, so the demo doubles as the
+integration spec. Validated against the proven competitor methodology (their public
+glossary) — and where we diverge, we are deliberately stricter/more accurate.
+IMPORTANT: we do NOT use Amazon Marketing Cloud (AMC). Everything below is
+reconstructed from standard SP-API reports + the Ads API. No AMC, no clean room.
+
+── The data backbone (two SP-API reports do the heavy lifting) ──
+1. All Orders Report — GET_FLAT_FILE_ALL_ORDERS_DATA_BY_ORDER_DATE_GENERAL.
+   The ledger of WHAT sold: amazon-order-id, sku → asin, quantity, item-price,
+   item-promotion-discount, ship-promotion-discount, and the Subscribe & Save flag
+   (sales-channel / "SubscribeAndSave" / promotion-ids). Source of ASP, units,
+   discounts and the S&S vs one-off split.
+2. Amazon Fulfilled Shipments — GET_AMAZON_FULFILLED_SHIPMENTS_DATA_GENERAL.
+   Carries the anonymised buyer identity fields (buyer-email hash / recipient-name /
+   ship-to) = the CUSTOMER STITCH KEY. Joining orders on this key across all history
+   is how we reconstruct per-customer order history WITHOUT AMC — the foundation for
+   NTB vs repeat, cohorts, retention, LTV, time-to-2nd-purchase and repeat windows.
+Supporting sources:
+3. Ads API (Sponsored Products/Brands/Display) — PPC spend & ad-attributed sales →
+   ACoS, and CAC (ad spend ÷ new-to-brand customers). Null when Ads not connected.
+4. Product-fees API (preview) + Settlement / Reports-Repository — referral %, FBA
+   fulfilment fees, refunds/returns → net contribution per unit.
+5. User-supplied COGS (landed unit cost) — the one input Amazon can't give us.
+   Contribution per unit = ASP − referral − FBA − returns provision − COGS.
+
+── Core definitions (all customer-level, stitched via report #2) ──
+• New-to-brand (NTB): a customer whose FIRST-EVER order in the full stitched history
+  falls in the period. NO 12-month look-back window — this is stricter and more
+  accurate than Amazon Ads' NTB flag (which resets after 12 months). A customer is
+  NTB exactly once, ever. Sales from those orders = NTB sales.
+• Repeat: sales from customers who had ≥1 prior order before the period.
+• Subscription (S&S): orders carrying the Subscribe & Save flag (report #1).
+• Subscription quality = REAL vs FAKE Subscribe & Save (the key competitor insight):
+    – REAL S&S  = a subscriber with ≥2 SEPARATE S&S orders → validated recurring
+      revenue (they actually kept the subscription). Proxy field: subFullPrice.
+    – FAKE S&S  = a single S&S order that NEVER renewed (one-off coupon/discount
+      users who subscribed only to grab the S&S %, then cancelled), plus purely
+      promotional first-order-only subs. Proxy fields: subFirstOrderOnly + subPromo.
+    subQuality(p): recurringShare = REAL ÷ total S&S; lowQualityShare = FAKE ÷ total.
+    UI labels: "Real S&S" / "Fake S&S". A high Fake share on a falling product =
+    subscription-quality-risk status.
+
+── Cohort / retention / LTV (report #2 stitch, grouped by first-order month) ──
+• A cohort = all customers whose first-ever order was in month M. We track each
+  cohort forward by maturity month (M0 = acquisition month, M1, M2 …).
+• retentionRate(cohort, m) = share of the cohort with ≥1 order in maturity month m.
+• revenuePerCustomer(cohort, m) = cumulative revenue ÷ cohort size at maturity m
+  (the "customer value accumulation" curve).
+• profitPerCustomer(cohort, m) = cumulative contribution − CAC (negative at M0, then
+  compounds — the payback curve). CAC(cohort) = cohort PPC spend ÷ NTB customers.
+• LTV in UNITS at horizon H (ltvU1/3/6/12) = average units a customer buys within H
+  months of their first order. Revenue LTV = ltvU × ASP; gross-profit LTV =
+  ltvU × contribution-per-unit.
+• IMMATURITY GUARD: a cohort's value/retention at maturity m is only shown once that
+  many months have actually elapsed. Cells beyond a cohort's real age are BLANK
+  (hatched), NEVER interpolated — cohortValue() returns null. Equivalently the most
+  recent 2–4 weeks of repeat/S&S-renewal signal is withheld because it isn't
+  observable yet. A cohort is "sufficiently mature" from CX_CONFIG.matureCohortMonths.
+
+── Acquisition ceiling (safe / break-even ACoS) ──
+The highest ACoS you can pay to acquire a customer and still break even, given how
+much that customer is worth over the horizon:
+    Safe ACoS(H) = (contribution per unit × LTV in units at H) ÷ ASP
+Worked example (MRP parity): $10 profit/unit × 4 units over 12 mo ÷ $35 price = 114%.
+In code: subEconomics() computes safe1/3/6/12 from ltvU1/3/6/12. Status compares
+current ACoS to safe6 → headroom / near-limit (>85% of ceiling) / over-limit. When
+current ACoS isn't supplied (Ads disconnected) status = "Insufficient data" — never
+a fabricated number.
+
+── LTV:CAC ratio ──
+    LTV:CAC = (gross-profit LTV at 12 mo) ÷ CAC = (contribution/unit × ltvU12) ÷ CAC
+Interpretation: ≥3:1 healthy, 1–3:1 profitable-but-thin, <1:1 unprofitable (you spend
+more to acquire than the customer returns). Portfolio LTV:CAC = mean of per-product
+ratios across Ads-connected products (portfolioLtvCac()). CAC = null (and therefore
+LTV:CAC null, "Not supplied") when Ads isn't connected. Surfaced on the Retention &
+Value decision summary + a dedicated widget, and as a column in both the acquisition-
+ceiling table and the analyst subscription-economics table (colour-coded green/amber/rose).
+
+── Payback period ──
+    Payback (months) = CAC ÷ (gross-profit LTV at 12 mo ÷ 12)
+i.e. CAC divided by average monthly gross profit per customer. Null when CAC is null.
+
+── Second-purchase behaviour (report #2 stitch, order timestamps) ──
+• Time-to-second-purchase = mean days between the 1st and 2nd order across customers
+  with ≥2 orders (TIME_TO_SECOND_PURCHASE_DAYS). Sets retargeting / S&S-timing windows.
+• Repeat-purchase windows (REPEAT_WINDOWS) = distribution of repeat orders by days
+  since the first order, bucketed 0–7 / 8–15 / 16–30 / 31–60 / 61–90 / 91–120 /
+  120–150 / 150–180 / 180+ (sums to 100%). Shows where reorder demand actually lands
+  (demo peaks 31–60d). Rendered as a mini bar chart on the decision view; the peak
+  bucket is highlighted.
+
+── Where it lives in code ──
+src/data/cxData.ts — CxProduct (asp, contributionPerUnit, currentAcos, spend, cac,
+ltvU1/3/6/12), subQuality() (Real/Fake), subEconomics() (safe ACoS via units, ltvCac,
+payback), portfolioLtvCac(), TIME_TO_SECOND_PURCHASE_DAYS, REPEAT_WINDOWS, cohortRows/
+cohortValue() (immaturity nulls), retentionCurves(), METRIC_DEFS (every definition).
+UI: cx/retention/RetentionDecision.tsx (LTV:CAC + time-to-2nd + repeat-windows widgets,
+LTV:CAC in ceiling table), RetentionAnalyst.tsx (subscription-economics table + LTV:CAC
+column + Child/Parent aggregation), overview/OverviewAnalyst.tsx (Real/Fake S&S columns).
+
+── What's real vs modelled (honesty ledger for the real build) ──
+MEASURED from Amazon: ASP, units, discounts, S&S flag, order history / customer stitch,
+NTB vs repeat, cohorts, retention, revenue/units LTV, time-to-2nd, repeat windows,
+PPC spend/ACoS. USER-SUPPLIED: COGS. MODELLED/DERIVED: contribution (fees + COGS),
+CAC (spend ÷ NTB), safe ACoS, LTV:CAC, payback. NULL (never zero) when the underlying
+connection is missing — the UI reads "Not supplied" and withholds dependent statuses.
+
+── CX calendar anchoring (Aug 25 2026) ──
+The whole CX calendar is anchored to a single runtime "as-of" date (AS_OF = new Date()
+in cxData.ts) so it self-corrects to the real current date instead of drifting against
+hardcoded months. COHORT_MONTHS is generated backward from the current month (16 cohorts,
+newest = this month at age 0); DATA_THROUGH_LABEL (the Freshness badge default) is derived
+from the same anchor. The synthetic story shape is preserved because values key off cohort
+INDEX, not calendar month — only the labels roll forward with time. The cohort-curve legend
+says "newest MATURE cohort" (the youngest cohort ≥6 months old — the truly-newest are too
+immature to plot). Note: the global date-range picker (top nav, shared by all modules) is a
+separate control and is intentionally not bound to AS_OF.
+
+────────────────────────────────────────────────────────────────────────────
+Zix — mascot / future AI agent on the footer (Aug 26 2026)
+
+Introduced "Zix", the Clarisix character that will become the AI agent. He perches on the footer's
+TOP border line (Footer.tsx), top-right (right-16, -top-[76px]), above the Home/About/Contact nav,
+legs dangling below the line. Footer top margin was raised to mt-20 so his body sits in cleared
+space and never overlaps the page content above. Hovering reveals a dark speech bubble that opens
+to the LEFT (arrow points right at him): "Hi, I'm Zix 👋 Soon I'll be your Clarisix AI agent —
+watching every metric, surfacing what matters, and taking action for you across the platform."
+He does NOT move (user found idle motion distracting) — only a subtle scale on hover; no idle
+animation.
+ASSET NOTE: the user dropped public/zix-sitting-raw.png but it is a FLATTENED PNG with a baked-in
+checkerboard background (hasAlpha:no) — it rendered as an opaque box. I generated a transparent,
+tight-cropped version at public/zix-sitting.png (keyed out neutral-gray/white pixels where
+min(R,G,B)≥200 and max−min≤20, keeping Zix's warm orange/cream tones; feathered the halo) — that's
+the file the footer references. The -raw.png is now unused and can be deleted.
+
+────────────────────────────────────────────────────────────────────────────
+Content Tracker polished to match platform vibe (Aug 26 2026)
+
+ContentTracker.tsx brought in line with the rest of the platform before go-live: (1) added a
+proper page header (title "Tracker" + question subtitle "Is your published content actually live
+on Amazon? …" + LastRefreshed moved from the page bottom to the header top-right); (2) upgraded
+the five plain KPI boxes (Total Products · Perfect Match · Partial Match · Mismatch · Avg Match
+Rate) to the same premium card as Inventory — colour-matched icon chip (Package/CheckCircle2/
+CircleDashed/XCircle/Gauge), left status-accent bar, hover lift, an (i) InfoTooltip on each
+explaining the metric (KPI_META keyed by label), and a computed subtitle (match buckets show
+"% of products"; extended KPI_CHIP/KPI_ACCENT maps by sentiment colour). The rest of the page
+(Content Score Tracker area chart, Field Match Rates, Match Rate by Marketplace, comparison table)
+already matched the platform and was left as-is. No Decision/Analyst toggle added — it's a single
+monitoring surface; a split wasn't warranted.
+
+────────────────────────────────────────────────────────────────────────────
+Inventory Planner control-tower KPI cards upgraded (Aug 25 2026)
+
+The six control-tower KPI cards (Total Units · Sales at Risk · Avg Days of Cover · Stranded SKUs
+· Unfulfillable · Overstock Value) in InventoryOverview.tsx KPIRow were redesigned from plain
+pastel boxes to premium cards: a colour-matched icon chip (Boxes/TrendingDown/CalendarClock/
+PackageX/Ban/Warehouse), a left status-accent bar, left-aligned label+value hierarchy, a hover
+lift, and an (i) InfoTooltip on EACH card explaining the metric + how it's computed (KPI_META map,
+keyed by kpi.key). Cards remain click-to-filter (active → ring + accent + "Filtering table" hint
+replacing the subtitle); the (i) span stops click propagation so hovering it doesn't toggle the
+filter. KPI_COLORS extended with `chip` + `accent` classes per sentiment colour. Icons imported
+from lucide (+ Filter, LucideIcon type). Definitions live in KPI_META, so they double as the spec
+for what each control-tower metric means.
+
+────────────────────────────────────────────────────────────────────────────
+CX MetricCard unified with the platform KPI card (Aug 25 2026)
+
+The CX decision metric cards (Overview: Repeat/Subscription/New-customer sales; Retention:
+6-/12-mo value + retention) were restyled to match the flagship platform KPI card
+(src/components/KPICards.tsx) so the visuals are consistent across modules. cx/ui.tsx MetricCard
+now uses: sentiment-tinted bg/border (green when the delta is good, red when bad — driven by
+delta sign × higherIsBetter), a centred extra-bold value with the share label beneath, a filled
+AREA sparkline, and a trend-icon "PoP … vs prev." footer above a border-t. CX-specific richness
+kept: the share label and the one-line context sentence. Deliberately did NOT copy the homepage's
+animate-attention-blink (that's a Home alerting affordance, too loud for a sub-page).
+The cx/ui.tsx `Sparkline` gained `area` + `fullWidth` props (area = tinted gradient fill;
+fullWidth = viewBox + preserveAspectRatio="none" with vector-effect non-scaling-stroke so the
+stroke stays uniform) — still custom SVG, no chart library added to the CX module. useId() gives
+each gradient a stable unique id. Cards with no `spark` (Retention) simply omit the chart area.
+
+────────────────────────────────────────────────────────────────────────────
+Decision/Analyst toggle — reusable pattern rollout (Aug 25 2026)
+
+The CX "Decision vs Analyst" presentation toggle is being generalised across pages where a
+summarised "what's wrong / what to do" view and a dense "full data for analysis & export"
+view both make sense. Reusable presentational component: src/components/ViewModeToggle.tsx
+(exports ViewMode = 'decision'|'analyst'; visual twin of cx/ui.tsx ModeSwitch but DECOUPLED
+from CxContext — each page owns its own local useState, so it isn't tied to CX-specific
+context like evidence/selectedAsin). CX keeps its own ModeSwitch (context-driven) — not
+refactored, to stay surgical.
+
+First adoption outside CX: Sales → Diagnostics (src/components/DeepDive.tsx). The page already
+had the two halves latent, now split by the toggle:
+  • Decision (default): Issues-detected panel + Troubleshooting table (+ entity detail drawer).
+    Question subtitle: "What's hurting sales, and what should I do about it?"
+  • Analyst: the three full metric DeepDiveTables (Marketplace · Category · ASIN — every metric,
+    PoP/LY, Select-mode summary stats, Export/Sheets). Previously buried in a collapsed
+    "Full metric tables" section (that collapse + its Chevron imports were removed).
+Header added (title "Diagnostics" + question + LastRefreshed + toggle), matching the CX header
+layout. Rollout continues to other pages incrementally where the split adds clarity.
+
+Second adoption: Advertising → Diagnostics (src/components/AdvertisingDeepDive.tsx). Same move —
+the page already had an "Analyst tables" collapse (showAnalyst) which became the toggle:
+  • Decision (default): AdvertisingDiagnosticsTable (+ decision drawer).
+    Question: "Where is ad spend underperforming, and what should I change?"
+  • Analyst: AdvertisingAnalystTables (Placement · Ad type · Campaign · Search term · Audience —
+    chart/table toggle, column selector, PoP/LY, Select-mode stats, export).
+  NOTE the local `type ViewMode = 'chart'|'table'` already in that file — the page-level toggle
+  type is imported aliased as `PageView` to avoid the collision. The trailing LastRefreshed inside
+  AdvertisingAnalystTables was removed (header now owns it); ChevronUp import dropped (collapse gone).
+
+Third adoption: Advertising → Overview (src/components/AdvertisingOverview.tsx). Same latent
+split, same showAnalyst collapse → toggle:
+  • Decision (default): Executive insight card + Top-advertising-decisions panel + Performance
+    scorecard + "Where is it happening?" (+ decision drawer).
+    Question: "How is advertising performing, and where should I act?"
+  • Analyst: the four rollup DeepDiveTables (Marketplace · Brand · Category · ASIN). The Brand &
+    Category tables stay gated behind the campaign-naming-convention LockedTablePlaceholder.
+  ChevronUp/ChevronDown imports dropped (collapse gone); LastRefreshed moved into the header.
+
+Fourth adoption: Inventory → Planner (src/components/InventoryOverview.tsx). Different starting
+point — this page already had a BESPOKE inline switcher (activeView: 'actions' | 'skus' — "Action
+Queue" vs "SKU Inventory"). Rather than a second toggle, the standard header toggle is MAPPED onto
+that existing state via a thin adapter (view = activeView==='actions' ? 'decision':'analyst';
+setView flips activeView and clears the KPI filter on Decision). The bespoke inline switcher was
+removed; its descriptive hint text moved into the header question.
+  • Decision (default): KPI row + Replenishment Action Panel (the action queue).
+    Question: "What needs replenishing this week, and how much to order?"
+  • Analyst: KPI row + the full Inventory Risk Table (all SKUs, every column).
+  Shared across both views (they sit above the toggle's content, not inside it): the sticky
+  controls bar (FBA/FBM filter + Forecast Settings) and the FBA Storage/IPI alert. KPI-card clicks
+  still jump to the Analyst/SKU view and filter it (handleKpiFilter → setActiveView('skus')).
+  ListChecks/Table2 icon imports dropped (bespoke switcher gone); both old LastRefreshed instances
+  removed, one moved into the header.
+
+Fifth adoption: Sales → Keyword portfolio (src/components/SQP.tsx). Like Inventory Planner, it
+already had a BESPOKE split — a pill toggle with mode: 'insights' | 'tables' (Sparkles/Table
+icons). Standardised to the header Decision/Analyst toggle via an adapter (viewMode = mode===
+'insights'?'decision':'analyst'; NB the local var is `viewMode`, NOT `view` — `view` is already
+the portfolioView() result). The bespoke pill was removed and the toggle moved to the header
+top-right; the SQP scope controls (keyword filter + WeekRangePicker + BrandedToggle) dropped to
+their own row under the title; subtitle is now view-aware.
+  • Decision (default): MainIssueBanner + PortfolioMap (Defend/Invest/Harvest/Tail quadrant) +
+    KeywordTable (+ KeywordDrawer). "Treat each keyword as an asset…"
+  • Analyst: SqpDeepDive pivot (Rows/Then-by grain, dense SQP table, Select/Export/Sheets/Columns).
+  Shared across both (page-level scope, above the toggle content): keyword filter, week range,
+  branded toggle, TrustBar, LatestWeekBanner, and the non-branded note. Sparkles/Table imports dropped.
+
+Assessed but INTENTIONALLY SKIPPED — Profitability → Overview (P&L statement) and → Deepdive
+(product table + waterfall). Both are single-purpose analyst surfaces with no latent "decision"
+layer to split, so a toggle there would be cosmetic. A real Decision view (issues/insights over
+the P&L) would be net-new design, not a mechanical rollout — deferred until it's worth building.
+Sales → Overview also explicitly excluded from this pass by the user.

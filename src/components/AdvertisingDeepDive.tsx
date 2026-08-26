@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  LayoutGrid, List, Download, ChevronDown, ChevronUp, Search, MousePointer2, Lock,
+  LayoutGrid, List, Download, ChevronDown, Search, MousePointer2, Lock,
 } from 'lucide-react';
 
 import DeepDiveTable, {
@@ -13,6 +13,7 @@ import DeepDiveTable, {
 import ColumnToggle from './deepdive/ColumnToggle';
 import InfoTooltip from './InfoTooltip';
 import LastRefreshed from './LastRefreshed';
+import ViewModeToggle, { type ViewMode as PageView } from './ViewModeToggle';
 import { useCurrency } from '../contexts/CurrencyContext';
 import type { Currency } from '../contexts/CurrencyContext';
 import { useAccountSpecifics } from '../contexts/AccountSpecificsContext';
@@ -670,8 +671,6 @@ function AdvertisingAnalystTables() {
             </div>
           </>)
       }
-
-      <LastRefreshed offsetMinutes={12} />
     </div>
   );
 }
@@ -684,44 +683,46 @@ export default function AdvertisingDeepDive() {
   const [entity, setEntity] = useState<AdEntityKind>('campaign');
   const [tab, setTab] = useState<AdDecisionTab>('all');
   const [selected, setSelected] = useState<AdDiag | null>(null);
-  const [showAnalyst, setShowAnalyst] = useState(false);
+  const [view, setView] = useState<PageView>('decision');
 
   const diagnostics = diagnosticsForEntity(entity);
 
   return (
     <div className="space-y-4 min-w-0">
-      <AdvertisingDiagnosticsTable
-        diagnostics={diagnostics}
-        entity={entity}
-        onEntityChange={setEntity}
-        tab={tab}
-        onTabChange={setTab}
-        onRowClick={setSelected}
-      />
+      {/* Header — page title + Decision/Analyst toggle */}
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-lg font-bold text-gray-900">Diagnostics</h1>
+          <p className="text-[12px] text-gray-500 mt-0.5">
+            {view === 'decision'
+              ? 'Where is ad spend underperforming, and what should I change?'
+              : 'Every advertising surface in full — placement, ad type, campaign, search term, audience.'}
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <LastRefreshed offsetMinutes={12} />
+          <ViewModeToggle mode={view} onChange={setView} />
+        </div>
+      </div>
+
+      {view === 'decision' ? (
+        <AdvertisingDiagnosticsTable
+          diagnostics={diagnostics}
+          entity={entity}
+          onEntityChange={setEntity}
+          tab={tab}
+          onTabChange={setTab}
+          onRowClick={setSelected}
+        />
+      ) : (
+        /* Analyst — dense advertising surfaces (chart + table, column selector, PoP/LY, export) */
+        <AdvertisingAnalystTables />
+      )}
 
       <AdvertisingDecisionDrawer
         d={selected}
         onClose={() => setSelected(null)}
       />
-
-      {/* Analyst tables — original dense surfaces, collapsed by default */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <button
-          onClick={() => setShowAnalyst((v) => !v)}
-          className="w-full px-5 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
-        >
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-gray-900">Analyst tables</span>
-            <span className="text-[11px] text-gray-500">Placement · Ad type · Campaign · Search term · Audience — chart + table, column selector, PoP/LY toggle, export</span>
-          </div>
-          {showAnalyst ? <ChevronUp className="w-4 h-4 text-gray-500" /> : <ChevronDown className="w-4 h-4 text-gray-500" />}
-        </button>
-        {showAnalyst && (
-          <div className="border-t border-gray-100 p-4">
-            <AdvertisingAnalystTables />
-          </div>
-        )}
-      </div>
     </div>
   );
 }

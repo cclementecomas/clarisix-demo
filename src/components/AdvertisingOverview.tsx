@@ -7,7 +7,7 @@
 //   5. Full metric tables collapsed under "Analyst tables"
 
 import { useState } from 'react';
-import { ChevronDown, ChevronUp, Lock } from 'lucide-react';
+import { Lock } from 'lucide-react';
 import InfoTooltip from './InfoTooltip';
 import DeepDiveTable, {
   ColumnDef,
@@ -23,6 +23,7 @@ import type { Diagnostic } from '../data/advertisingDiagnostics';
 import AdvertisingScorecard from './advertising/AdvertisingScorecard';
 import WhereIsItHappening from './advertising/WhereIsItHappening';
 import LastRefreshed from './LastRefreshed';
+import ViewModeToggle, { type ViewMode } from './ViewModeToggle';
 import {
   adByMarketplace,
   adByCategory,
@@ -138,86 +139,92 @@ export default function AdvertisingOverview() {
   const cols = useAdPerfCols();
   const totalsRow = [adPerfTotals];
   const { campaignNamingEnabled } = useAccountSpecifics();
-  const [showAnalyst, setShowAnalyst] = useState(false);
+  const [view, setView] = useState<ViewMode>('decision');
   const [selectedDecision, setSelectedDecision] = useState<Diagnostic | null>(null);
 
   return (
     <div className="space-y-4">
-      {/* 1 — Executive insight */}
-      <AdvertisingExecutiveInsightCard />
-
-      {/* 2 — Top advertising decisions (above the scorecard per the new hierarchy) */}
-      <AdvertisingDecisionsPanel onCardClick={setSelectedDecision} />
-      <AdvertisingDecisionDrawer d={selectedDecision} onClose={() => setSelectedDecision(null)} />
-
-      {/* 3 — Compact performance scorecard ("Show all metrics" expands rich KPI grid) */}
-      <AdvertisingScorecard />
-
-      {/* 4 — Where is it happening? (tabbed: Marketplace / Brand / Campaign type) */}
-      <WhereIsItHappening />
-
-      {/* 5 — Analyst tables (full metric depth, collapsed) */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <button
-          onClick={() => setShowAnalyst((v) => !v)}
-          className="w-full px-5 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
-        >
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-gray-900">Analyst tables</span>
-            <span className="text-[11px] text-gray-500">Marketplace · Brand · Category · ASIN — every metric, no decision filter</span>
-          </div>
-          {showAnalyst ? <ChevronUp className="w-4 h-4 text-gray-500" /> : <ChevronDown className="w-4 h-4 text-gray-500" />}
-        </button>
-        {showAnalyst && (
-          <div className="border-t border-gray-100 p-4 space-y-4">
-            <DeepDiveTable
-              title="Performance by Marketplace"
-              tooltip="Ad metrics aggregated by Amazon marketplace. PoP = period-over-period."
-              rowData={adByMarketplace}
-              columnDefs={cols}
-              pinnedBottomRowData={totalsRow}
-            />
-            {campaignNamingEnabled ? (
-              <DeepDiveTable
-                title="Performance by Brand"
-                tooltip="Ad metrics aggregated by brand, extracted from your campaign naming convention."
-                rowData={adByBrand}
-                columnDefs={cols}
-                pinnedBottomRowData={totalsRow}
-              />
-            ) : (
-              <LockedTablePlaceholder
-                title="Performance by Brand"
-                tooltip="Ad metrics aggregated by brand. Requires campaign naming convention to be configured."
-              />
-            )}
-            {campaignNamingEnabled ? (
-              <DeepDiveTable
-                title="Performance by Category"
-                tooltip="Ad metrics aggregated by product category, extracted from your campaign naming convention."
-                rowData={adByCategory}
-                columnDefs={cols}
-                pinnedBottomRowData={totalsRow}
-              />
-            ) : (
-              <LockedTablePlaceholder
-                title="Performance by Category"
-                tooltip="Ad metrics aggregated by product category. Requires campaign naming convention to be configured."
-              />
-            )}
-            <DeepDiveTable
-              title="Performance by ASIN"
-              tooltip="Ad metrics per ASIN. PoP = period-over-period."
-              rowData={adByASIN}
-              columnDefs={cols}
-              pinnedBottomRowData={totalsRow}
-              copyablePinnedCell
-            />
-          </div>
-        )}
+      {/* Header — page title + Decision/Analyst toggle */}
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-lg font-bold text-gray-900">Overview</h1>
+          <p className="text-[12px] text-gray-500 mt-0.5">
+            {view === 'decision'
+              ? 'How is advertising performing, and where should I act?'
+              : 'Every advertising rollup in full — marketplace, brand, category, ASIN.'}
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <LastRefreshed offsetMinutes={8} />
+          <ViewModeToggle mode={view} onChange={setView} />
+        </div>
       </div>
 
-      <LastRefreshed offsetMinutes={8} />
+      {view === 'decision' ? (
+        <>
+          {/* Executive insight */}
+          <AdvertisingExecutiveInsightCard />
+
+          {/* Top advertising decisions (above the scorecard per the new hierarchy) */}
+          <AdvertisingDecisionsPanel onCardClick={setSelectedDecision} />
+
+          {/* Compact performance scorecard ("Show all metrics" expands rich KPI grid) */}
+          <AdvertisingScorecard />
+
+          {/* Where is it happening? (tabbed: Marketplace / Brand / Campaign type) */}
+          <WhereIsItHappening />
+        </>
+      ) : (
+        /* Analyst tables — full metric depth (Marketplace · Brand · Category · ASIN, no decision filter) */
+        <div className="space-y-4">
+          <DeepDiveTable
+            title="Performance by Marketplace"
+            tooltip="Ad metrics aggregated by Amazon marketplace. PoP = period-over-period."
+            rowData={adByMarketplace}
+            columnDefs={cols}
+            pinnedBottomRowData={totalsRow}
+          />
+          {campaignNamingEnabled ? (
+            <DeepDiveTable
+              title="Performance by Brand"
+              tooltip="Ad metrics aggregated by brand, extracted from your campaign naming convention."
+              rowData={adByBrand}
+              columnDefs={cols}
+              pinnedBottomRowData={totalsRow}
+            />
+          ) : (
+            <LockedTablePlaceholder
+              title="Performance by Brand"
+              tooltip="Ad metrics aggregated by brand. Requires campaign naming convention to be configured."
+            />
+          )}
+          {campaignNamingEnabled ? (
+            <DeepDiveTable
+              title="Performance by Category"
+              tooltip="Ad metrics aggregated by product category, extracted from your campaign naming convention."
+              rowData={adByCategory}
+              columnDefs={cols}
+              pinnedBottomRowData={totalsRow}
+            />
+          ) : (
+            <LockedTablePlaceholder
+              title="Performance by Category"
+              tooltip="Ad metrics aggregated by product category. Requires campaign naming convention to be configured."
+            />
+          )}
+          <DeepDiveTable
+            title="Performance by ASIN"
+            tooltip="Ad metrics per ASIN. PoP = period-over-period."
+            rowData={adByASIN}
+            columnDefs={cols}
+            pinnedBottomRowData={totalsRow}
+            copyablePinnedCell
+          />
+        </div>
+      )}
+
+      {/* Decision drawer (opened from the decisions panel) */}
+      <AdvertisingDecisionDrawer d={selectedDecision} onClose={() => setSelectedDecision(null)} />
     </div>
   );
 }

@@ -475,8 +475,8 @@ export const menuItems = [
   {
     label: 'Customer Experience',
     icon: 'Star',
-    subItems: ['Ratings and Reviews', 'Retention', 'Subscriptions'],
-    defaultSub: 'Ratings and Reviews',
+    subItems: ['Overview', 'Retention & Value', 'Ratings and Reviews'],
+    defaultSub: 'Overview',
     comingSoonSubs: ['Ratings and Reviews'],
   },
 ];

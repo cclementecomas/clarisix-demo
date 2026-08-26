@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { ChevronRight, ChevronDown, Download, CheckCircle2, Filter, Sheet, Copy, Check } from 'lucide-react';
+import { ChevronRight, ChevronDown, Download, CheckCircle2, Filter, Sheet, Copy, Check, Package, CircleDashed, XCircle, Gauge, type LucideIcon } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
 } from 'recharts';
@@ -31,6 +31,29 @@ const LABEL_COLORS: Record<string, string> = {
   yellow: 'text-yellow-700/70',
   red: 'text-red-700/70',
   neutral: 'text-gray-500',
+};
+
+const KPI_CHIP: Record<string, string> = {
+  green: 'bg-green-100 text-green-600',
+  yellow: 'bg-yellow-100 text-yellow-600',
+  red: 'bg-red-100 text-red-600',
+  neutral: 'bg-gray-100 text-gray-500',
+};
+
+const KPI_ACCENT: Record<string, string> = {
+  green: 'bg-green-400',
+  yellow: 'bg-yellow-400',
+  red: 'bg-red-400',
+  neutral: 'bg-gray-300',
+};
+
+// Per-KPI icon + plain-language explanation (the (i) tooltip content).
+const KPI_META: Record<string, { icon: LucideIcon; tip: string }> = {
+  'Total Products': { icon: Package, tip: 'Total active ASINs being tracked for content accuracy across all marketplaces.' },
+  'Perfect Match': { icon: CheckCircle2, tip: 'ASINs where every tracked field (title, description and all five bullets) on the live Amazon listing matches the content you published — 90%+ field match.' },
+  'Partial Match': { icon: CircleDashed, tip: 'ASINs where some fields match but others differ from what you published (70–89% match). Amazon may have truncated, reformatted or dropped content.' },
+  'Mismatch': { icon: XCircle, tip: 'ASINs where the live listing differs substantially from your published content (under 70% match) — likely overwritten by another contributor or a suppressed field. Prioritise these for a case.' },
+  'Avg Match Rate': { icon: Gauge, tip: 'Average field-level match across all tracked ASINs — the share of your published content that is actually live on Amazon right now.' },
 };
 
 function matchColor(pct: number): string {
@@ -172,21 +195,49 @@ export default function ContentTracker() {
     setDownloadedBatches((prev) => new Set(prev).add(batchNumber));
   };
 
+  const totalProductsKpi = contentKPIs.find((k) => k.label === 'Total Products')?.rawValue ?? 0;
+
   return (
     <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-lg font-bold text-gray-900">Tracker</h1>
+          <p className="text-[12px] text-gray-500 mt-0.5">Is your published content actually live on Amazon? Field-by-field match tracking across your catalog.</p>
+        </div>
+        <LastRefreshed offsetMinutes={12} />
+      </div>
+
       {/* KPI Cards */}
-      <div className="grid grid-cols-5 gap-3">
-        {contentKPIs.map((kpi) => (
-          <div
-            key={kpi.label}
-            className={`rounded-xl border shadow-sm p-4 flex flex-col items-center ${STATUS_COLORS[kpi.color]}`}
-          >
-            <p className={`text-[9px] font-bold uppercase tracking-widest mb-1 ${LABEL_COLORS[kpi.color]}`}>
-              {kpi.label}
-            </p>
-            <span className="text-lg font-extrabold">{kpi.value}</span>
-          </div>
-        ))}
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
+        {contentKPIs.map((kpi) => {
+          const meta = KPI_META[kpi.label];
+          const Icon = meta?.icon ?? Package;
+          const isBucket = kpi.label === 'Perfect Match' || kpi.label === 'Partial Match' || kpi.label === 'Mismatch';
+          const sub = isBucket && totalProductsKpi
+            ? `${Math.round((kpi.rawValue / totalProductsKpi) * 100)}% of products`
+            : kpi.label === 'Total Products' ? 'in catalog'
+            : kpi.label === 'Avg Match Rate' ? 'across tracked fields' : '';
+          return (
+            <div
+              key={kpi.label}
+              className={`group relative overflow-hidden rounded-xl border shadow-sm p-3.5 flex flex-col items-start transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 ${STATUS_COLORS[kpi.color]}`}
+            >
+              <span aria-hidden className={`absolute left-0 top-0 h-full w-1 ${KPI_ACCENT[kpi.color]} opacity-60 group-hover:opacity-100 transition-opacity`} />
+              <div className="flex items-center justify-between w-full mb-2 pl-1">
+                <span className={`inline-flex items-center justify-center w-8 h-8 rounded-lg ${KPI_CHIP[kpi.color]}`}>
+                  <Icon className="w-4 h-4" />
+                </span>
+                <InfoTooltip content={meta?.tip} wide />
+              </div>
+              <p className={`text-[9px] font-bold uppercase tracking-widest pl-1 ${LABEL_COLORS[kpi.color]}`}>
+                {kpi.label}
+              </p>
+              <span className="text-xl font-extrabold tracking-tight pl-1">{kpi.value}</span>
+              {sub && <span className="text-[10px] text-gray-400 mt-0.5 pl-1">{sub}</span>}
+            </div>
+          );
+        })}
       </div>
 
       {/* Content Score Trend */}
@@ -293,10 +344,6 @@ export default function ContentTracker() {
         onToggleRow={toggleRow}
         selectedFields={selectedFields}
       />
-
-      <div className="flex justify-end">
-        <LastRefreshed offsetMinutes={12} />
-      </div>
     </div>
   );
 }

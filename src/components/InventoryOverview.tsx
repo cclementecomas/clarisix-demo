@@ -5,7 +5,8 @@ import {
 } from 'recharts';
 import {
   Search, ChevronDown, ChevronRight, AlertTriangle, Package, ArrowUpDown,
-  Settings, Plus, X, Calendar, Download, ListChecks, Table2,
+  Settings, Plus, X, Calendar, Download,
+  Boxes, TrendingDown, CalendarClock, PackageX, Ban, Warehouse, Filter, type LucideIcon,
 } from 'lucide-react';
 import {
   inventoryData,
@@ -17,6 +18,7 @@ import { useCurrency } from '../contexts/CurrencyContext';
 import { fc } from '../utils/currency';
 import InfoTooltip from './InfoTooltip';
 import LastRefreshed from './LastRefreshed';
+import ViewModeToggle, { type ViewMode } from './ViewModeToggle';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -66,13 +68,23 @@ const STATUS_BADGE: Record<string, string> = {
   'Overstock': 'bg-blue-100 text-blue-700',
 };
 
-const KPI_COLORS: Record<string, { bg: string; border: string; text: string; ring: string }> = {
-  neutral: { bg: 'bg-white', border: 'border-gray-200', text: 'text-gray-900', ring: 'ring-gray-300' },
-  green: { bg: 'bg-green-50', border: 'border-green-200/60', text: 'text-green-900', ring: 'ring-green-400' },
-  yellow: { bg: 'bg-yellow-50', border: 'border-yellow-200/60', text: 'text-yellow-900', ring: 'ring-yellow-400' },
-  orange: { bg: 'bg-orange-50', border: 'border-orange-200/60', text: 'text-orange-900', ring: 'ring-orange-400' },
-  red: { bg: 'bg-red-50', border: 'border-red-200/60', text: 'text-red-900', ring: 'ring-red-400' },
-  blue: { bg: 'bg-blue-50', border: 'border-blue-200/60', text: 'text-blue-900', ring: 'ring-blue-400' },
+const KPI_COLORS: Record<string, { bg: string; border: string; text: string; ring: string; chip: string; accent: string }> = {
+  neutral: { bg: 'bg-white', border: 'border-gray-200', text: 'text-gray-900', ring: 'ring-gray-300', chip: 'bg-gray-100 text-gray-500', accent: 'bg-gray-300' },
+  green: { bg: 'bg-green-50', border: 'border-green-200/60', text: 'text-green-900', ring: 'ring-green-400', chip: 'bg-green-100 text-green-600', accent: 'bg-green-400' },
+  yellow: { bg: 'bg-yellow-50', border: 'border-yellow-200/60', text: 'text-yellow-900', ring: 'ring-yellow-400', chip: 'bg-yellow-100 text-yellow-600', accent: 'bg-yellow-400' },
+  orange: { bg: 'bg-orange-50', border: 'border-orange-200/60', text: 'text-orange-900', ring: 'ring-orange-400', chip: 'bg-orange-100 text-orange-600', accent: 'bg-orange-400' },
+  red: { bg: 'bg-red-50', border: 'border-red-200/60', text: 'text-red-900', ring: 'ring-red-400', chip: 'bg-red-100 text-red-600', accent: 'bg-red-400' },
+  blue: { bg: 'bg-blue-50', border: 'border-blue-200/60', text: 'text-blue-900', ring: 'ring-blue-400', chip: 'bg-blue-100 text-blue-600', accent: 'bg-blue-400' },
+};
+
+// Per-KPI icon + plain-language explanation (the (i) tooltip content).
+const KPI_META: Record<string, { icon: LucideIcon; tip: string }> = {
+  totalUnits: { icon: Boxes, tip: 'Total on-hand units across all active SKUs (available stock, before inbound). The size of your current inventory position — the subtitle shows how many SKUs make it up.' },
+  revAtRisk: { icon: TrendingDown, tip: 'Sales at Risk — estimated revenue you could lose to stockouts before replenishment arrives. Summed across SKUs projected to run out, from each one’s sell-through rate × days of projected stockout.' },
+  avgDOC: { icon: CalendarClock, tip: 'Average Days of Cover — how many days of stock remain at the current sell-through rate, averaged across SKUs with finite supply. Under 21 days is flagged: lead time may exceed your remaining cover.' },
+  stranded: { icon: PackageX, tip: 'Stranded SKUs — units with sellable inventory that isn’t currently buyable (suppressed, inactive or incomplete listings). Fix the listing to release the stock back into rotation.' },
+  unfulfillable: { icon: Ban, tip: 'Unfulfillable units — inventory Amazon has marked unsellable (damaged, expired or customer-returned). Create a removal or disposal order to stop paying storage fees on them.' },
+  overstockValue: { icon: Warehouse, tip: 'Overstock Value — the cost value of inventory well above ideal cover. Cash tied up in slow-moving stock; these SKUs are candidates for markdowns, promotions or removal.' },
 };
 
 const ROW_TINT: Record<string, string> = {
@@ -248,6 +260,12 @@ export default function InventoryOverview() {
   const [expandedSkus, setExpandedSkus] = useState<Set<string>>(new Set());
   const [activeKpiFilter, setActiveKpiFilter] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<'actions' | 'skus'>('actions');
+  // Map the platform Decision/Analyst toggle onto this page's action-queue vs SKU-table views.
+  const view: ViewMode = activeView === 'actions' ? 'decision' : 'analyst';
+  const setView = (m: ViewMode) => {
+    setActiveView(m === 'decision' ? 'actions' : 'skus');
+    if (m === 'decision') setActiveKpiFilter(null);
+  };
 
   const handleKpiFilter = useCallback((key: string | null) => {
     setActiveKpiFilter(key);
@@ -345,6 +363,22 @@ export default function InventoryOverview() {
 
   return (
     <div className="space-y-5">
+      {/* Header — page title + Decision/Analyst toggle */}
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-lg font-bold text-gray-900">Planner</h1>
+          <p className="text-[12px] text-gray-500 mt-0.5">
+            {view === 'decision'
+              ? 'What needs replenishing this week, and how much to order?'
+              : 'Full SKU inventory state — coverage, safety stock, reorder points and sales at risk.'}
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <LastRefreshed offsetMinutes={6} />
+          <ViewModeToggle mode={view} onChange={setView} />
+        </div>
+      </div>
+
       {/* ─── Controls Bar ─── */}
       <div className="sticky top-0 z-10 bg-gray-50/95 backdrop-blur -mx-6 px-6 py-3 border-b border-gray-200/60">
         <div className="flex items-center gap-4">
@@ -375,10 +409,6 @@ export default function InventoryOverview() {
             <Settings className="w-3.5 h-3.5" />
             Forecast Settings
           </button>
-
-          <div className="ml-auto">
-            <LastRefreshed offsetMinutes={6} />
-          </div>
         </div>
       </div>
 
@@ -569,39 +599,6 @@ export default function InventoryOverview() {
       {/* ─── KPI Row ─── */}
       <KPIRow kpis={controlTowerKPIs} currency={currency} activeFilter={activeKpiFilter} onFilter={handleKpiFilter} />
 
-      {/* ─── View Switcher ─── */}
-      <div className="flex items-center justify-between">
-        <div className="inline-flex items-center rounded-lg border border-gray-200 bg-white overflow-hidden shadow-sm">
-          <button
-            onClick={() => { setActiveView('actions'); setActiveKpiFilter(null); }}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 text-[11px] font-semibold transition-colors ${
-              activeView === 'actions'
-                ? 'bg-cx-500 text-white'
-                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-            }`}
-          >
-            <ListChecks className="w-3.5 h-3.5" />
-            Action Queue
-          </button>
-          <button
-            onClick={() => setActiveView('skus')}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 text-[11px] font-semibold transition-colors ${
-              activeView === 'skus'
-                ? 'bg-cx-500 text-white'
-                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-            }`}
-          >
-            <Table2 className="w-3.5 h-3.5" />
-            SKU Inventory
-          </button>
-        </div>
-        <span className="text-[10px] text-gray-400">
-          {activeView === 'actions'
-            ? 'Decisions to make this week — only SKUs that need replenishing'
-            : 'Full SKU state — filter via the KPI cards above'}
-        </span>
-      </div>
-
       {/* ─── Replenishment Action Panel ─── */}
       {activeView === 'actions' && (
         <ReplenishmentActionPanel metricsMap={metricsMap} currency={currency} />
@@ -661,10 +658,6 @@ export default function InventoryOverview() {
         </div>
       </div>
       )}
-
-      <div className="flex justify-end">
-        <LastRefreshed offsetMinutes={6} />
-      </div>
     </div>
   );
 }
@@ -683,6 +676,8 @@ function KPIRow({
     <div className="grid grid-cols-3 xl:grid-cols-6 gap-3">
       {kpis.map((kpi) => {
         const colors = KPI_COLORS[kpi.color] || KPI_COLORS.neutral;
+        const meta = KPI_META[kpi.key];
+        const Icon = meta?.icon ?? Package;
         const isActive = activeFilter === kpi.key;
         let display: string;
         if (kpi.format === 'currency') display = fc(kpi.value, currency);
@@ -693,17 +688,34 @@ function KPIRow({
           <button
             key={kpi.key}
             onClick={() => onFilter(isActive ? null : kpi.key)}
-            className={`rounded-xl border shadow-sm p-4 flex flex-col items-center transition-all cursor-pointer ${colors.bg} ${colors.border} ${
-              isActive ? `ring-2 ${colors.ring}` : 'hover:shadow-md'
+            title={isActive ? 'Clear filter' : 'Filter the table by this metric'}
+            className={`group relative overflow-hidden rounded-xl border shadow-sm p-3.5 flex flex-col items-start text-left transition-all duration-200 cursor-pointer hover:shadow-md hover:-translate-y-0.5 ${colors.bg} ${colors.border} ${
+              isActive ? `ring-2 ${colors.ring}` : ''
             }`}
           >
-            <p className="text-[9px] font-bold uppercase tracking-widest mb-1 text-gray-500">
+            {/* status accent bar */}
+            <span aria-hidden className={`absolute left-0 top-0 h-full w-1 ${colors.accent} ${isActive ? 'opacity-100' : 'opacity-60 group-hover:opacity-100'} transition-opacity`} />
+
+            <div className="flex items-center justify-between w-full mb-2 pl-1">
+              <span className={`inline-flex items-center justify-center w-8 h-8 rounded-lg ${colors.chip}`}>
+                <Icon className="w-4 h-4" />
+              </span>
+              <span onClick={(e) => e.stopPropagation()} className="inline-flex">
+                <InfoTooltip content={meta?.tip} wide />
+              </span>
+            </div>
+
+            <p className="text-[9px] font-bold uppercase tracking-widest text-gray-500 pl-1">
               {kpi.label}
             </p>
-            <span className={`text-lg font-extrabold ${colors.text}`}>{display}</span>
-            {kpi.subtitle && (
-              <span className="text-[10px] text-gray-400 mt-0.5">{kpi.subtitle}</span>
-            )}
+            <div className="flex items-baseline gap-1.5 pl-1">
+              <span className={`text-xl font-extrabold tracking-tight ${colors.text}`}>{display}</span>
+            </div>
+            <span className="text-[10px] text-gray-400 mt-0.5 pl-1 min-h-[13px]">
+              {isActive
+                ? <span className="inline-flex items-center gap-1 font-semibold text-gray-500"><Filter className="w-2.5 h-2.5" />Filtering table</span>
+                : kpi.subtitle}
+            </span>
           </button>
         );
       })}

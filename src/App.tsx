@@ -17,6 +17,8 @@ import ProfitabilityDeepdive from './components/ProfitabilityDeepdive';
 import PrimeDayRecap from './components/PrimeDayRecap';
 import Retention from './components/Retention';
 import Subscriptions from './components/Subscriptions';
+import CxOverview from './components/cx/CxOverview';
+import CxRetention from './components/cx/CxRetention';
 import Settings, { type SettingsTabId } from './components/settings/Settings';
 import Trends from './components/Trends';
 import SQP from './components/SQP';
@@ -322,6 +324,13 @@ export default function App() {
     if (activeSection === 'Profitability' && activeSub === 'Deepdive') {
       return <ProfitabilityDeepdive />;
     }
+    if (activeSection === 'Customer Experience' && activeSub === 'Overview') {
+      return <CxOverview />;
+    }
+    if (activeSection === 'Customer Experience' && activeSub === 'Retention & Value') {
+      return <CxRetention />;
+    }
+    // legacy routes retained for deep links
     if (activeSection === 'Customer Experience' && activeSub === 'Retention') {
       return <Retention />;
     }
