@@ -235,7 +235,7 @@ export default function InventoryPerformance() {
         },
       },
       {
-        field: 'daysOnHand', headerName: 'Days on Hand', valueFormatter: daysFormatter, width: 120,
+        field: 'daysOnHand', headerName: 'Days on Hand', valueFormatter: daysFormatter, width: 120, heat: 'down',
         tooltip: 'Days of inventory at current pace. > 180 days flags as dead stock.',
         cellStyle: (p): Record<string, string> => {
           const v = p.value as number;
@@ -246,7 +246,7 @@ export default function InventoryPerformance() {
       },
       { field: 'cogs', headerName: 'COGS', valueFormatter: fmtCurrency, width: 110 },
       { field: 'inventoryValue', headerName: 'Inv. Value', valueFormatter: fmtCurrency, width: 120 },
-      { field: 'storageCostMonthly', headerName: 'Storage Cost/mo', valueFormatter: fmtCurrency, width: 140 },
+      { field: 'storageCostMonthly', headerName: 'Storage Cost/mo', valueFormatter: fmtCurrency, width: 140, heat: 'down' },
       {
         field: 'grossMargin', headerName: 'Gross Margin', valueFormatter: pctShareFormatter, width: 120,
         tooltip: 'Gross profit ÷ sales — how profitable each dollar of sales is, before subtracting ads, FBA fees, or storage. Pairs with Turnover to form GMROI. ≥ 50% healthy, 30–50% watch, < 30% thin.',

@@ -21,7 +21,7 @@ import CxOverview from './components/cx/CxOverview';
 import CxRetention from './components/cx/CxRetention';
 import Settings, { type SettingsTabId } from './components/settings/Settings';
 import Trends from './components/Trends';
-import SQP from './components/SQP';
+import SearchShare from './components/SearchShare';
 import ExecutiveInsightCard from './components/sales/ExecutiveInsightCard';
 import NeedsAttentionPanel from './components/sales/NeedsAttentionPanel';
 import SalesHeatmap from './components/SalesHeatmap';
@@ -37,7 +37,7 @@ import CommandPalette from './components/CommandPalette';
 import KeyboardShortcutsModal from './components/KeyboardShortcutsModal';
 import HomeCelebration from './components/HomeCelebration';
 import Greeting from './components/Greeting';
-import Traffic from './components/Traffic';
+import SearchFunnel from './components/SearchFunnel';
 import { useOnboarding } from './contexts/OnboardingContext';
 import { OnboardingWizardProvider } from './contexts/OnboardingWizardContext';
 import { menuItems } from './data/dashboardData';
@@ -166,13 +166,13 @@ export default function App() {
     setActiveSub(sub);
   };
 
-  // Traffic ASIN drawer → open this query in the Keyword Portfolio (SQP), landing on its drawer.
+  // Search funnel ASIN drawer → open this query on Search share, landing on its drawer.
   const openKeyword = useCallback((query: string, branded: boolean) => {
     if (isEmbed) return;
     setSqpFocus({ query, branded });
     setCurrentPage('dashboard');
     setActiveSection('Sales');
-    setActiveSub('Keyword portfolio');
+    setActiveSub('Search share');
   }, [isEmbed]);
   const clearSqpFocus = useCallback(() => setSqpFocus(null), []);
 
@@ -251,14 +251,14 @@ export default function App() {
     if (activeSection === 'Sales' && activeSub === 'Diagnostics') {
       return <DeepDive />;
     }
-    if (activeSection === 'Sales' && activeSub === 'Traffic funnel') {
-      return <Traffic onOpenKeyword={openKeyword} />;
+    if (activeSection === 'Sales' && activeSub === 'Search funnel') {
+      return <SearchFunnel onOpenKeyword={openKeyword} onOpenShare={() => setActiveSub('Search share')} />;
     }
     if (activeSection === 'Sales' && activeSub === 'Trends') {
       return <Trends />;
     }
-    if (activeSection === 'Sales' && activeSub === 'Keyword portfolio') {
-      return <SQP focusQuery={sqpFocus} onFocusConsumed={clearSqpFocus} />;
+    if (activeSection === 'Sales' && activeSub === 'Search share') {
+      return <SearchShare focusQuery={sqpFocus} onFocusConsumed={clearSqpFocus} onOpenFunnel={() => setActiveSub('Search funnel')} />;
     }
     if (activeSection === 'Advertising' && activeSub === 'Overview') {
       return <AdvertisingOverview />;

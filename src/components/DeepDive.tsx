@@ -157,17 +157,17 @@ function metricColumns(currency: Parameters<typeof currencyFormatter>[0]): Colum
     { field: 'organicPct',  headerName: 'Organic %',    valueFormatter: pctShareFormatter, width: 120, group: FUNNEL, hide: true, subFields: ppSub('organicPct') },
 
     // Is advertising efficient?  (cost metrics use inverted colour polarity)
-    { field: 'discounts',   headerName: 'Discounts',    valueFormatter: fmtCurrency,       width: 130, group: ADS, hide: true, subFields: pctSubCost('discounts') },
-    { field: 'adSpend',     headerName: 'Ad Spend',     valueFormatter: fmtCurrency,       width: 130, group: ADS,             subFields: pctSubCost('adSpend') },
+    { field: 'discounts',   headerName: 'Discounts',    valueFormatter: fmtCurrency,       width: 130, group: ADS, hide: true, heat: 'down', subFields: pctSubCost('discounts') },
+    { field: 'adSpend',     headerName: 'Ad Spend',     valueFormatter: fmtCurrency,       width: 130, group: ADS,             heat: 'down', subFields: pctSubCost('adSpend') },
     { field: 'adSales',     headerName: 'Ad Sales',     valueFormatter: fmtCurrency,       width: 130, group: ADS, hide: true, subFields: pctSub('adSales') },
-    { field: 'adCpc',       headerName: 'Ad CPC',       valueFormatter: fmtCurrency,       width: 110, group: ADS, hide: true, subFields: pctSubCost('adCpc') },
+    { field: 'adCpc',       headerName: 'Ad CPC',       valueFormatter: fmtCurrency,       width: 110, group: ADS, hide: true, heat: 'down', subFields: pctSubCost('adCpc') },
     { field: 'ctr',         headerName: 'CTR',          valueFormatter: pctShareFormatter, width: 100, group: ADS, hide: true, subFields: ppSub('ctr') },
     { field: 'adCvr',       headerName: 'Ad CVR',       valueFormatter: pctShareFormatter, width: 110, group: ADS, hide: true, subFields: ppSub('adCvr') },
     { field: 'roas',        headerName: 'ROAS',         valueFormatter: roasFormatter,     width: 110, group: ADS,             subFields: pctSub('roas') },
-    { field: 'acos',        headerName: 'ACOS',         valueFormatter: pctShareFormatter, width: 110, group: ADS,             subFields: ppSubCost('acos') },
-    { field: 'tacos',       headerName: 'TACOS',        valueFormatter: pctShareFormatter, width: 110, group: ADS,             subFields: ppSubCost('tacos') },
-    { field: 'totalCpa',    headerName: 'Total CPA',    valueFormatter: fmtCurrency,       width: 120, group: ADS, hide: true, subFields: pctSubCost('totalCpa') },
-    { field: 'adReliance',  headerName: 'Ad Reliance',  valueFormatter: pctShareFormatter, width: 130, group: ADS, hide: true, subFields: ppSubCost('adReliance') },
+    { field: 'acos',        headerName: 'ACOS',         valueFormatter: pctShareFormatter, width: 110, group: ADS,             heat: 'down', subFields: ppSubCost('acos') },
+    { field: 'tacos',       headerName: 'TACOS',        valueFormatter: pctShareFormatter, width: 110, group: ADS,             heat: 'down', subFields: ppSubCost('tacos') },
+    { field: 'totalCpa',    headerName: 'Total CPA',    valueFormatter: fmtCurrency,       width: 120, group: ADS, hide: true, heat: 'down', subFields: pctSubCost('totalCpa') },
+    { field: 'adReliance',  headerName: 'Ad Reliance',  valueFormatter: pctShareFormatter, width: 130, group: ADS, hide: true, heat: 'down', subFields: ppSubCost('adReliance') },
 
     // Is margin healthy?
     { field: 'productMargin',    headerName: 'Product Margin',    valueFormatter: pctShareFormatter, width: 150, group: MARGIN,             subFields: ppSub('productMargin') },

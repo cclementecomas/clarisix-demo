@@ -24,7 +24,7 @@ export default function MainIssueBanner({ banner, nTracked, closure, setClosure,
           <div className="min-w-0">
             <div className="text-[10px] font-bold uppercase tracking-wider text-amber-700">Main issue</div>
             <div className="text-xl font-bold text-gray-900 leading-tight mt-0.5">
-              {Math.round(banner.dominantPct)}% of recoverable € sits in the <span className={`px-1.5 py-0.5 rounded ${q.chip}`}>{q.label}</span> quadrant
+              {Math.round(banner.dominantPct)}% of recoverable visibility € sits in the <span className={`px-1.5 py-0.5 rounded ${q.chip}`}>{q.label}</span> quadrant
             </div>
             <div className="text-[11px] text-gray-500 mt-1">{q.action} — {banner.dominant === 'invest' ? 'high-volume queries where you are barely visible.' : banner.dominant === 'defend' ? 'high-volume queries you already win — protect them.' : banner.dominant === 'harvest' ? 'low-volume queries you win — keep, don’t overspend.' : 'scattered low-volume, low-share terms.'}</div>
           </div>
@@ -32,7 +32,7 @@ export default function MainIssueBanner({ banner, nTracked, closure, setClosure,
 
         <div className="grid grid-cols-3 gap-3 flex-shrink-0">
           <div className="rounded-lg border border-gray-200 bg-white/80 px-3 py-2 min-w-[130px]">
-            <div className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-gray-500"><Coins className="w-3.5 h-3.5 text-amber-600" />Opportunity / wk<InfoTooltip content={`Σ per-query opportunity (conversion gap + visibility gap) × ${Math.round(closure * 100)}% closure. Each query's € is in its row tooltip.`} wide /></div>
+            <div className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-gray-500"><Coins className="w-3.5 h-3.5 text-amber-600" />Visibility opp / wk<InfoTooltip content={`Σ per-query VISIBILITY gap (share below the market at the same conversion) × ${Math.round(closure * 100)}% closure. The conversion gap is the Search funnel page's €. Each query's split is in its row tooltip.`} wide /></div>
             <div className="text-lg font-bold text-gray-900 tabular-nums leading-tight mt-1">{eur(opportunityWk)}</div>
             <div className="flex items-center gap-1 mt-1">
               {CLOSURES.map((c) => (

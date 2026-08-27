@@ -2,7 +2,6 @@ import { X } from 'lucide-react';
 import type { QueryRow } from './selectors';
 import type { KeywordFilter } from './MainIssueBanner';
 import { QUADRANT_META } from './quadrant';
-import { LEAK_CHIP } from '../searchfunnel/leakChip';
 import { eur, int } from '../searchfunnel/format';
 import { flags } from '../../lib/sqp/constants';
 import MiniWaterfall from '../sqpui/MiniWaterfall';
@@ -43,8 +42,7 @@ export default function KeywordTable({ rows, selected, onSelect, filter = 'all',
               <th className="px-3 py-2 text-left">Quadrant</th>
               <th className="px-3 py-2 text-right">SQ vol/wk</th>
               <th className="px-3 py-2 text-center">Shares I·C·B·P</th>
-              <th className="px-3 py-2 text-left">Biggest gap</th>
-              <th className="px-3 py-2 text-right">Opportunity/wk</th>
+              <th className="px-3 py-2 text-right">Visibility opp/wk</th>
               <th className="px-3 py-2 text-right">Price vs mkt</th>
               <th className="px-3 py-2 text-left">Top ASIN</th>
               <th className="px-3 py-2 text-center">Trend 4wk</th>
@@ -70,15 +68,10 @@ export default function KeywordTable({ rows, selected, onSelect, filter = 'all',
                   <td className="px-3 py-2 align-top"><span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ring-1 ring-inset ${q.chip}`}>{q.label}</span></td>
                   <td className="px-3 py-2 align-top text-right tabular-nums text-gray-900">{int(r.volumeWk)}</td>
                   <td className="px-3 py-2 align-top"><MiniWaterfall imp={r.impShare} click={r.clickShare} basket={r.basketShare} purch={r.purchShare} /></td>
-                  <td className="px-3 py-2 align-top">
-                    {r.worstKey && r.worstGapPp != null ? (
-                      <span className="text-[11px]"><span className="font-semibold text-gray-800">{LEAK_CHIP[r.worstKey].short}</span> <span className="text-rose-700 font-bold tabular-nums">{r.worstGapPp.toFixed(1)}pp</span></span>
-                    ) : <span className="text-[10px] text-emerald-700">beats market</span>}
-                  </td>
                   <td className="px-3 py-2 align-top text-right">
                     <div className="inline-flex items-center gap-1 justify-end">
-                      <span className="text-[12px] font-bold text-emerald-700 tabular-nums">{eur(r.oppTotal)}</span>
-                      <InfoTooltip content={`Conversion gap ${eur(r.oppConv)}/wk + visibility gap ${eur(r.oppVis)}/wk. Shown before the closure factor.`} wide />
+                      <span className="text-[12px] font-bold text-emerald-700 tabular-nums">{eur(r.oppVis)}</span>
+                      <InfoTooltip content={`Visibility gap ${eur(r.oppVis)}/wk — what a market-level share of this keyword would add at your current conversion. Shown before the closure factor. This keyword's conversion gap (${eur(r.oppConv)}/wk) is on the Search funnel page.`} wide />
                     </div>
                   </td>
                   <td className="px-3 py-2 align-top text-right">
@@ -97,7 +90,7 @@ export default function KeywordTable({ rows, selected, onSelect, filter = 'all',
                 </tr>
               );
             })}
-            {shown.length === 0 && <tr><td colSpan={11} className="px-5 py-8 text-center text-[12px] text-gray-400">No keywords match this filter.</td></tr>}
+            {shown.length === 0 && <tr><td colSpan={10} className="px-5 py-8 text-center text-[12px] text-gray-400">No keywords match this filter.</td></tr>}
           </tbody>
         </table>
       </div>

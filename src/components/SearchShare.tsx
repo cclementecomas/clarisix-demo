@@ -8,6 +8,7 @@ import MainIssueBanner, { type KeywordFilter } from './keywords/MainIssueBanner'
 import PortfolioMap from './keywords/PortfolioMap';
 import KeywordTable from './keywords/KeywordTable';
 import KeywordDrawer from './keywords/KeywordDrawer';
+import ShareLevels from './keywords/ShareLevels';
 import SqpDeepDive from './sqptables/SqpDeepDive';
 import TrustBar from './sqpui/TrustBar';
 import LatestWeekBanner from './sqpui/LatestWeekBanner';
@@ -16,10 +17,12 @@ import BrandedToggle, { type Brand } from './sqpui/BrandedToggle';
 import InfoTooltip from './InfoTooltip';
 import ViewModeToggle, { type ViewMode } from './ViewModeToggle';
 
-/** Sales → SQP → "Keyword Portfolio" (§5). Query pivot. Non-branded by default (§5.5). */
-export default function SQP({ focusQuery, onFocusConsumed }: {
+/** Sales → "Search share" (§5). Level A only: how much of each keyword's market you hold
+ *  at every stage. Conversion rates are the Search funnel page. Non-branded by default (§5.5). */
+export default function SearchShare({ focusQuery, onFocusConsumed, onOpenFunnel }: {
   focusQuery?: { query: string; branded: boolean } | null;
   onFocusConsumed?: () => void;
+  onOpenFunnel?: () => void;
 } = {}) {
   const allWeeks = listWeeks(sqpWeekly);
   const [endWeek, setEndWeek] = useState(maxWeek(sqpWeekly));
@@ -30,10 +33,7 @@ export default function SQP({ focusQuery, onFocusConsumed }: {
   const [tableFilter, setTableFilter] = useState<KeywordFilter>('all');
   const [kwFilter, setKwFilter] = useState('');
   const [noteDismissed, setNoteDismissed] = useState(false);
-  const [mode, setMode] = useState<'insights' | 'tables'>('insights');
-  // Platform Decision/Analyst toggle mapped onto this page's insights vs tables views.
-  const viewMode: ViewMode = mode === 'insights' ? 'decision' : 'analyst';
-  const setViewMode = (m: ViewMode) => setMode(m === 'decision' ? 'insights' : 'tables');
+  const [pageView, setPageView] = useState<ViewMode>('decision');
 
   const latest = latestWeekStatus(sqpWeekly);
 
@@ -50,7 +50,7 @@ export default function SQP({ focusQuery, onFocusConsumed }: {
 
   const scrollToTable = () => document.getElementById('keyword-table')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
-  // Deep-link from the Traffic ASIN drawer ("Keyword Portfolio ↗"): scope so the query is visible, then open its drawer.
+  // Deep-link from the Search funnel ASIN drawer ("Search share ↗"): scope so the query is visible, then open its drawer.
   useEffect(() => {
     if (!focusQuery) return;
     const wantBrand: Brand = focusQuery.branded ? 'branded' : 'nonbranded';
@@ -67,15 +67,15 @@ export default function SQP({ focusQuery, onFocusConsumed }: {
           <div>
             <div className="flex items-center gap-2">
               <Search className="w-4 h-4 text-cx-500" />
-              <h1 className="text-lg font-bold text-gray-900">Keyword portfolio</h1>
+              <h1 className="text-lg font-bold text-gray-900">Search share</h1>
             </div>
             <p className="text-[11px] text-gray-500 mt-0.5">
-              {viewMode === 'decision'
-                ? 'Treat each keyword as an asset. Defend / Invest / Harvest / Tail. Amazon search (SQP), weekly.'
-                : 'Every keyword’s full SQP metrics across the segment — for analysis and export.'}
+              {pageView === 'decision'
+                ? 'How much of each keyword’s market you hold at every stage. Treat each keyword as an asset: Defend / Invest / Harvest / Tail. Amazon search (SQP), weekly.'
+                : 'Every share metric at any grain — keyword, ASIN or week — with the volumes and prices behind it.'}
             </p>
           </div>
-          <ViewModeToggle mode={viewMode} onChange={setViewMode} />
+          <ViewModeToggle mode={pageView} onChange={setPageView} />
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <div className="relative">
@@ -106,17 +106,18 @@ export default function SQP({ focusQuery, onFocusConsumed }: {
         </div>
       )}
 
-      {mode === 'insights' && (
+      {pageView === 'decision' ? (
         <>
           <MainIssueBanner banner={view.banner} nTracked={view.nTracked} closure={closure} setClosure={setClosure} onNextStep={scrollToTable}
             activeFilter={tableFilter} onFilter={(f) => { setTableFilter((prev) => (prev === f ? 'all' : f)); scrollToTable(); }} />
+          <ShareLevels rows={scopedRows} onOpenFunnel={onOpenFunnel} />
           <PortfolioMap rows={view.rows} thresholds={view.thresholds} onSelect={setSelected} />
           <KeywordTable rows={view.rows} selected={selected?.query ?? null} onSelect={setSelected} filter={tableFilter} onClearFilter={() => setTableFilter('all')} />
           <KeywordDrawer row={selected} rows={currRows} onClose={() => setSelected(null)} />
         </>
+      ) : (
+        <SqpDeepDive rows={scopedRows} variant="share" />
       )}
-
-      {mode === 'tables' && <SqpDeepDive rows={scopedRows} />}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-// Small display formatters for the Search Funnel / Keyword Portfolio pages.
+// Small display formatters for the Search funnel / Search share pages.
 export const pct = (x: number, d = 1) => `${(x * 100).toFixed(d)}%`;
 /** pp with one decimal and NO negative zero ("-0.0pp" → "0.0pp"). */
 export const pp = (x: number) => { const r = +x.toFixed(1) || 0; return `${r > 0 ? '+' : ''}${r.toFixed(1)}pp`; };

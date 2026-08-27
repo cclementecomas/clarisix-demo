@@ -9,8 +9,10 @@ import DeepDiveTable, {
   currencyFormatter,
   numberFormatter,
   pctShareFormatter,
+  heatableColumns,
 } from './deepdive/DeepDiveTable';
 import ColumnToggle from './deepdive/ColumnToggle';
+import HeatmapToggle from './deepdive/HeatmapToggle';
 import InfoTooltip from './InfoTooltip';
 import LastRefreshed from './LastRefreshed';
 import ViewModeToggle, { type ViewMode as PageView } from './ViewModeToggle';
@@ -335,12 +337,12 @@ function buildCols(
 
   return [
     { field: dimField, headerName: dimHeader, pinned: 'left', width: 200 },
-    { field: 'spend',  headerName: 'Spend',  valueFormatter: cf,     subFields: [popSubField('spendPoP')] },
+    { field: 'spend',  headerName: 'Spend',  valueFormatter: cf,     heat: 'down', subFields: [popSubField('spendPoP')] },
     { field: 'sales',  headerName: 'Sales',  valueFormatter: cf,     subFields: [popSubField('salesPoP')] },
-    { field: 'acos',   headerName: 'ACOS',   valueFormatter: pctFmt, subFields: [popSubField('acosPoP', 'down')], cellStyle: ({ value }: { value: unknown }): Record<string, string> => { const v = value as number; return v > 35 ? { color: '#991B1B' } : v < 20 ? { color: '#166534' } : {}; } },
+    { field: 'acos',   headerName: 'ACOS',   valueFormatter: pctFmt, heat: 'down', subFields: [popSubField('acosPoP', 'down')], cellStyle: ({ value }: { value: unknown }): Record<string, string> => { const v = value as number; return v > 35 ? { color: '#991B1B' } : v < 20 ? { color: '#166534' } : {}; } },
     { field: 'roas',   headerName: 'ROAS',   valueFormatter: roasFmt, tooltip: 'Return on Ad Spend — ad sales ÷ ad spend. Inverse of ACOS. Higher is better.', cellStyle: ({ value }: { value: unknown }): Record<string, string> => { const v = value as number; return v >= 5 ? { color: '#166534' } : v < 3 ? { color: '#991B1B' } : {}; } },
-    { field: 'cpc',    headerName: 'CPC',    valueFormatter: cf,     subFields: [popSubField('cpcPoP', 'down')] },
-    { field: 'cpa',    headerName: 'CPA',    valueFormatter: cf,     subFields: [popSubField('cpaPoP', 'down')] },
+    { field: 'cpc',    headerName: 'CPC',    valueFormatter: cf,     heat: 'down', subFields: [popSubField('cpcPoP', 'down')] },
+    { field: 'cpa',    headerName: 'CPA',    valueFormatter: cf,     heat: 'down', subFields: [popSubField('cpaPoP', 'down')] },
     { field: 'cvr',    headerName: 'CVR',    valueFormatter: pctFmt, subFields: [popSubField('cvrPoP')] },
     { field: 'ctr',    headerName: 'CTR',    valueFormatter: ({ value }: { value: unknown }) => { const v = value as number; return v == null ? '' : `${v.toFixed(1)}%`; }, subFields: [popSubField('ctrPoP')] },
     ...extras,
@@ -371,7 +373,14 @@ function useSectionControls(initCols: ColumnDef[], hiddenByDefault: string[] = [
   const toggleCol = useCallback((field: string) => {
     setVisCols((prev) => { const s = new Set(prev); s.has(field) ? s.delete(field) : s.add(field); return s; });
   }, []);
-  return { showPoP, setShowPoP, showLY, setShowLY, selMode, setSelMode, selVals, setSelVals, visCols, toggleCol };
+  const [heatCols, setHeatCols] = useState<Set<string>>(new Set());
+  const toggleHeat = useCallback((field: string) => {
+    setHeatCols((prev) => { const s = new Set(prev); if (s.has(field)) s.delete(field); else s.add(field); return s; });
+  }, []);
+  const toggleAllHeat = useCallback((fields: string[], on: boolean) => {
+    setHeatCols(on ? new Set(fields) : new Set());
+  }, []);
+  return { showPoP, setShowPoP, showLY, setShowLY, selMode, setSelMode, selVals, setSelVals, visCols, toggleCol, heatCols, toggleHeat, toggleAllHeat };
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -447,12 +456,12 @@ function AdvertisingAnalystTables() {
       { field: 'campaign', headerName: 'Campaign', pinned: 'left', width: 220 },
       { field: 'type', headerName: 'Type', width: 60, valueFormatter: ({ value }: { value: unknown }) => String(value ?? '') },
       { field: 'status', headerName: 'Status', width: 80, valueFormatter: ({ value }: { value: unknown }) => String(value ?? '') },
-      { field: 'spend', headerName: 'Spend', valueFormatter: cf, subFields: [popSubField('spendPoP')] },
+      { field: 'spend', headerName: 'Spend', valueFormatter: cf, heat: 'down', subFields: [popSubField('spendPoP')] },
       { field: 'pctTotal', headerName: '% Total', width: 80, valueFormatter: ({ value }: { value: unknown }) => { const v = value as number; return v == null ? '' : `${v.toFixed(1)}%`; } },
       { field: 'sales', headerName: 'Sales', valueFormatter: cf, subFields: [popSubField('salesPoP')] },
-      { field: 'acos', headerName: 'ACOS', valueFormatter: pctFmt, subFields: [popSubField('acosPoP', 'down')], cellStyle: ({ value }: { value: unknown }): Record<string, string> => { const v = value as number; return v > 35 ? { color: '#991B1B' } : v < 20 ? { color: '#166534' } : {}; } },
+      { field: 'acos', headerName: 'ACOS', valueFormatter: pctFmt, heat: 'down', subFields: [popSubField('acosPoP', 'down')], cellStyle: ({ value }: { value: unknown }): Record<string, string> => { const v = value as number; return v > 35 ? { color: '#991B1B' } : v < 20 ? { color: '#166534' } : {}; } },
       { field: 'roas', headerName: 'ROAS', valueFormatter: ({ value }: { value: unknown }) => { const v = value as number; return v == null ? '' : `${v.toFixed(2)}x`; }, tooltip: 'Return on Ad Spend — ad sales ÷ ad spend. Inverse of ACOS. Higher is better.', cellStyle: ({ value }: { value: unknown }): Record<string, string> => { const v = value as number; return v >= 5 ? { color: '#166534' } : v < 3 ? { color: '#991B1B' } : {}; } },
-      { field: 'cpc', headerName: 'CPC', valueFormatter: cf, subFields: [popSubField('cpcPoP', 'down')] },
+      { field: 'cpc', headerName: 'CPC', valueFormatter: cf, heat: 'down', subFields: [popSubField('cpcPoP', 'down')] },
       { field: 'cvr', headerName: 'CVR', valueFormatter: pctFmt, subFields: [popSubField('cvrPoP')] },
       { field: 'ctr', headerName: 'CTR', valueFormatter: ({ value }: { value: unknown }) => { const v = value as number; return v == null ? '' : `${v.toFixed(1)}%`; }, subFields: [popSubField('ctrPoP')] },
     ];
@@ -506,6 +515,7 @@ function AdvertisingAnalystTables() {
       showLY: boolean; setShowLY: (v: boolean) => void;
       selMode: boolean; setSelMode: (v: boolean) => void;
       visCols: Set<string>; toggleCol: (field: string) => void;
+      heatCols: Set<string>; toggleHeat: (field: string) => void; toggleAllHeat: (fields: string[], on: boolean) => void;
     },
     tooltip?: string,
   ) => (
@@ -520,6 +530,18 @@ function AdvertisingAnalystTables() {
           ? <MetricPicker metrics={metrics} selected={selMet} onChange={setMet} />
           : tableControls && <ColumnToggle columns={tableControls.cols} visibleColumns={tableControls.visCols} onToggle={tableControls.toggleCol} />
         }
+        {view === 'table' && tableControls && (() => {
+          const heatable = heatableColumns(tableControls.cols, data);
+          if (!heatable.length) return null;
+          return (
+            <HeatmapToggle
+              columns={heatable}
+              heatColumns={tableControls.heatCols}
+              onToggle={tableControls.toggleHeat}
+              onToggleAll={(on) => tableControls.toggleAllHeat(heatable.map((c) => c.field), on)}
+            />
+          );
+        })()}
         {view === 'table' && tableControls && (
           <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
             <button
@@ -568,18 +590,18 @@ function AdvertisingAnalystTables() {
 
       {/* 1 — Performance by Placement */}
       {sectionCard(<>
-        {sectionHeader('Performance by Placement', placView, setPlacView, STANDARD_METRICS, placMet, setPlacMet, placData, undefined, true, { cols: placCols, showPoP: plac.showPoP, setShowPoP: plac.setShowPoP, showLY: plac.showLY, setShowLY: plac.setShowLY, selMode: plac.selMode, setSelMode: plac.setSelMode, visCols: plac.visCols, toggleCol: plac.toggleCol }, 'Ad metrics split by placement (Top of Search, Rest of Search, Product Pages).')}
+        {sectionHeader('Performance by Placement', placView, setPlacView, STANDARD_METRICS, placMet, setPlacMet, placData, undefined, true, { cols: placCols, showPoP: plac.showPoP, setShowPoP: plac.setShowPoP, showLY: plac.showLY, setShowLY: plac.setShowLY, selMode: plac.selMode, setSelMode: plac.setSelMode, visCols: plac.visCols, toggleCol: plac.toggleCol, heatCols: plac.heatCols, toggleHeat: plac.toggleHeat, toggleAllHeat: plac.toggleAllHeat }, 'Ad metrics split by placement (Top of Search, Rest of Search, Product Pages).')}
         {placView === 'chart'
           ? <div className="p-5"><SmallMultiplesChart data={placData} dimKey="placement" metrics={STANDARD_METRICS} selectedMetrics={placMet} currency={currency} /></div>
-          : <DeepDiveTable title="" embedded showPoP={plac.showPoP} onPoPChange={plac.setShowPoP} showLY={plac.showLY} onLYChange={plac.setShowLY} selectMode={plac.selMode} onSelectModeChange={plac.setSelMode} onSelectedValuesChange={plac.setSelVals} visibleColumnsOverride={plac.visCols} rowData={placData} columnDefs={placCols} />}
+          : <DeepDiveTable title="" embedded showPoP={plac.showPoP} onPoPChange={plac.setShowPoP} showLY={plac.showLY} onLYChange={plac.setShowLY} selectMode={plac.selMode} onSelectModeChange={plac.setSelMode} onSelectedValuesChange={plac.setSelVals} visibleColumnsOverride={plac.visCols} heatColumnsOverride={plac.heatCols} rowData={placData} columnDefs={placCols} />}
       </>)}
 
       {/* 2 — Performance by Ad Type */}
       {sectionCard(<>
-        {sectionHeader('Performance by Ad Type', atView, setAtView, STANDARD_METRICS, atMet, setAtMet, adTypeData, undefined, true, { cols: atCols, showPoP: at.showPoP, setShowPoP: at.setShowPoP, showLY: at.showLY, setShowLY: at.setShowLY, selMode: at.selMode, setSelMode: at.setSelMode, visCols: at.visCols, toggleCol: at.toggleCol }, 'Ad metrics split by campaign type (Sponsored Products, Sponsored Brands, Sponsored Display).')}
+        {sectionHeader('Performance by Ad Type', atView, setAtView, STANDARD_METRICS, atMet, setAtMet, adTypeData, undefined, true, { cols: atCols, showPoP: at.showPoP, setShowPoP: at.setShowPoP, showLY: at.showLY, setShowLY: at.setShowLY, selMode: at.selMode, setSelMode: at.setSelMode, visCols: at.visCols, toggleCol: at.toggleCol, heatCols: at.heatCols, toggleHeat: at.toggleHeat, toggleAllHeat: at.toggleAllHeat }, 'Ad metrics split by campaign type (Sponsored Products, Sponsored Brands, Sponsored Display).')}
         {atView === 'chart'
           ? <div className="p-5"><SmallMultiplesChart data={adTypeData} dimKey="adType" metrics={STANDARD_METRICS} selectedMetrics={atMet} currency={currency} /></div>
-          : <DeepDiveTable title="" embedded showPoP={at.showPoP} onPoPChange={at.setShowPoP} showLY={at.showLY} onLYChange={at.setShowLY} selectMode={at.selMode} onSelectModeChange={at.setSelMode} onSelectedValuesChange={at.setSelVals} visibleColumnsOverride={at.visCols} rowData={adTypeData} columnDefs={atCols} />}
+          : <DeepDiveTable title="" embedded showPoP={at.showPoP} onPoPChange={at.setShowPoP} showLY={at.showLY} onLYChange={at.setShowLY} selectMode={at.selMode} onSelectModeChange={at.setSelMode} onSelectedValuesChange={at.setSelVals} visibleColumnsOverride={at.visCols} heatColumnsOverride={at.heatCols} rowData={adTypeData} columnDefs={atCols} />}
       </>)}
 
       {/* 6 — Performance by Campaign */}
@@ -591,6 +613,17 @@ function AdvertisingAnalystTables() {
           </div>
           <div className="flex items-center gap-2">
             <ColumnToggle columns={campCols} visibleColumns={camp.visCols} onToggle={camp.toggleCol} />
+            {(() => {
+              const heatable = heatableColumns(campCols, filteredCampaignData);
+              return heatable.length ? (
+                <HeatmapToggle
+                  columns={heatable}
+                  heatColumns={camp.heatCols}
+                  onToggle={camp.toggleHeat}
+                  onToggleAll={(on) => camp.toggleAllHeat(heatable.map((c) => c.field), on)}
+                />
+              ) : null;
+            })()}
             <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
               <button onClick={() => camp.setShowPoP(!camp.showPoP)} className={`px-2.5 py-1 text-[11px] font-semibold transition-colors ${camp.showPoP ? 'bg-cx-500 text-white' : 'bg-white text-gray-400 hover:text-gray-600'}`}>PoP</button>
               <div className="w-px h-4 bg-gray-200" />
@@ -617,7 +650,7 @@ function AdvertisingAnalystTables() {
           showLY={camp.showLY} onLYChange={camp.setShowLY}
           selectMode={camp.selMode} onSelectModeChange={camp.setSelMode}
           onSelectedValuesChange={camp.setSelVals}
-          visibleColumnsOverride={camp.visCols}
+          visibleColumnsOverride={camp.visCols} heatColumnsOverride={camp.heatCols}
           rowData={filteredCampaignData} columnDefs={campCols}
           childRowsMap={campChildRowsMap} rowKeyField="campaign" childLabelField="placement"
         />
@@ -625,19 +658,19 @@ function AdvertisingAnalystTables() {
 
       {/* 7 — Performance by Search Term */}
       {sectionCard(<>
-        {sectionHeader('Performance by Search Term', stView, setStView, SEARCH_METRICS, stMet, setStMet, stData, undefined, true, { cols: stCols, showPoP: st.showPoP, setShowPoP: st.setShowPoP, showLY: st.showLY, setShowLY: st.setShowLY, selMode: st.selMode, setSelMode: st.setSelMode, visCols: st.visCols, toggleCol: st.toggleCol }, 'Ad metrics per search term. Shows which keywords drive spend, clicks, and conversions.')}
+        {sectionHeader('Performance by Search Term', stView, setStView, SEARCH_METRICS, stMet, setStMet, stData, undefined, true, { cols: stCols, showPoP: st.showPoP, setShowPoP: st.setShowPoP, showLY: st.showLY, setShowLY: st.setShowLY, selMode: st.selMode, setSelMode: st.setSelMode, visCols: st.visCols, toggleCol: st.toggleCol, heatCols: st.heatCols, toggleHeat: st.toggleHeat, toggleAllHeat: st.toggleAllHeat }, 'Ad metrics per search term. Shows which keywords drive spend, clicks, and conversions.')}
         {stView === 'chart'
           ? <div className="p-5"><SmallMultiplesChart data={stData.slice(0, 15)} dimKey="searchTerm" metrics={SEARCH_METRICS} selectedMetrics={stMet} currency={currency} /></div>
-          : <DeepDiveTable title="" embedded showPoP={st.showPoP} onPoPChange={st.setShowPoP} showLY={st.showLY} onLYChange={st.setShowLY} selectMode={st.selMode} onSelectModeChange={st.setSelMode} onSelectedValuesChange={st.setSelVals} visibleColumnsOverride={st.visCols} rowData={stData} columnDefs={stCols} />}
+          : <DeepDiveTable title="" embedded showPoP={st.showPoP} onPoPChange={st.setShowPoP} showLY={st.showLY} onLYChange={st.setShowLY} selectMode={st.selMode} onSelectModeChange={st.setSelMode} onSelectedValuesChange={st.setSelVals} visibleColumnsOverride={st.visCols} heatColumnsOverride={st.heatCols} rowData={stData} columnDefs={stCols} />}
       </>)}
 
       {/* 6 — Performance by Audience (gated on audience labeling toggle) */}
       {audienceLabelingEnabled
         ? sectionCard(<>
-            {sectionHeader('Performance by Audience', audView, setAudView, STANDARD_METRICS, audMet, setAudMet, audData, undefined, false, { cols: audCols, showPoP: aud.showPoP, setShowPoP: aud.setShowPoP, showLY: aud.showLY, setShowLY: aud.setShowLY, selMode: aud.selMode, setSelMode: aud.setSelMode, visCols: aud.visCols, toggleCol: aud.toggleCol }, 'Ad metrics split by audience segment (e.g., remarketing, in-market, lifestyle).')}
+            {sectionHeader('Performance by Audience', audView, setAudView, STANDARD_METRICS, audMet, setAudMet, audData, undefined, false, { cols: audCols, showPoP: aud.showPoP, setShowPoP: aud.setShowPoP, showLY: aud.showLY, setShowLY: aud.setShowLY, selMode: aud.selMode, setSelMode: aud.setSelMode, visCols: aud.visCols, toggleCol: aud.toggleCol, heatCols: aud.heatCols, toggleHeat: aud.toggleHeat, toggleAllHeat: aud.toggleAllHeat }, 'Ad metrics split by audience segment (e.g., remarketing, in-market, lifestyle).')}
             {audView === 'chart'
               ? <div className="p-5"><SmallMultiplesChart data={audData} dimKey="segment" metrics={STANDARD_METRICS} selectedMetrics={audMet} currency={currency} /></div>
-              : <DeepDiveTable title="" embedded showPoP={aud.showPoP} onPoPChange={aud.setShowPoP} showLY={aud.showLY} onLYChange={aud.setShowLY} selectMode={aud.selMode} onSelectModeChange={aud.setSelMode} onSelectedValuesChange={aud.setSelVals} visibleColumnsOverride={aud.visCols} rowData={audData} columnDefs={audCols} />}
+              : <DeepDiveTable title="" embedded showPoP={aud.showPoP} onPoPChange={aud.setShowPoP} showLY={aud.showLY} onLYChange={aud.setShowLY} selectMode={aud.selMode} onSelectModeChange={aud.setSelMode} onSelectedValuesChange={aud.setSelVals} visibleColumnsOverride={aud.visCols} heatColumnsOverride={aud.heatCols} rowData={audData} columnDefs={audCols} />}
           </>)
         : sectionCard(<>
             <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
@@ -654,7 +687,7 @@ function AdvertisingAnalystTables() {
               <div className="pointer-events-none select-none opacity-30 blur-[1.5px]">
                 {audView === 'chart'
                   ? <div className="p-5"><SmallMultiplesChart data={audData} dimKey="segment" metrics={STANDARD_METRICS} selectedMetrics={audMet} currency={currency} /></div>
-                  : <DeepDiveTable title="" embedded showPoP={aud.showPoP} onPoPChange={aud.setShowPoP} showLY={aud.showLY} onLYChange={aud.setShowLY} selectMode={aud.selMode} onSelectModeChange={aud.setSelMode} onSelectedValuesChange={aud.setSelVals} visibleColumnsOverride={aud.visCols} rowData={audData} columnDefs={audCols} />}
+                  : <DeepDiveTable title="" embedded showPoP={aud.showPoP} onPoPChange={aud.setShowPoP} showLY={aud.showLY} onLYChange={aud.setShowLY} selectMode={aud.selMode} onSelectModeChange={aud.setSelMode} onSelectedValuesChange={aud.setSelVals} visibleColumnsOverride={aud.visCols} heatColumnsOverride={aud.heatCols} rowData={audData} columnDefs={audCols} />}
               </div>
               <div className="absolute inset-0 flex items-center justify-center p-6">
                 <div className="max-w-md text-center bg-white border border-gray-200 rounded-xl shadow-lg px-6 py-5">

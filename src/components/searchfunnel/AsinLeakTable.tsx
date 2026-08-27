@@ -4,7 +4,7 @@ import type { AsinLeakRow } from './selectors';
 import { productImageUrl } from './selectors';
 import type { TransitionKey } from '../../lib/sqp/types';
 import { LEAK_CHIP } from './leakChip';
-import { eur, pct, pp, abbrev, int } from './format';
+import { eur, pp, abbrev, int } from './format';
 import { TRANSITION_NAME } from '../sqpui/tokens';
 import InfoTooltip from '../InfoTooltip';
 
@@ -16,7 +16,7 @@ const PILLS: { v: Stage; label: string }[] = [
   { v: 'basket_purch', label: TRANSITION_NAME.basket_purch },
 ];
 
-type SortField = 'missed' | 'impr' | 'imprShare' | 'ctr' | 'atc' | 'close' | 'purch' | 'product' | 'topQuery';
+type SortField = 'missed' | 'impr' | 'ctr' | 'atc' | 'close' | 'purch' | 'product' | 'topQuery';
 
 export default function AsinLeakTable({ rows, stage, onStageChange, onSelect }: {
   rows: AsinLeakRow[]; stage: Stage; onStageChange: (s: Stage) => void; onSelect: (asin: string) => void;
@@ -30,7 +30,6 @@ export default function AsinLeakTable({ rows, stage, onStageChange, onSelect }: 
     switch (f) {
       case 'missed': return missedOf(r);
       case 'impr': return r.impressionsWk;
-      case 'imprShare': return r.impShare;
       case 'ctr': return r.ctrDeltaPp;
       case 'atc': return r.atcDeltaPp;
       case 'close': return r.closeDeltaPp;
@@ -105,13 +104,11 @@ export default function AsinLeakTable({ rows, stage, onStageChange, onSelect }: 
               <SortHead field="product" thClass="px-3 py-2 text-left min-w-[210px]">Product / ASIN</SortHead>
               <SortHead field="missed" thClass="px-3 py-2 text-right" reverse>Missed €/wk</SortHead>
               <SortHead field="impr" thClass="px-3 py-2 text-right" reverse>Search impr/wk</SortHead>
-              <SortHead field="imprShare" thClass="px-3 py-2 text-right" reverse>Impr share</SortHead>
               <SortHead field="ctr" thClass="px-3 py-2 text-right" reverse><span className="inline-flex items-center gap-1 flex-row-reverse">CTR Δ<InfoTooltip content="Your CTR minus market CTR (pp) — CTR = clicks ÷ impressions. Muted below the 200-impr/wk floor." /></span></SortHead>
               <SortHead field="atc" thClass="px-3 py-2 text-right" reverse>Basket-<br />add Δ</SortHead>
               <SortHead field="close" thClass="px-3 py-2 text-right" reverse>Purchase-<br />rate Δ</SortHead>
               <th className="px-3 py-2 text-left">Leak stage</th>
               <SortHead field="purch" thClass="px-3 py-2 text-right" reverse>SQP purch/wk</SortHead>
-              <th className="px-3 py-2 text-center">Click share 4wk</th>
               <SortHead field="topQuery" thClass="px-3 py-2 text-left">Top query</SortHead>
             </tr>
           </thead>
@@ -131,13 +128,11 @@ export default function AsinLeakTable({ rows, stage, onStageChange, onSelect }: 
                     {missed > 0 && total > 0 && <div className="flex items-center justify-end gap-1 mt-0.5"><div className="h-1 w-12 bg-gray-100 rounded-full overflow-hidden"><div className="h-full bg-rose-400" style={{ width: `${Math.min(100, (missed / total) * 100)}%` }} /></div><span className="text-[9px] text-gray-400 tabular-nums">{Math.round((missed / total) * 100)}%</span></div>}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums text-gray-900">{abbrev(r.impressionsWk)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums text-gray-900">{pct(r.impShare)}</td>
                   <DeltaCell value={r.ctrDeltaPp} floorOk={r.ctrFloorOk} />
                   <DeltaCell value={r.atcDeltaPp} floorOk={r.atcFloorOk} />
                   <DeltaCell value={r.closeDeltaPp} floorOk={r.closeFloorOk} />
                   <td className="px-3 py-2">{lk ? <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ring-1 ring-inset ${LEAK_CHIP[lk].cls}`}>{LEAK_CHIP[lk].short}</span> : <span className="text-[10px] text-gray-400">—</span>}</td>
                   <td className="px-3 py-2 text-right tabular-nums text-gray-900">{int(r.purchasesWk)}</td>
-                  <td className="px-3 py-2"><Spark values={r.clickSpark.slice(-4)} /></td>
                   <td className="px-3 py-2"><span className="text-[11px] text-gray-600 truncate max-w-[130px] inline-block align-middle" title={r.topQuery}>{r.topQuery}</span></td>
                 </tr>
               );
@@ -147,7 +142,7 @@ export default function AsinLeakTable({ rows, stage, onStageChange, onSelect }: 
             <tr className="border-t-2 border-gray-200 bg-gray-50 text-[11px] font-bold text-gray-700">
               <td className="px-3 py-2">{shown.length} of {rows.length} ASINs</td>
               <td className="px-3 py-2 text-right text-rose-700 tabular-nums">{eur(total)}/wk</td>
-              <td colSpan={9} className="px-3 py-2 text-left text-[10px] font-normal text-gray-400">Σ = recoverable at {stageLabel}{stage !== 'all' ? ' — matches the banner' : ''}</td>
+              <td colSpan={7} className="px-3 py-2 text-left text-[10px] font-normal text-gray-400">Σ = recoverable at {stageLabel}{stage !== 'all' ? ' — matches the banner' : ''}</td>
             </tr>
           </tfoot>
         </table>
@@ -160,15 +155,4 @@ function DeltaCell({ value, floorOk }: { value: number | null; floorOk: boolean 
   if (!floorOk || value == null) return <td className="px-3 py-2 text-right"><span className="text-[10px] text-gray-300 italic">low data</span></td>;
   const good = value >= 0;
   return <td className="px-3 py-2 text-right"><span className={`text-[12px] font-semibold tabular-nums ${good ? 'text-emerald-700' : 'text-rose-700'}`}>{pp(value)}</span></td>;
-}
-
-function Spark({ values }: { values: number[] }) {
-  if (values.length < 2) return <div className="text-[9px] text-gray-300 text-center">—</div>;
-  const w = 52, h = 16;
-  const max = Math.max(...values), min = Math.min(...values), range = max - min || 1;
-  const x = (i: number) => (i / (values.length - 1)) * w;
-  const y = (v: number) => h - ((v - min) / range) * h;
-  const d = values.map((v, i) => `${i === 0 ? 'M' : 'L'} ${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(' ');
-  const up = values[values.length - 1] >= values[0];
-  return <svg width={w} height={h} className="block mx-auto"><path d={d} fill="none" stroke={up ? '#10B981' : '#EF4444'} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" /></svg>;
 }

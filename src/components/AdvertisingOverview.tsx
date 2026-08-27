@@ -45,7 +45,7 @@ function useAdPerfCols(): ColumnDef[] {
       const v = value as number;
       return v == null ? '' : `${v > 0 ? '+' : ''}${v.toFixed(1)}%`;
     },
-    cellStyle: ({ value }: { value: unknown }) => {
+    cellStyle: ({ value }: { value: unknown }): Record<string, string> => {
       const v = value as number;
       const positive = v > 0;
       const negative = v < 0;
@@ -57,10 +57,10 @@ function useAdPerfCols(): ColumnDef[] {
   });
   return [
     { field: 'name', headerName: 'Name', pinned: 'left', width: 180, valueFormatter: ({ value }) => String(value ?? '') },
-    { field: 'spend', headerName: 'Spend', valueFormatter: cf, subFields: [{ field: 'spendPoP', label: 'PoP', ...pctPP(true) }] },
+    { field: 'spend', headerName: 'Spend', valueFormatter: cf, heat: 'down', subFields: [{ field: 'spendPoP', label: 'PoP', ...pctPP(true) }] },
     { field: 'sales', headerName: 'Sales', valueFormatter: cf, subFields: [{ field: 'salesPoP', label: 'PoP', ...pctPP(true) }] },
     {
-      field: 'acos', headerName: 'ACOS',
+      field: 'acos', headerName: 'ACOS', heat: 'down',
       valueFormatter: ({ value }) => { const v = value as number; return v == null ? '' : `${v.toFixed(1)}%`; },
       cellStyle: ({ value }) => { const v = value as number; return v > 35 ? { color: '#991B1B' } : v < 20 ? { color: '#166534' } : {}; },
       subFields: [{ field: 'acosPoP', label: 'PoP', ...pctPP(false) }],
@@ -72,13 +72,13 @@ function useAdPerfCols(): ColumnDef[] {
       subFields: [{ field: 'roasPoP', label: 'PoP', ...pctPP(true) }],
     },
     {
-      field: 'tacos', headerName: 'TACOS',
+      field: 'tacos', headerName: 'TACOS', heat: 'down',
       valueFormatter: ({ value }) => { const v = value as number; return v == null ? '' : `${v.toFixed(1)}%`; },
       subFields: [{ field: 'tacosPoP', label: 'PoP', ...pctPP(false) }],
     },
     { field: 'orders', headerName: 'Orders', valueFormatter: numberFormatter, subFields: [{ field: 'ordersPoP', label: 'PoP', ...pctPP(true) }] },
-    { field: 'cpc', headerName: 'CPC', valueFormatter: cf, subFields: [{ field: 'cpcPoP', label: 'PoP', ...pctPP(false) }] },
-    { field: 'cpa', headerName: 'CPA', valueFormatter: cf, subFields: [{ field: 'cpaPoP', label: 'PoP', ...pctPP(false) }] },
+    { field: 'cpc', headerName: 'CPC', valueFormatter: cf, heat: 'down', subFields: [{ field: 'cpcPoP', label: 'PoP', ...pctPP(false) }] },
+    { field: 'cpa', headerName: 'CPA', valueFormatter: cf, heat: 'down', subFields: [{ field: 'cpaPoP', label: 'PoP', ...pctPP(false) }] },
     {
       field: 'cvr', headerName: 'CVR',
       valueFormatter: ({ value }) => { const v = value as number; return v == null ? '' : `${v.toFixed(1)}%`; },

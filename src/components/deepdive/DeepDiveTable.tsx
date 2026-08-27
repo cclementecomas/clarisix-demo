@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { ArrowUp, ArrowDown, ChevronRight, Download, Sheet, MousePointer2, Copy, Check } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import ColumnToggle from './ColumnToggle';
+import HeatmapToggle from './HeatmapToggle';
 import SelectionStats from './SelectionStats';
 import InfoTooltip from '../InfoTooltip';
 import { fc } from '../../utils/currency';
@@ -20,6 +21,9 @@ export interface ColumnDef {
   tooltip?: string;
   /** Group label used to render the band header row above the columns. */
   group?: string;
+  /** Heatmap polarity. Numeric columns default to 'up' (higher is better); set 'down' for
+   *  cost / lower-is-better metrics, or 'none' to keep a column out of the heatmap. */
+  heat?: 'up' | 'down' | 'none';
   subFields?: { field: string; label?: string; formatter?: (params: { value: unknown; row: any }) => string | React.ReactNode; cellStyle?: (params: { value: unknown; row: any }) => Record<string, string> }[];
 }
 
@@ -57,10 +61,36 @@ interface DeepDiveTableProps {
   onSelectModeChange?: (v: boolean) => void;
   onSelectedValuesChange?: (values: number[]) => void;
   visibleColumnsOverride?: Set<string>;
+  heatColumnsOverride?: Set<string>;   // page-owned heat state (embedded mode renders its own picker)
   copyablePinnedCell?: boolean;
   autoExpand?: boolean;       // start (and re-sync on data change) with every parent expanded
   hideViewControl?: boolean;  // hide the group/both/flat switch (e.g. when an external pivot drives the grain)
   initialFlat?: boolean;      // start in the flat child-grain view, re-syncing on change (e.g. "show products by SKU")
+  maxHeight?: number;         // scroll-area height in px (default 420)
+}
+
+// ─── Heatmap ──────────────────────────────────────────────────────────────────
+// Diverging red → white → green wash behind the value, scaled across the rows on
+// screen. Direction comes from the column's `heat` flag so "good" is always green.
+const HEAT_MAX_ALPHA = 0.4;
+/** Columns that can be shaded: numeric data, not the pinned identity column, not opted out.
+ *  Exported so pages that render their own table header (embedded mode) can build the picker. */
+export function heatableColumns(columnDefs: ColumnDef[], rowData: any[]): ColumnDef[] {
+  const sample = rowData.slice(0, 200);
+  return columnDefs.filter((c) => {
+    if (c.pinned || c.heat === 'none') return false;
+    return sample.some((r) => typeof r[c.field] === 'number' && isFinite(r[c.field] as number));
+  });
+}
+
+function heatBackground(value: number, min: number, max: number, dir: 'up' | 'down'): string | undefined {
+  if (max <= min) return undefined;
+  const t = (value - min) / (max - min);
+  const good = dir === 'up' ? t : 1 - t;
+  const alpha = Math.abs(good - 0.5) * 2 * HEAT_MAX_ALPHA;
+  if (alpha < 0.02) return undefined;
+  const rgb = good >= 0.5 ? '22, 163, 74' : '220, 38, 38'; // green-600 / red-600
+  return `rgba(${rgb}, ${alpha.toFixed(3)})`;
 }
 
 // Higher-is-better cell style. Positive change = green, negative = red.
@@ -166,7 +196,7 @@ function getRectCells(
   return cells;
 }
 
-export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottomRowData, childRowsMap, rowKeyField, childLabelField, groupNoun, childNoun: childNounProp, tooltip, subtitle, hideHeader = false, embedded = false, showPoP: propShowPoP, onPoPChange, showLY: propShowLY, onLYChange, selectMode: propSelectMode, onSelectModeChange, onSelectedValuesChange, visibleColumnsOverride, copyablePinnedCell = false, autoExpand = false, hideViewControl = false, initialFlat = false }: DeepDiveTableProps) {
+export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottomRowData, childRowsMap, rowKeyField, childLabelField, groupNoun, childNoun: childNounProp, tooltip, subtitle, hideHeader = false, embedded = false, showPoP: propShowPoP, onPoPChange, showLY: propShowLY, onLYChange, selectMode: propSelectMode, onSelectModeChange, onSelectedValuesChange, visibleColumnsOverride, heatColumnsOverride, copyablePinnedCell = false, autoExpand = false, hideViewControl = false, initialFlat = false, maxHeight = 420 }: DeepDiveTableProps) {
   const [selectedCells, setSelectedCells] = useState<SelectedCell[]>([]);
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>(null);
@@ -218,6 +248,22 @@ export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottom
       return next;
     });
   }, []);
+
+  const [_heatInt, _setHeatInt] = useState<Set<string>>(new Set());
+  const heatColumns = heatColumnsOverride ?? _heatInt;
+  const setHeatColumns = _setHeatInt;
+  const heatableCols = useMemo(() => heatableColumns(columnDefs, rowData), [columnDefs, rowData]);
+  const handleHeatToggle = useCallback((colId: string) => {
+    setHeatColumns((prev) => {
+      const next = new Set(prev);
+      if (next.has(colId)) next.delete(colId);
+      else next.add(colId);
+      return next;
+    });
+  }, []);
+  const handleHeatToggleAll = useCallback((on: boolean) => {
+    setHeatColumns(on ? new Set(heatableCols.map((c) => c.field)) : new Set());
+  }, [heatableCols]);
 
   const effectiveVisibleColumns = visibleColumnsOverride ?? visibleColumns;
   const visibleCols = useMemo(
@@ -298,6 +344,34 @@ export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottom
       return sortDir === 'asc' ? (aVal as number) - (bVal as number) : (bVal as number) - (aVal as number);
     });
   }, [baseData, sortField, sortDir]);
+
+  // Min/max per heat column across every row on screen (parents + their children, never the
+  // Total footer — a sum would flatten the whole scale).
+  const heatRanges = useMemo(() => {
+    if (heatColumns.size === 0) return {} as Record<string, { min: number; max: number }>;
+    const scope = [...sortedData];
+    if (hasChildren) for (const kids of Object.values(childRowsMap!)) scope.push(...kids);
+    const out: Record<string, { min: number; max: number }> = {};
+    for (const field of heatColumns) {
+      let min = Infinity, max = -Infinity;
+      for (const row of scope) {
+        const v = row[field];
+        if (typeof v !== 'number' || !isFinite(v)) continue;
+        if (v < min) min = v;
+        if (v > max) max = v;
+      }
+      if (min !== Infinity) out[field] = { min, max };
+    }
+    return out;
+  }, [heatColumns, sortedData, hasChildren, childRowsMap]);
+
+  const heatStyle = useCallback((col: ColumnDef, value: unknown): Record<string, string> => {
+    if (!heatColumns.has(col.field)) return {};
+    const range = heatRanges[col.field];
+    if (!range || typeof value !== 'number' || !isFinite(value)) return {};
+    const bg = heatBackground(value, range.min, range.max, col.heat === 'down' ? 'down' : 'up');
+    return bg ? { backgroundColor: bg } : {};
+  }, [heatColumns, heatRanges]);
 
   const sortedDataRef = useRef(sortedData);
   sortedDataRef.current = sortedData;
@@ -629,6 +703,14 @@ export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottom
               </button>
             </div>
           )}
+          {heatableCols.length > 0 && (
+            <HeatmapToggle
+              columns={heatableCols}
+              heatColumns={heatColumns}
+              onToggle={handleHeatToggle}
+              onToggleAll={handleHeatToggleAll}
+            />
+          )}
           <ColumnToggle
             columns={columnDefs}
             visibleColumns={visibleColumns}
@@ -636,7 +718,7 @@ export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottom
           />
         </div>
       </div>}
-      <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: 420 }} ref={tableRef}>
+      <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight }} ref={tableRef}>
         <table
           className="w-full border-collapse text-[13px]"
           style={{ fontFamily: "'Inter', system-ui, sans-serif", tableLayout: 'fixed', minWidth: Math.max(tableMinWidth, 900) }}
@@ -749,7 +831,8 @@ export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottom
                     const isPinned = col.pinned === 'left';
                     const cellKey = `${rowIdx}-${colIdx}`;
                     const isSelected = selectedCellKeys.has(cellKey);
-                    const style = getCellStyle(col, value, row);
+                    // Selection styling wins over the heat wash, so the highlight stays readable.
+                    const style = { ...getCellStyle(col, value, row), ...(isSelected ? {} : heatStyle(col, value)) };
                     const isHintCell = showHint && !isPinned && ((rowIdx === 0 && colIdx === 1) || (rowIdx === 1 && colIdx === 2));
 
                     return (
@@ -866,7 +949,7 @@ export default function DeepDiveTable({ title, rowData, columnDefs, pinnedBottom
                     const isPinned = col.pinned === 'left';
                     const childLabel = childLabelField ? child[childLabelField] : child[col.field];
                     const value = col.field === rowKeyField ? childLabel : col.field === 'title' ? child.title : child[col.field];
-                    const style = getCellStyle(col, value, child);
+                    const style = { ...getCellStyle(col, value, child), ...heatStyle(col, value) };
 
                     return (
                       <td

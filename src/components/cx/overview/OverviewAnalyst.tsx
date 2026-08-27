@@ -58,7 +58,7 @@ const columns: ColumnDef[] = [
   { field: 'subPct', headerName: 'Change', width: 100, group: 'Subscription', valueFormatter: deltaPctF, cellStyle: deltaStyle() },
   { field: 'subShare', headerName: 'Share', width: 92, group: 'Subscription', valueFormatter: pctF, hide: true },
   { field: 'recurringShare', headerName: 'Real S&S', width: 104, group: 'Subscription quality', valueFormatter: pctF, tooltip: METRIC_DEFS.recurringShare, hide: true },
-  { field: 'lowQualityShare', headerName: 'Fake S&S', width: 108, group: 'Subscription quality', valueFormatter: pctF, cellStyle: deltaStyle(false), tooltip: METRIC_DEFS.lowQualityShare },
+  { field: 'lowQualityShare', headerName: 'Fake S&S', width: 108, group: 'Subscription quality', heat: 'down', valueFormatter: pctF, cellStyle: deltaStyle(false), tooltip: METRIC_DEFS.lowQualityShare },
 ];
 
 const ruleFilter: Record<string, (r: ReturnType<typeof buildRow>) => boolean> = {

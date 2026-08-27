@@ -89,7 +89,7 @@ export default function AsinDrawer({ asin, rows, onClose, onOpenKeyword }: { asi
                         <MiniWaterfall imp={q.impShare} click={q.clickShare} basket={q.basketShare} purch={q.purchShare} />
                         <span className="text-[10px] text-gray-500">{int(q.volumeWk)}/wk</span>
                         {q.worstKey && q.worstGapPp != null && <span className="text-[10px] font-semibold text-rose-700">{LEAK_CHIP[q.worstKey].short} {q.worstGapPp.toFixed(1)}pp</span>}
-                        <button onClick={() => onOpenKeyword?.(q.query, q.branded)} disabled={!onOpenKeyword} className="ml-auto inline-flex items-center gap-0.5 text-[10px] font-semibold text-cx-600 hover:text-cx-700 disabled:text-gray-300 disabled:cursor-default" title="Open this query in the Keyword Portfolio">Keyword Portfolio <ArrowUpRight className="w-3 h-3" /></button>
+                        <button onClick={() => onOpenKeyword?.(q.query, q.branded)} disabled={!onOpenKeyword} className="ml-auto inline-flex items-center gap-0.5 text-[10px] font-semibold text-cx-600 hover:text-cx-700 disabled:text-gray-300 disabled:cursor-default" title="Open this query on Search share">Search share <ArrowUpRight className="w-3 h-3" /></button>
                       </div>
                       {q.flags.filter((f) => f.key !== 'LOW_DATA').length > 0 && <div className="flex flex-wrap gap-1 mt-1.5">{q.flags.filter((f) => f.key !== 'LOW_DATA').map((f) => <span key={f.key} className="text-[9px] px-1.5 py-0.5 rounded bg-white border border-gray-200 text-gray-600">{f.label}</span>)}</div>}
                     </div>

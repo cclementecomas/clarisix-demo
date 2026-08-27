@@ -10,6 +10,7 @@
 import type { SqpRow } from '../../lib/sqp/types';
 import { aggregate, stageMetrics } from '../../lib/sqp/metrics';
 import { ASIN_TITLE } from '../searchfunnel/selectors';
+import { classifyShares, type SharePattern } from './sharePattern';
 
 export type Dim = 'keyword' | 'child' | 'week';
 
@@ -43,6 +44,10 @@ function weightedClickPrice(rows: SqpRow[]): { your: number | null; mkt: number 
   return { your: wY > 0 ? +(sY / wY).toFixed(2) : null, mkt: wM > 0 ? +(sM / wM).toFixed(2) : null };
 }
 
+const pct = (v: number | null): number | null => (v == null ? null : +(v * 100).toFixed(2));
+const gap = (mine: number | null, mkt: number | null): number | null =>
+  mine == null || mkt == null ? null : +((mine - mkt) * 100).toFixed(2);
+
 /** Every metric column for one node (a keyword, a parent ASIN, a week…). */
 function metricsOf(rows: SqpRow[]): Record<string, number | null> {
   const a = aggregate(rows);
@@ -50,6 +55,10 @@ function metricsOf(rows: SqpRow[]): Record<string, number | null> {
   const wp = weightedClickPrice(rows);
   return {
     searchVolume: a.market.vol,
+    // Per-week counts: the SQP low-data floors (200 impr/wk, 20 clicks/wk) are weekly,
+    // so a multi-week range must be divided back down before they are applied.
+    impBrandWk: a.asin.I / a.nWeeks,
+    clicksBrandWk: a.asin.C / a.nWeeks,
     purchMarket: a.market.Pm,
     purchBrand: a.asin.P,
     clicksBrand: a.asin.C,
@@ -58,6 +67,11 @@ function metricsOf(rows: SqpRow[]): Record<string, number | null> {
     clickShare: m.clickShare * 100,
     atcShare: m.basketShare * 100,
     purchShare: m.purchShare * 100,
+    // Funnel conversion rates, yours vs the market, plus the gap in pp (positive = ahead).
+    ctr: pct(m.ctr), ctrM: pct(m.ctrM), ctrGap: gap(m.ctr, m.ctrM),
+    atc: pct(m.atc), atcM: pct(m.atcM), atcGap: gap(m.atc, m.atcM),
+    close: pct(m.close), closeM: pct(m.closeM), closeGap: gap(m.close, m.closeM),
+    cvr: pct(m.cvr), cvrM: pct(m.cvrM), cvrGap: gap(m.cvr, m.cvrM),
     avgPriceMarket: wp.mkt,
     avgPriceBrand: wp.your,
     ppcSpend: null, // Ads-gated (flags.ads = false)
@@ -79,6 +93,27 @@ function groupRows(rows: SqpRow[], dim: DimMeta): Group[] {
 
 const byClicksDesc = (a: any, b: any) => b.clicksBrand - a.clicksBrand;
 const byKeyDesc = (a: any, b: any) => (a.key < b.key ? 1 : a.key > b.key ? -1 : 0); // weeks: newest first
+
+/** One entry per group at `dim` grain, with the share patterns that group exhibits.
+ *  Aggregation happens before classification, so switching Rows by → ASIN re-reads the
+ *  patterns from each ASIN's own summed counts. */
+export function classifyGroups(rows: SqpRow[], dim: Dim): { key: string; patterns: SharePattern[]; rows: SqpRow[] }[] {
+  return groupRows(rows, DIMS[dim]).map((g) => {
+    const m = metricsOf(g.rows);
+    const patterns = classifyShares({
+      impShare: m.impShare, clickShare: m.clickShare, purchShare: m.purchShare,
+      impBrandWk: m.impBrandWk, clicksBrandWk: m.clicksBrandWk,
+    });
+    return { key: g.key, patterns, rows: g.rows };
+  });
+}
+
+/** The subset of `rows` whose group (at `dim` grain) shows `pattern`. */
+export function filterByPattern(rows: SqpRow[], dim: Dim, pattern: SharePattern): SqpRow[] {
+  const keep = new Set(classifyGroups(rows, dim).filter((g) => g.patterns.includes(pattern)).map((g) => g.key));
+  const keyOf = DIMS[dim].keyOf;
+  return rows.filter((r) => keep.has(keyOf(r)));
+}
 
 export function buildPivot(rows: SqpRow[], primary: Dim, secondary: Dim | 'none'): SqpTable {
   const groups = groupRows(rows, DIMS[primary]);

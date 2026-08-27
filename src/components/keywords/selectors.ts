@@ -1,4 +1,4 @@
-// ─── Keyword Portfolio (SQP) selectors — query pivot ────────────────────────
+// ─── Search share (SQP) selectors — query pivot, share level ────────────────
 import type { SqpRow, TransitionKey, Quadrant, Flag } from '../../lib/sqp/types';
 import { queryStats, computeLeak, playbook, aggregate, stageMetrics } from '../../lib/sqp/metrics';
 import { ASIN_TITLE } from '../searchfunnel/selectors';
@@ -59,7 +59,9 @@ export interface PortfolioView {
   oppTotal: number; banner: PortfolioBanner; nTracked: number;
 }
 
-export function portfolioView(rows: SqpRow[]): PortfolioView {
+/** `oppKey` picks which € the page ranks by. Search share works the VISIBILITY gap
+ *  (too small a slice); the conversion gap is the Search funnel page's subject. */
+export function portfolioView(rows: SqpRow[], oppKey: 'oppVis' | 'oppConv' | 'oppTotal' = 'oppVis'): PortfolioView {
   const { stats, thresholds } = queryStats(rows);
   const out: QueryRow[] = stats.map((s) => {
     const qr = rows.filter((r) => r.query === s.query);
@@ -76,13 +78,13 @@ export function portfolioView(rows: SqpRow[]): PortfolioView {
       topAsin: s.topAsin, spark: s.weeklyClickShare.map((w) => w.value), flags: s.flags, trend: trendOf(s.flags),
       actionLabel: play.actions[0], actionRationale: play.rationale,
     };
-  }).sort((a, b) => b.oppTotal - a.oppTotal);
+  }).sort((a, b) => b[oppKey] - a[oppKey]);
 
-  const oppTotal = out.reduce((s, r) => s + r.oppTotal, 0);
+  const oppTotal = out.reduce((s, r) => s + r[oppKey], 0);
   const totalPurch = out.reduce((s, r) => s + r.purchases, 0);
   const top5Purch = [...out].sort((a, b) => b.purchases - a.purchases).slice(0, 5).reduce((s, r) => s + r.purchases, 0);
   const oppByQuadrant: Record<Quadrant, number> = { invest: 0, defend: 0, harvest: 0, tail: 0 };
-  for (const r of out) oppByQuadrant[r.quadrant] += r.oppTotal;
+  for (const r of out) oppByQuadrant[r.quadrant] += r[oppKey];
   const dominant = (Object.entries(oppByQuadrant).sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'invest') as Quadrant;
 
   return {

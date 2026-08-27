@@ -3463,3 +3463,184 @@ Assessed but INTENTIONALLY SKIPPED — Profitability → Overview (P&L statement
 layer to split, so a toggle there would be cosmetic. A real Decision view (issues/insights over
 the P&L) would be net-new design, not a mechanical rollout — deferred until it's worth building.
 Sales → Overview also explicitly excluded from this pass by the user.
+
+────────────────────────────────────────────────────────────────────────────
+Search share / Search funnel — split by LEVEL, not by entity (Aug 27 2026)
+
+The two SQP pages were mixing two different questions, so neither answered one
+cleanly. They used to be split by ENTITY (Traffic funnel = ASIN pivot, Keyword
+portfolio = keyword pivot) with BOTH analytical levels living on each page. They
+are now split by LEVEL, with the entity grain as a control inside each page
+(Rows by Keyword / ASIN / Week in the Analyst pivot):
+
+  Level A — SHARE OF MARKET: impression / click / basket / purchase share.
+    "How big is my slice at each stage, and where does it grow or shrink?"
+    Fixes are visibility: rank, ads, budget, coverage. € field: opportunity.vis.
+  Level B — FUNNEL CONVERSION: CTR, basket-add rate, purchase rate, CVR, each
+    against the market rate. "How well do I convert versus the market?"
+    Fixes are listing: price, images, reviews, A+, shipping, Buy Box. € field:
+    opportunity.conv.
+
+Renames (user-chosen): "Keyword portfolio" → Search share (SQP.tsx →
+SearchShare.tsx); "Traffic funnel" → Search funnel (Traffic.tsx →
+SearchFunnel.tsx). Sidebar order under Sales: Overview · Diagnostics ·
+Search share · Search funnel · Targets · Trends. Routes, changelogData entries,
+the ASIN-drawer deep link ("Search share ↗") and App.tsx openKeyword all follow.
+
+Section moves:
+  • ParityBridge.tsx DELETED and split in two. Its share bars became
+    keywords/ShareLevels.tsx on Search share — same 4 bars, but the ×market
+    connector labels (a level-B ratio) are gone; connectors now read the SHARE
+    delta in pp with ▲/▼, and each bar is footed by its raw counts ("2,682 of
+    26k"). Its rate half became searchfunnel/FunnelRates.tsx on Search funnel
+    (the grouped rate columns + the you/market volumes footer).
+  • Analyst tables SWAPPED: Search share gets the share pivot ("Share deep
+    dive", sqpColumns); Search funnel gets the rates pivot ("Conversion deep
+    dive", sqpRateColumns). SqpDeepDive variant is now 'share' | 'rates'.
+  • KeywordTable dropped "Biggest gap" (level B) and its € column is now
+    "Visibility opp/wk" (r.oppVis). portfolioView(rows, oppKey) takes
+    'oppVis' | 'oppConv' | 'oppTotal' and Search share passes oppVis, so the
+    banner, the ranking and the quadrant € are all visibility-only.
+  • AsinLeakTable dropped BOTH share columns — "Click share 4wk" AND "Impr
+    share". Impressions/wk stays: it is the rate denominator, not a share.
+  ONE deliberate cross-link each way, and only one: Search share → "Why it
+  moves — Search funnel"; Search funnel → "What it costs in share — Search
+  share". The share = impr share × relative-rate identity is now stated once
+  (Search share tooltip), not re-derived on both pages.
+
+Trade-off accepted: "Keyword portfolio" no longer exists as a destination — you
+pick the question first, then the grain. Also, ranking Search share by
+visibility € alone leaves the Defend/Harvest tail at €0 (they already hold
+market-level share), which is correct but makes the lower table flat.
+
+
+────────────────────────────────────────────────────────────────────────────
+Share patterns — three diagnostic filters in Search share → Analyst (Aug 27 2026)
+
+src/components/sqptables/sharePattern.ts + classifyGroups/filterByPattern in
+buildTables.ts. A "Pattern" chip row (All · Ad-supported · CTR problem · CVR
+problem, each with a live count) filters the Share deep dive. Rationale, backed
+by SQP practitioner sources: SQP share metrics span PAID AND ORGANIC placements
+together, so the way share moves between stages names the lever.
+
+  • Ad-supported (impr ≈ click): click share within ±10% of impression share —
+    clicks track visibility instead of beating it, so on queries you don't own
+    organically that visibility is bought. Contrast the existing ORGANIC_HEAVY
+    flag (click share ≥ 2× impression share = earned relevance).
+  • CTR problem (impr > click): click share >10% below impression share —
+    shoppers see you and click someone else (main image, title, price on the
+    SERP, reviews). Bidding harder widens the gap.
+  • CVR problem (click > purchase): purchase share >10% below click share —
+    they click and buy elsewhere (PDP, price, shipping, Buy Box). Not a bid
+    problem.
+
+Mechanics: classification runs on each GROUP AT THE CURRENT GRAIN (aggregate
+first, then classify), so Rows by → ASIN re-reads the patterns from each ASIN's
+own summed counts — that is the aggregated ASIN view. Filtering happens on the
+SqpRow[] BEFORE buildPivot, so the Total footer, nested breakdown, heatmap and
+export all reflect the filter. Patterns overlap on purpose (ad-carried at the
+top AND losing the purchase at the bottom).
+
+Thresholds — the test is RELATIVE (±10% of the upstream share) with the lib's
+existing floors for noise (MIN_IMP_FOR_CTR_GAP 200 impr/wk, MIN_CLICKS_FOR_ATC
+20 clicks/wk, plus impression share ≥ 1pp). An absolute-pp floor was tried FIRST
+AND REJECTED after measuring: a ±10% band with a 1pp minimum returned ZERO CTR
+problems across all 17 demo keywords, because it reads a 9.4% → 8.5% drop as
+"parity" while flagging the same 10% decline on a 30% share — i.e. it hides
+exactly the small-share keywords worth fixing. Related bug found and fixed in
+the same pass: the floors are per-week, so metricsOf now exposes impBrandWk /
+clicksBrandWk (÷ nWeeks) instead of comparing multi-week sums against them.
+
+Honest limit: "Ad-supported" is an INFERENCE from the share pattern, not a
+measurement — without the Ads connection we cannot confirm spend on those
+keywords. The tooltip says so. On the current fixture: keyword grain shows
+Ad-supported 2 · CTR 2 · CVR 0 (this brand converts above market nearly
+everywhere), ASIN grain shows CVR 1 (B0DEMOG207, click 38.8% vs purchase 33.3%).
+
+
+────────────────────────────────────────────────────────────────────────────
+Rate-vs-market column chart replaced the funnel rate table (Aug 27 2026)
+
+searchfunnel/RateVsMarketChart.tsx. The old "How each step moves your slice"
+table put your rate, the market rate, ×market AND "your slice" side by side —
+two levels and two units in one grid, which is what made it unreadable. Now a
+grouped column chart, one group per funnel step: your rate (brand blue, bold cap
+label) vs market rate (de-emphasis gray, muted cap label), with the gap above
+each pair as "▲ +5.4pp" (glyph + value, so polarity is never colour-alone) and
+the BIGGEST DROP chip on the worst step. Hover gives ×market and the volume
+translation ("≈ 231 more clicks/wk than matching the market"); clicking a step
+still focuses that stage in the ASIN table. "Your slice" was REMOVED from this
+view — the share bars above it already are your slice, in share units.
+
+Form choice follows the dataviz "emphasis" pattern (one hue + de-emphasis gray)
+rather than two categorical hues: your rate is the subject, the market is
+context, and a gray benchmark can't be mistaken for a second brand series. The
+single categorical hue #0E5A8A passes the palette validator on the light
+surface. Three label collisions were only caught by rendering and looking —
+caption over the market labels, tooltip over the gap chip, BIGGEST DROP chip
+over the ▼ value — hence the 40px intra-pair label spacing and the tooltip being
+anchored above the chip, not the bar cap.
+
+
+────────────────────────────────────────────────────────────────────────────
+DeepDiveTable heatmap — platform-wide, opt-out not opt-in (Aug 27 2026)
+
+deepdive/HeatmapToggle.tsx + heat support in DeepDiveTable. A flame-icon picker
+next to Columns: "All columns" master tick plus per-column ticks labelled
+"high = good" / "low = good". Cells get a diverging red → white → green wash
+(HEAT_MAX_ALPHA 0.4), scaled across the rows on screen INCLUDING expanded
+children but EXCLUDING the Total footer — a sum would flatten the whole scale.
+Off by default per table; selection styling wins over the wash.
+
+Design decision that kept the diff small: numeric columns are heat-eligible BY
+DEFAULT (ColumnDef.heat is 'up' | 'down' | 'none', default 'up'), so only the
+cost/lower-is-better columns need marking. 36 columns marked 'down' across
+DeepDive, AdvertisingOverview, AdvertisingDeepDive, ProfitabilityDeepdive,
+InventoryPerformance, AdvertisingTable, cx OverviewAnalyst/RetentionAnalyst and
+sqp columns (spend, ACOS, TACOS, CPC, CPA, discounts, Ad CPC, Total CPA, Ad
+Reliance, COGS, Amazon fees, advertising, overheads, refunds & returns,
+return/refund rate, days on hand, storage cost, current ACoS, acquisition spend,
+payback, "Fake S&S" share). Heatable columns are derived FROM THE DATA (numeric,
+not pinned, heat !== 'none'), which keeps labels, status chips, sparklines and
+the Ads-gated all-"—" columns out of the picker automatically.
+Exported helper heatableColumns(cols, rows) + prop heatColumnsOverride let pages
+that render their own table header (AdvertisingDeepDive's embedded section
+tables) host the picker themselves — same pattern as visibleColumnsOverride.
+Deliberately NOT heatable: Avg Price and Inventory Value (neither direction is
+clearly good). Known pre-existing inconsistency left alone: on Advertising →
+Overview the PoP arrow treats a spend increase as green while the heat treats
+spend as a cost (red).
+
+Also in this pass: DeepDiveTable gained a maxHeight prop (default 420) and the
+SQP pivots pass 840, so those two tables show ~24 rows without touching every
+other table in the app. And 11 pre-existing TS2322 errors in
+AdvertisingOverview.tsx were fixed by one return-type annotation on the pctPP
+cellStyle helper (surfaced when `heat` was added to those column literals).
+
+
+────────────────────────────────────────────────────────────────────────────
+Keyword filter + branded scope fused into one control (Aug 27 2026)
+
+sqpui/KeywordScopeBar.tsx — the keyword filter input and the
+All/Non-branded/Branded segmented control share one bordered group (they answer
+the same question: "which keywords am I looking at?"), with a "6 of 24 keywords
+match" counter. Used by Search funnel's Analyst view, which is the page that
+gained a keyword filter; in that view the header's standalone BrandedToggle is
+hidden because the fused bar owns it (Decision mode keeps it in the header).
+Brand state is shared between the two views, so switching preserves it.
+
+Layout rule confirmed while doing this: the Decision/Analyst toggle ALWAYS sits
+flush right in the page TITLE row, never in the filter group — putting it in the
+filter row makes it wrap away from the right edge at wide viewports. Every page
+follows this (Sales Diagnostics, Advertising Overview/Diagnostics, Inventory
+Planner, CX, Search share, Search funnel).
+
+
+────────────────────────────────────────────────────────────────────────────
+Advertising sub-pages that are still stubs (Aug 14 2026)
+
+DSP, AMC and Promotions have no route in App.tsx and fall through to the generic
+ComingSoon stub, so they now carry the sidebar coming-soon Clock like the other
+four unbuilt Advertising pages (comingSoonSubs in dashboardData.ts). A stale
+comment claiming they "already have real pages" was removed. They still show the
+generic fallback copy rather than a hand-written description of what's planned.

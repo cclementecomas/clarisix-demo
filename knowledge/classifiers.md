@@ -349,7 +349,9 @@ can mean strong acquisition OR weak retention) → polarity downgraded to neutra
 
 ---
 
-### E. Sales → Traffic — main leak / biggest opportunity / impact
+### E. Sales → Search funnel — main leak / biggest opportunity / impact
+> RENAMED Aug 27 2026: this page was "Traffic funnel". It now carries the funnel-CONVERSION
+> level only (rates vs market); share levels moved to Search share. See K and the knowledge base.
 > **SUPERSEDED (Jul 8 2026).** Rebuilt on the real SQP contract — see `lib/sqp/metrics.ts`
 > (`computeLeak`, `leakOpportunity`→`aggregate`/`stageMetrics`) and `components/searchfunnel/*`.
 > `data/funnelDiagnosticData.ts` + `components/funnel/*` are DELETED. The leak model below is
@@ -390,7 +392,10 @@ half-gap convention (§2.4) still governs SQP keyword opportunity (F1).
 
 ---
 
-### F. Sales → SQP — keyword position, funnel diagnosis, opportunity, detail pop-up
+### F. Sales → Search share — keyword position, funnel diagnosis, opportunity, detail pop-up
+> RENAMED Aug 27 2026: this page was "Keyword portfolio". It now carries the SHARE-OF-MARKET
+> level only and ranks by the VISIBILITY € (`opportunity.vis`); the conversion € and the
+> per-keyword "biggest gap" moved to Search funnel. See K and the knowledge base.
 > **SUPERSEDED (Jul 8 2026).** Rebuilt on the real SQP contract — see `lib/sqp/metrics.ts`
 > (`queryStats`, `queryOpportunity` conv+vis, `quadrantOf`, `computeFlags`, `playbook`) and
 > `components/keywords/*`. `data/sqpData.ts` + `components/sqp/*` are DELETED. Quadrants,
@@ -570,6 +575,52 @@ YoY > 0** — never celebrate a flat or down event.
 
 ---
 
+### K. Search share → Analyst — share-pattern diagnostics (Aug 27 2026)
+File: `components/sqptables/sharePattern.ts` (`classifyShares`) · grain grouping +
+filtering in `components/sqptables/buildTables.ts` (`classifyGroups`, `filterByPattern`) ·
+UI = the "Pattern" chip row in `components/sqptables/SqpDeepDive.tsx` (share variant only).
+
+Answers *which lever is at fault*, from share movement alone. SQP share metrics span
+**paid and organic placements together**, which is what makes the first pattern readable.
+Classification runs on the GROUP AT THE CURRENT ROW GRAIN (aggregate → then classify), so
+Keyword / ASIN / Week each get their own verdict; ASIN grain is the aggregated ASIN view.
+Patterns are NOT mutually exclusive — a keyword can be ad-carried at the top and lose the
+purchase at the bottom, and appears under both chips.
+
+```
+guards:  impShare != null && clickShare != null && impShare >= 1pp      // else unclassified
+PARITY_BAND = 0.10                                                      // relative, not pp
+
+ad_supported  |impr≈click|  : |clickShare/impShare − 1| <= 0.10
+ctr_gap       |impr>click|  : clickShare/impShare  < 0.90  AND impBrandWk    >= 200
+cvr_gap       |click>purch| : purchShare/clickShare < 0.90  AND clicksBrandWk >=  20
+```
+Floors are the leak model's own (`MIN_IMP_FOR_CTR_GAP`, `MIN_CLICKS_FOR_ATC`) and are
+**per week** — `metricsOf` exposes `impBrandWk` / `clicksBrandWk` (÷ `nWeeks`) so a
+multi-week range is divided back down before they are applied.
+
+Why relative and not pp: a ±10% band with a 1pp absolute minimum was implemented first and
+**measured to return zero ctr_gap across all 17 demo keywords** — it reads 9.4% → 8.5% as
+parity while flagging the same 10% decline on a 30% share, hiding exactly the small-share
+keywords worth fixing. The pp floor was removed; noise control is the share/count floors.
+
+Reading (product copy lives in `PATTERN_META`):
+| Pattern | Means | Lever | Not the lever |
+|---|---|---|---|
+| Ad-supported | clicks track visibility instead of beating it | check what these keywords cost before scaling | — |
+| CTR problem | seen and skipped | main image, title, price on SERP, reviews | bidding harder (widens the gap) |
+| CVR problem | clicked, bought elsewhere | PDP, price, shipping speed, Buy Box | bidding harder |
+
+Contrast with the existing `ORGANIC_HEAVY` flag (F3): click share ≥ **2×** impression share
+is earned relevance — the opposite end of the same axis from `ad_supported`.
+LIMIT: `ad_supported` is an INFERENCE from the share pattern, not a measurement. Without the
+Ads connection we cannot confirm spend on those keywords; the tooltip states this.
+
+Filtering is applied to the `SqpRow[]` **before** `buildPivot`, so the Total footer, the
+nested breakdown, the heatmap scale and the export all reflect the active pattern.
+
+---
+
 ## 4. Global thresholds & constants (single source of truth to tune)
 
 | Domain | Constant | Value | Where |
@@ -594,6 +645,8 @@ YoY > 0** — never celebrate a flat or down event.
 | Mapping | coverage STRONG/PARTIAL/NEEDS WORK | 90 / 60 | H2 |
 | Content | perfect / partial | 90 / 70 | I |
 | Sales Overview | ad-vs-organic / dependency / decline | ±10pp / 50% / €1k or −10% | A |
+| Share patterns | parity band (relative) · min impression share | ±10% · 1pp | K |
+| Share patterns | per-week floors (click test / purchase test) | 200 impr · 20 clicks | K |
 
 ---
 

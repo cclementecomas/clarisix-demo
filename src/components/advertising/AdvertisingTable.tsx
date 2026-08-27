@@ -46,6 +46,7 @@ export default function AdvertisingTable() {
       {
         field: 'adSpend',
         headerName: 'AdSpend',
+        heat: 'down',
         valueFormatter: fmtCurrency,
         subFields: [
           {
