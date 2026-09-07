@@ -6,7 +6,7 @@ import { fc } from '../utils/currency';
 import { hasRootCause, rootCauseFor } from '../data/rootCauseData';
 import RootCausePanel from './RootCausePanel';
 
-const KPI_KEYS = ['Sales', 'TACOS', 'Profitability', 'Out of Stock', 'Content Score', 'Customer Experience'] as const;
+const KPI_KEYS = ['Profitability', 'Sales', 'TACOS', 'Out of Stock', 'Content Score', 'Customer Experience'] as const;
 const PCT_KPIS = new Set(['TACOS', 'Out of Stock']);
 
 const NAV_MAP: Record<string, { section: string; sub: string }> = {

@@ -112,7 +112,7 @@ export default function App() {
   const isWizard = !isEmbed && onboardingState.status === 'wizard';
   const isOnboarding = !isEmbed && onboardingState.status !== 'ready';
 
-  const [activeSection, setActiveSection] = useState('Sales');
+  const [activeSection, setActiveSection] = useState('Profitability');
   const [activeSub, setActiveSub] = useState('Overview');
   const [collapsed, setCollapsed] = useState(false);
   const [currentPage, setCurrentPage] = useState('home');
@@ -242,7 +242,7 @@ export default function App() {
       // Legacy route — Connectors now lives inside Admin → Data → Connections.
       return <Settings initialTab="connections" mode="data" />;
     }
-    if (activeSection === 'Prime Day Recap') {
+    if (activeSection === 'Events') {
       return <PrimeDayRecap />;
     }
     if (activeSection === 'Sales' && activeSub === 'Overview') {
@@ -252,13 +252,13 @@ export default function App() {
       return <DeepDive />;
     }
     if (activeSection === 'Sales' && activeSub === 'Search funnel') {
-      return <SearchFunnel onOpenKeyword={openKeyword} onOpenShare={() => setActiveSub('Search share')} />;
+      return <SearchFunnel onOpenKeyword={openKeyword} />;
     }
     if (activeSection === 'Sales' && activeSub === 'Trends') {
       return <Trends />;
     }
     if (activeSection === 'Sales' && activeSub === 'Search share') {
-      return <SearchShare focusQuery={sqpFocus} onFocusConsumed={clearSqpFocus} onOpenFunnel={() => setActiveSub('Search funnel')} />;
+      return <SearchShare focusQuery={sqpFocus} onFocusConsumed={clearSqpFocus} />;
     }
     if (activeSection === 'Advertising' && activeSub === 'Overview') {
       return <AdvertisingOverview />;

@@ -105,7 +105,7 @@ export const CHANGELOG: Release[] = [
         type: 'new',
         title: 'Prime Day Recap',
         description: 'A scenic year-in-review of your event performance with honest year-over-year comparisons.',
-        route: { section: 'Prime Day Recap', sub: '' },
+        route: { section: 'Events', sub: 'Prime Day 2026' },
       },
       {
         type: 'improved',

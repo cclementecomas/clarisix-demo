@@ -1,5 +1,18 @@
 export const kpiData = [
   {
+    label: 'Profitability',
+    value: '31.2k',
+    rawValue: 31200,
+    positive: true,
+    popChange: 5.10,
+    popPositive: true,
+    lyChange: 22.41,
+    lyPositive: true,
+    sparkline: [18, 20, 17, 22, 24, 21, 26, 28, 25, 29, 30, 31],
+    navSection: 'Profitability',
+    navSub: 'Overview',
+  },
+  {
     label: 'Sales',
     value: '122.1k',
     rawValue: 122100,
@@ -22,19 +35,6 @@ export const kpiData = [
     lyPositive: true,
     sparkline: [24, 22, 25, 21, 20, 23, 19, 21, 18, 19, 18, 18],
     navSection: 'Advertising',
-    navSub: 'Overview',
-  },
-  {
-    label: 'Profitability',
-    value: '31.2k',
-    rawValue: 31200,
-    positive: true,
-    popChange: 5.10,
-    popPositive: true,
-    lyChange: 22.41,
-    lyPositive: true,
-    sparkline: [18, 20, 17, 22, 24, 21, 26, 28, 25, 29, 30, 31],
-    navSection: 'Profitability',
     navSub: 'Overview',
   },
   {
@@ -408,14 +408,11 @@ export const accountFilterOptions: AccountOption[] = [
 
 export const menuItems = [
   {
-    label: 'Prime Day Recap',
-    icon: 'Zap',
-    subItems: ['2026'],
-    defaultSub: '2026',
-    comingSoonSubs: [] as string[],
-    // Newly-shipped page — soft amber "New" pill in the sidebar (no blink).
-    blink: false,
-    badge: 'New',
+    label: 'Profitability',
+    icon: 'TrendingUp',
+    subItems: ['Overview', 'Deepdive'],
+    defaultSub: 'Overview',
+    comingSoonSubs: [],
   },
   {
     label: 'Sales',
@@ -459,13 +456,6 @@ export const menuItems = [
     comingSoonSubs: [],
   },
   {
-    label: 'Profitability',
-    icon: 'TrendingUp',
-    subItems: ['Overview', 'Deepdive'],
-    defaultSub: 'Overview',
-    comingSoonSubs: [],
-  },
-  {
     label: 'Content',
     icon: 'FileText',
     subItems: ['Tracker', 'Content App Tracking'],
@@ -478,6 +468,16 @@ export const menuItems = [
     subItems: ['Overview', 'Retention & Value', 'Ratings and Reviews'],
     defaultSub: 'Overview',
     comingSoonSubs: ['Ratings and Reviews'],
+  },
+  {
+    label: 'Events',
+    icon: 'Zap',
+    subItems: ['Prime Day 2026'],
+    defaultSub: 'Prime Day 2026',
+    comingSoonSubs: [] as string[],
+    // Seasonal event recaps — soft amber "New" pill in the sidebar (no blink).
+    blink: false,
+    badge: 'New',
   },
 ];
 

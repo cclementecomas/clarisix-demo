@@ -3329,6 +3329,38 @@ immature to plot). Note: the global date-range picker (top nav, shared by all mo
 separate control and is intentionally not bound to AS_OF.
 
 ────────────────────────────────────────────────────────────────────────────
+Profitability-first pivot (Sep 4 2026)
+
+Product strategy shift: Clarisix now positions PROFITABILITY as the core edge, so it leads
+everywhere. Changes:
+- Sidebar module order (dashboardData.ts menuItems): Profitability moved to the FIRST module,
+  above Prime Day Recap. Rest keep relative order (Prime Day Recap, Sales, Advertising, Inventory,
+  Content, Customer Experience).
+- Default dashboard page (App.tsx): activeSection default 'Sales' → 'Profitability' (sub 'Overview').
+  NOTE: the app still lands on the Home command-center (currentPage='home'); Profitability is the
+  default MODULE once you enter the dashboard, not a boot-straight-to-Profitability change.
+- Home KPI cards (dashboardData.ts kpiData): Profitability card hoisted to first.
+- Period Snapshot rows (PeriodSnapshot.tsx KPI_KEYS): Profitability listed first.
+
+Follow-up (Sep 4 2026):
+- Prime Day moved OUT of its own top-level module INTO a new "Events" module at the BOTTOM of the
+  sidebar (dashboardData.ts menuItems: label 'Events', icon Zap, subItems ['Prime Day 2026'],
+  badge 'New'). Routing key changed section 'Prime Day Recap' → 'Events' in App.tsx (renders
+  <PrimeDayRecap/>), Navigation.tsx guards, and changelogData.ts route. PrimeDayRecap component
+  itself unchanged.
+- Profitability page: added a flagship "Margin cascade" HERO card ABOVE the P&L statement
+  (Profitability.tsx MarginCascadeHero). Shows the four headline margins as large connected stages
+  (Product 66.8% → Channel → Growth → Net) with the pp-drop + cost driver on each arrow, then a
+  full-width "Where each {sym}1 goes" breakdown bar + € legend. This replaces the small collapsible
+  cascade strip that used to live inside the statement-card header (removed, along with its
+  showBreakdownBar/hoveredSegment state). Hero hidden under cash/settlement policy.
+  Timeframe: the hero header carries a Fiscal-year selector (FY2024/FY2025/FY2026) bound to the
+  SAME selectedYear state as the statement's year buttons — picking a year in the hero updates both
+  the cascade and the table below in sync. summaryKey simplified to `fy${selectedYear}` (dropped the
+  old yearly→fy2025 pin) so the cascade always tracks the chosen year. The cascade is annual by
+  design; the statement below still drives monthly/quarterly detail.
+
+────────────────────────────────────────────────────────────────────────────
 Zix — mascot / future AI agent on the footer (Aug 26 2026)
 
 Introduced "Zix", the Clarisix character that will become the AI agent. He perches on the footer's
@@ -3503,15 +3535,58 @@ Section moves:
     banner, the ranking and the quadrant € are all visibility-only.
   • AsinLeakTable dropped BOTH share columns — "Click share 4wk" AND "Impr
     share". Impressions/wk stays: it is the rate denominator, not a share.
-  ONE deliberate cross-link each way, and only one: Search share → "Why it
-  moves — Search funnel"; Search funnel → "What it costs in share — Search
-  share". The share = impr share × relative-rate identity is now stated once
-  (Search share tooltip), not re-derived on both pages.
+  The share = impr share × relative-rate identity is stated once (Search share
+  tooltip), not re-derived on both pages. NOTE: this entry originally shipped
+  "one deliberate cross-link each way" (buttons between the pages) — both were
+  REMOVED on Aug 28 2026, see the amendment below.
 
 Trade-off accepted: "Keyword portfolio" no longer exists as a destination — you
 pick the question first, then the grain. Also, ranking Search share by
 visibility € alone leaves the Defend/Harvest tail at €0 (they already hold
 market-level share), which is correct but makes the lower table flat.
+
+AMENDMENT (Aug 28 2026) — ShareLevels re-scoped after a review challenge. The
+objection: the keyword table already shows Shares I·C·B·P per keyword, so the
+panel is a redundant aggregate; aggregating a ratio is misleading; and it's a
+dead-end because it doesn't drill.
+
+What was actually true: the maths was fine — `aggregate()` POOLS (Σ your counts ÷
+Σ market counts, market deduped per query-week), it does not average per-keyword
+percentages, so there is no average-of-averages error. But a pooled share is
+volume-weighted, which makes it a correct MEASUREMENT and a bad ROUTER: the
+largest pooled step drop can belong to one big keyword while small keywords bleed
+at a different step. The panel was making exactly that leap with a BIGGEST DROP
+chip and a "your slice shrinks most at X" sentence.
+
+Changes: (1) both prescriptive claims REMOVED — the "So what" now states the size
+of the slice ("across the 17 keywords in scope you hold 10.4% of impressions and
+15.2% of purchases — 2,682 of 26k impressions, 79 of 515 purchases"); (2) each
+step is now a DRILL: it labels how many keywords lose share there and clicking it
+filters the keyword table to exactly those, biggest share loss first
+(KeywordFilter gained stage_imp_click / stage_click_basket / stage_basket_purch);
+(3) a step with no losers is labelled "none lose share" and is not clickable, so
+you can never land on an empty table. Counts and rows come from ONE definition —
+keywords/stageShare.ts (STAGE_SHARE_DELTA) — used by both the panel and the table
+so "9 lose share" and the 9 rows can never disagree.
+
+Cross-link buttons REMOVED in the same pass ("Why it moves — Search funnel" and
+"What it costs in share — Search share"). Reasoning: the two pages are adjacent
+items in the same sidebar section, so a button buys nothing over the nav, and a
+chart click that changes pages is worse than useless — the destination is
+unannounced and the page-local scope (week range, branded filter) is lost. The
+cross-reference survives as WORDS where it is information rather than
+navigation: the share-levels tooltip says the rate comparison lives on Search
+funnel. If a real handoff is ever needed it should be contextual (carry the
+stage) rather than a page switch — not built, because nothing asked for it.
+
+Side effect worth keeping: the panel now SHOWS the mix effect instead of hiding
+it — the first step reads ▲ +4.0pp pooled while 7 keywords lose share underneath
+it. Redundancy claim rejected on the merits: the table's per-keyword waterfall is
+unweighted and one row at a time; no reader eyeballs a volume-weighted portfolio
+share out of 17 (or 500) of them, and the absolute counts under each bar are not
+in the table at all. Still open if surface needs cutting: collapse the chart to a
+two-line stat strip and move the four-bar version to the product/ASIN level,
+where the fix has an owner.
 
 
 ────────────────────────────────────────────────────────────────────────────

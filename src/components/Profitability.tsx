@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, Fragment } from 'react';
 import { ChevronRight, TrendingUp, Download, Sheet, Calendar, X, AlertTriangle, ChevronDown, ArrowRight } from 'lucide-react';
 import {
   profitabilityData, ProfitabilityMetric, PL_TOOLTIPS,
@@ -98,6 +98,110 @@ function getPeriodColumns(granularity: Granularity, year: SelectedYear): PeriodC
   ];
 }
 
+// ── Margin cascade hero — the flagship profitability read (above the P&L table) ──
+// Simplifies the four headline margins into large connected stages, then shows
+// where each unit of revenue goes as a full-width breakdown bar.
+function MarginCascadeHero({
+  chips, segments, currency, year, years, onYearChange,
+}: {
+  chips: { label: string; value: number }[];
+  segments: { label: string; value: number; pct: number; color: string }[];
+  currency: import('../contexts/CurrencyContext').Currency;
+  year: number;
+  years: number[];
+  onYearChange: (y: number) => void;
+}) {
+  const [hover, setHover] = useState<number | null>(null);
+  const sym = CURRENCY_SYMBOLS[currency];
+  const tone = (v: number) => (v >= 20 ? 'text-green-700' : v >= 10 ? 'text-yellow-700' : v >= 0 ? 'text-orange-700' : 'text-red-700');
+  // What each stage has just absorbed (aligns with the breakdown bar segments).
+  const desc = ['after returns & COGS', 'after Amazon fees', 'after advertising', 'after overheads'];
+  const drivers = ['Amazon fees', 'Advertising', 'Overheads'];
+  return (
+    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+      <div className="flex items-start justify-between gap-3 mb-4 flex-wrap">
+        <div>
+          <h2 className="text-base font-bold text-gray-900">Margin cascade</h2>
+          <p className="text-[12px] text-gray-500 mt-0.5">How each {sym}1 of revenue becomes profit — and where it leaks along the way.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 inline-flex items-center gap-1"><Calendar className="w-3.5 h-3.5" />Fiscal year</span>
+          <div className="flex items-center bg-gray-100 rounded-lg p-0.5 gap-0.5">
+            {years.map((y) => (
+              <button
+                key={y}
+                onClick={() => onYearChange(y)}
+                className={`px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all ${
+                  year === y ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                FY{y}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Four connected margin stages */}
+      <div className="grid grid-cols-2 lg:grid-cols-[1fr_auto_1fr_auto_1fr_auto_1fr] items-center gap-y-5">
+        {chips.map((chip, i) => (
+          <Fragment key={chip.label}>
+            {i > 0 && (
+              <div className="hidden lg:flex flex-col items-center px-3 text-gray-300 flex-shrink-0">
+                <ArrowRight className="w-5 h-5" />
+                <span className="text-[10px] font-bold text-gray-500 mt-1 leading-none">−{(chips[i - 1].value - chip.value).toFixed(1)}pp</span>
+                <span className="text-[9px] text-gray-400 leading-none mt-0.5">{drivers[i - 1]}</span>
+              </div>
+            )}
+            <div className="text-center lg:text-left">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">{chip.label}</p>
+              <p className={`text-[34px] leading-none font-extrabold tracking-tight mt-1 ${tone(chip.value)}`}>{chip.value.toFixed(1)}<span className="text-xl align-top">%</span></p>
+              <p className="text-[10px] text-gray-400 mt-1">{desc[i]}</p>
+            </div>
+          </Fragment>
+        ))}
+      </div>
+
+      {/* Where each €1 goes — full-width breakdown bar */}
+      <div className="mt-5 pt-4 border-t border-gray-100">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Where each {sym}1 goes</span>
+        </div>
+        <div className="flex h-10 rounded-lg overflow-hidden shadow-inner">
+          {segments.map((seg, i) => (
+            <div
+              key={i}
+              className="relative flex items-center justify-center transition-opacity duration-150"
+              style={{ width: `${Math.abs(seg.pct)}%`, backgroundColor: seg.color, opacity: hover !== null && hover !== i ? 0.45 : 1 }}
+              onMouseEnter={() => setHover(i)}
+              onMouseLeave={() => setHover(null)}
+            >
+              {Math.abs(seg.pct) >= 6 && (
+                <span className="text-[12px] font-bold text-white drop-shadow-sm">{sym}{(Math.abs(seg.pct) / 100).toFixed(2)}</span>
+              )}
+            </div>
+          ))}
+        </div>
+        {/* Legend with € share per segment */}
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 mt-3">
+          {segments.map((seg, i) => (
+            <div
+              key={i}
+              className="flex items-center gap-1.5 cursor-default"
+              onMouseEnter={() => setHover(i)}
+              onMouseLeave={() => setHover(null)}
+            >
+              <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: seg.color }} />
+              <span className={`text-[11px] transition-colors ${hover === i ? 'text-gray-900 font-semibold' : 'text-gray-600'}`}>{seg.label}</span>
+              <span className="text-[11px] font-semibold text-gray-400">{sym}{(Math.abs(seg.pct) / 100).toFixed(2)}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Profitability({ onNavigate }: { onNavigate?: (section: string, sub: string) => void } = {}) {
   const { currency } = useCurrency();
   const [policy, setPolicy] = useState<AccountingPolicy>('accrual');
@@ -110,7 +214,6 @@ export default function Profitability({ onNavigate }: { onNavigate?: (section: s
   const hasHighlights = highlightedColumns.size > 0;
   const [showComparison, setShowComparison] = useState(false);
   const [comparisonPolicy, setComparisonPolicy] = useState<AccountingPolicy>('cash');
-  const [showBreakdownBar, setShowBreakdownBar] = useState(false);
   const [showVat, setShowVat] = useState(false);
 
   // When switching policy, reset settlement granularity if leaving cash
@@ -146,7 +249,6 @@ export default function Profitability({ onNavigate }: { onNavigate?: (section: s
     const profiles = buildSkuCostProfiles(inventoryShape, demoCostRecords, demoInboundEvents);
     return computeCoverage(profiles);
   }, []);
-  const [hoveredSegment, setHoveredSegment] = useState<number | null>(null);
 
   // Available granularities depend on policy
   const availableGranularities = useMemo((): Granularity[] => {
@@ -156,7 +258,7 @@ export default function Profitability({ onNavigate }: { onNavigate?: (section: s
   }, [policy]);
 
   // Cost breakdown bar data — always uses full-year aggregate
-  const summaryKey = granularity === 'yearly' ? 'fy2025' : `fy${selectedYear}`;
+  const summaryKey = `fy${selectedYear}`;
   const breakdownSegments = useMemo(() => {
     const gross = gorPV[summaryKey] ?? 0;
     if (gross === 0) return [];
@@ -337,7 +439,18 @@ export default function Profitability({ onNavigate }: { onNavigate?: (section: s
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+    <div className="space-y-4">
+      {policy !== 'cash' && breakdownSegments.length > 0 && (
+        <MarginCascadeHero
+          chips={cascadeChips}
+          segments={breakdownSegments}
+          currency={currency}
+          year={selectedYear}
+          years={[2024, 2025, 2026]}
+          onYearChange={(y) => setSelectedYear(y as SelectedYear)}
+        />
+      )}
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
       {cogsCoverage.revenueCoverage < 100 && (
         <div className="px-6 py-2.5 bg-amber-50 border-b border-amber-200 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0">
@@ -571,111 +684,6 @@ export default function Profitability({ onNavigate }: { onNavigate?: (section: s
           </div>
         </div>
       </div>
-
-      {/* ── Cost Breakdown Strip (cascade chips always visible, breakdown bar collapsible) ── */}
-      {policy !== 'cash' && breakdownSegments.length > 0 && (
-        <div className="px-5 py-1.5 border-b border-gray-100 bg-white">
-          <div className="flex items-center justify-between gap-3">
-            {/* Cascade margin chips — always visible */}
-            <div className="flex items-center flex-wrap">
-              {cascadeChips.map((chip, i) => (
-                <div key={i} className="flex items-center">
-                  {i > 0 && <span className="mx-1.5 text-gray-300 text-[10px]">→</span>}
-                  <div className="flex items-center gap-1">
-                    <span className="text-[9px] font-bold text-gray-400 uppercase">{chip.label}</span>
-                    <span className={`text-[11px] font-extrabold ${
-                      chip.value >= 20 ? 'text-green-700' : chip.value >= 10 ? 'text-yellow-700' : chip.value >= 0 ? 'text-orange-700' : 'text-red-700'
-                    }`}>
-                      {chip.value.toFixed(1)}%
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-            {/* Toggle */}
-            <button
-              onClick={() => setShowBreakdownBar(!showBreakdownBar)}
-              className="flex items-center gap-1 text-[10px] font-semibold text-gray-400 hover:text-gray-700 transition-colors"
-            >
-              <ChevronDown className={`w-3 h-3 transition-transform ${showBreakdownBar ? 'rotate-180' : ''}`} />
-              Where each {CURRENCY_SYMBOLS[currency]}1 goes
-            </button>
-          </div>
-
-          {/* Collapsible breakdown bar */}
-          {showBreakdownBar && (
-            <div className="mt-2 pt-2 border-t border-gray-100">
-              <div className="text-[9px] text-gray-400 mb-1">FY{granularity === 'yearly' ? '2025' : selectedYear}</div>
-
-              {/* Stacked bar */}
-              <div className="relative">
-                <div className="flex h-5 rounded-md overflow-hidden shadow-inner">
-                  {breakdownSegments.map((seg, i) => (
-                    <div
-                      key={i}
-                      className="relative flex items-center justify-center transition-opacity duration-150"
-                      style={{
-                        width: `${Math.abs(seg.pct)}%`,
-                        backgroundColor: seg.color,
-                        opacity: hoveredSegment !== null && hoveredSegment !== i ? 0.5 : 1,
-                      }}
-                      onMouseEnter={() => setHoveredSegment(i)}
-                      onMouseLeave={() => setHoveredSegment(null)}
-                    >
-                      {Math.abs(seg.pct) >= 6 && (
-                        <span className="text-[10px] font-bold text-white drop-shadow-sm truncate px-1">
-                          {CURRENCY_SYMBOLS[currency]}{(Math.abs(seg.pct) / 100).toFixed(2)}
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-
-                {/* Hover tooltip */}
-                {hoveredSegment !== null && breakdownSegments[hoveredSegment] && (
-                  <div className="absolute left-1/2 -translate-x-1/2 -bottom-[52px] z-30 pointer-events-none">
-                    <div className="bg-gray-900 text-white text-[11px] px-3 py-1.5 rounded-lg shadow-xl whitespace-nowrap flex items-center gap-2">
-                      <div className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: breakdownSegments[hoveredSegment].color }} />
-                      <span className="font-semibold">{breakdownSegments[hoveredSegment].label}</span>
-                      <span className="text-white font-bold">
-                        {CURRENCY_SYMBOLS[currency]}{(Math.abs(breakdownSegments[hoveredSegment].pct) / 100).toFixed(2)}
-                      </span>
-                      <span className="text-gray-400">·</span>
-                      <span className="text-gray-300">
-                        {Math.abs(breakdownSegments[hoveredSegment].pct).toFixed(1)}%
-                      </span>
-                      <span className="text-gray-400">·</span>
-                      <span className="text-gray-400">
-                        {(() => {
-                          const v = convert(breakdownSegments[hoveredSegment].value, currency);
-                          return new Intl.NumberFormat('en-US', { style: 'currency', currency, minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(Math.abs(v));
-                        })()}
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Segment legend (below bar) */}
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1.5">
-                {breakdownSegments.map((seg, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center gap-1.5 cursor-default"
-                    onMouseEnter={() => setHoveredSegment(i)}
-                    onMouseLeave={() => setHoveredSegment(null)}
-                  >
-                    <div className="w-2 h-2 rounded-sm flex-shrink-0" style={{ backgroundColor: seg.color }} />
-                    <span className={`text-[10px] ${hoveredSegment === i ? 'text-gray-900 font-semibold' : 'text-gray-500'} transition-colors`}>
-                      {seg.label}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
 
       {policy === 'cash' ? (
         <SettlementPostingBridge />
@@ -947,6 +955,7 @@ export default function Profitability({ onNavigate }: { onNavigate?: (section: s
           </div>
         </div>
       </div>
+    </div>
     </div>
   );
 }
