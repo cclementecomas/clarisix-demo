@@ -3361,6 +3361,25 @@ Follow-up (Sep 4 2026):
   design; the statement below still drives monthly/quarterly detail.
 
 ────────────────────────────────────────────────────────────────────────────
+Events / Prime Day — Full catalog vs Like-for-like toggle (Sep 7 2026)
+
+Added a page-level comparison-basis toggle to the Prime Day recap (Events module). "Full catalog"
+= all SKUs (default, unchanged behaviour). "Like-for-like" = compares only SKUs that were in last
+year's event catalog; SKUs launched since are excluded from the CURRENT-year figures (last year is
+untouched — those SKUs weren't selling yet), so growth isn't flattered by new-product launches.
+Data (primeDayData.ts): added optional lflThisYear / lflThisYearRev to primeDayRevenue, every
+YoYMetric, every MoverRow, and primeDayDays, plus a primeDayLfl meta ({newSkus, note}). Values are
+hand-authored coherent (new SKUs ≈ €44.2k of this year's €486.2k; LFL totals sum correctly across
+days and country/category breakdowns). Component (PrimeDayRecap.tsx): a `mode` state drives a
+`ty(full, lfl)` selector applied to the hero, hero tiles, day-split chart, contribution-to-growth,
+top movers, and the YoY KPI table (GroupBlock now takes a `lookup` map; module-level `byKey`
+removed). Toggle sits at the top of the hero with an (i) explainer showing how many new SKUs are
+excluded. Insight it reveals in the demo: headline +23.8% drops to +12.5% like-for-like, and
+Wellness's growth contribution collapses from 18% to 1% (its surge was almost all new SKUs).
+NOTE: the share/export canvases (primeDayShare.ts) still render Full-catalog figures — not yet
+mode-aware.
+
+────────────────────────────────────────────────────────────────────────────
 Zix — mascot / future AI agent on the footer (Aug 26 2026)
 
 Introduced "Zix", the Clarisix character that will become the AI agent. He perches on the footer's

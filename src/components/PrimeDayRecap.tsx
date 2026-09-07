@@ -16,15 +16,15 @@ import { useCurrency, type Currency } from '../contexts/CurrencyContext';
 import { fc, tickFmt } from '../utils/currency';
 import {
   primeDayMeta, primeDayMetrics, primeDayRevenue, primeDayMovers,
-  primeDayDays,
+  primeDayDays, primeDayLfl,
   metricChange, fmtMetricValue, pctDelta,
   type YoYMetric, type MoverRow,
 } from '../data/primeDayData';
+import InfoTooltip from './InfoTooltip';
 import ShareMenu from './ShareMenu';
 import PrimeDayWelcome from './PrimeDayWelcome';
 import { buildSummaryCanvas, buildMoversCanvas, buildKpiTableCanvas, buildRevenueByDayCanvas } from '../utils/primeDayShare';
 
-const byKey = new Map(primeDayMetrics.map((m) => [m.key, m]));
 const TY = '#0E5A8A';   // this year (brand)
 const LY = '#CBD5E1';   // last year (slate)
 
@@ -121,30 +121,36 @@ export default function PrimeDayRecap() {
   const [contribIdx, setContribIdx] = useState(primeDayMovers.findIndex((d) => d.key === 'category'));
   const contribDim = primeDayMovers[contribIdx];
 
-  const rev = primeDayRevenue;
+  // Comparison basis: 'full' catalog, or 'lfl' (only SKUs in last year's catalog).
+  const [mode, setMode] = useState<'full' | 'lfl'>('full');
+  const ty = (full: number, lfl?: number) => (mode === 'lfl' && lfl != null ? lfl : full);
+  const adjM = (m: YoYMetric): YoYMetric => ({ ...m, thisYear: ty(m.thisYear, m.lflThisYear) });
+  const byKeyAdj = new Map(primeDayMetrics.map((m) => [m.key, adjM(m)]));
+
+  const rev = { thisYear: ty(primeDayRevenue.thisYear, primeDayRevenue.lflThisYear), lastYear: primeDayRevenue.lastYear };
   const revPct = pctDelta(rev.thisYear, rev.lastYear);
   const revAbs = rev.thisYear - rev.lastYear;
 
-  const units = byKey.get('units')!;
-  const adSpend = byKey.get('adSpend')!;
-  const roas = byKey.get('roas')!;
+  const units = byKeyAdj.get('units')!;
+  const adSpend = byKeyAdj.get('adSpend')!;
+  const roas = byKeyAdj.get('roas')!;
 
   // Day split chart data + YoY total
-  const dayData = useMemo(() => primeDayDays.map((d) => ({ label: d.label, [primeDayMeta.lastYearLabel]: d.lastYear, [primeDayMeta.thisYearLabel]: d.thisYear })), []);
+  const dayData = useMemo(() => primeDayDays.map((d) => ({ label: d.label, [primeDayMeta.lastYearLabel]: d.lastYear, [primeDayMeta.thisYearLabel]: ty(d.thisYear, d.lflThisYear) })), [mode]);
   const DayTip = dayTooltip(currency);
 
   // Contribution-to-growth (by selected dimension, € delta)
   const contrib = useMemo(() => {
-    const rows = contribDim.rows.map((r) => ({ name: r.name, delta: r.thisYearRev - r.lastYearRev }))
+    const rows = contribDim.rows.map((r) => ({ name: r.name, delta: ty(r.thisYearRev, r.lflThisYearRev) - r.lastYearRev }))
       .filter((r) => r.delta > 0).sort((a, b) => b.delta - a.delta);
     const total = rows.reduce((s, r) => s + r.delta, 0) || 1;
     const max = Math.max(...rows.map((r) => r.delta), 1);
     return { rows, total, max };
-  }, [contribDim]);
+  }, [contribDim, mode]);
 
   // Movers — sorted by growth, with shared max for bar scaling
-  const moverRows = useMemo(() => [...dim.rows].sort((a, b) => pctDelta(b.thisYearRev, b.lastYearRev) - pctDelta(a.thisYearRev, a.lastYearRev)), [dim]);
-  const moverMax = Math.max(...dim.rows.map((r) => Math.max(r.thisYearRev, r.lastYearRev))) * 1.06;
+  const moverRows = useMemo(() => dim.rows.map((r) => ({ ...r, thisYearRev: ty(r.thisYearRev, r.lflThisYearRev) })).sort((a, b) => pctDelta(b.thisYearRev, b.lastYearRev) - pctDelta(a.thisYearRev, a.lastYearRev)), [dim, mode]);
+  const moverMax = Math.max(...moverRows.map((r) => Math.max(r.thisYearRev, r.lastYearRev))) * 1.06;
 
   const shareFile = (v: string) => `clarisix-prime-day-${v}-${new Date().toISOString().slice(0, 10)}.png`;
 
@@ -154,6 +160,28 @@ export default function PrimeDayRecap() {
 
       {/* ── Executive hero ── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        {/* Comparison basis toggle — Full catalog vs Like-for-like */}
+        <div className="px-6 pt-4 pb-3 flex items-center justify-between gap-3 flex-wrap border-b border-gray-50">
+          <div className="inline-flex items-center bg-gray-100 rounded-lg p-0.5 gap-0.5">
+            {([['full', 'Full catalog'], ['lfl', 'Like-for-like']] as const).map(([k, lbl]) => (
+              <button
+                key={k}
+                onClick={() => setMode(k)}
+                className={`px-3 py-1.5 text-[11px] font-semibold rounded-md transition-all ${mode === k ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                {lbl}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-1.5 text-[11px] text-gray-500">
+            <span>
+              {mode === 'lfl'
+                ? `Comparing only SKUs in last year’s catalog · ${primeDayLfl.newSkus} new SKUs excluded`
+                : `All SKUs, including ${primeDayLfl.newSkus} launched since last year`}
+            </span>
+            <InfoTooltip content={primeDayLfl.note} wide />
+          </div>
+        </div>
         <div className="px-6 py-5">
           <div className="flex items-start gap-6 flex-wrap lg:flex-nowrap">
             {/* Headline */}
@@ -189,7 +217,7 @@ export default function PrimeDayRecap() {
 
             {/* Metric tiles */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 flex-shrink-0">
-              <HeroTile label="Sales" value={fmtMetricValue('currency', rev.thisYear, currency)} m={byKey.get('revenue')!} icon={<Coins className="w-3.5 h-3.5 text-amber-600" />} lastYear={fmtMetricValue('currency', rev.lastYear, currency)} />
+              <HeroTile label="Sales" value={fmtMetricValue('currency', rev.thisYear, currency)} m={byKeyAdj.get('revenue')!} icon={<Coins className="w-3.5 h-3.5 text-amber-600" />} lastYear={fmtMetricValue('currency', rev.lastYear, currency)} />
               <HeroTile label="Units" value={fmtMetricValue('number', units.thisYear, currency)} m={units} icon={<Package className="w-3.5 h-3.5 text-cx-600" />} lastYear={fmtMetricValue('number', units.lastYear, currency)} />
               <HeroTile label="Ad spend" value={fmtMetricValue('currency', adSpend.thisYear, currency)} m={adSpend} icon={<Megaphone className="w-3.5 h-3.5 text-cx-600" />} lastYear={fmtMetricValue('currency', adSpend.lastYear, currency)} />
               <HeroTile label="ROAS" value={`${roas.thisYear.toFixed(2)}x`} m={roas} icon={<Target className="w-3.5 h-3.5 text-emerald-600" />} lastYear={`${roas.lastYear.toFixed(2)}x`} />
@@ -282,7 +310,7 @@ export default function PrimeDayRecap() {
               </tr>
             </thead>
             <tbody>
-              {GROUPS.map((g) => <GroupBlock key={g.id} group={g} currency={currency} />)}
+              {GROUPS.map((g) => <GroupBlock key={g.id} group={g} currency={currency} lookup={byKeyAdj} />)}
             </tbody>
           </table>
         </div>
@@ -347,7 +375,7 @@ function HeroTile({ label, value, m, icon, lastYear }: { label: string; value: s
   );
 }
 
-function GroupBlock({ group, currency }: { group: { id: string; label: string; keys: string[]; caveat?: boolean }; currency: Currency }) {
+function GroupBlock({ group, currency, lookup }: { group: { id: string; label: string; keys: string[]; caveat?: boolean }; currency: Currency; lookup: Map<string, YoYMetric> }) {
   return (
     <>
       <tr className="bg-gray-50/50">
@@ -367,7 +395,7 @@ function GroupBlock({ group, currency }: { group: { id: string; label: string; k
         </td></tr>
       )}
       {group.keys.map((k) => {
-        const m = byKey.get(k);
+        const m = lookup.get(k);
         if (!m) return null;
         return (
           <tr key={k} className="border-b border-gray-50 hover:bg-gray-50/40">
