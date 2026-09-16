@@ -18,6 +18,7 @@ import { useCurrency } from '../contexts/CurrencyContext';
 import { fc } from '../utils/currency';
 import InfoTooltip from './InfoTooltip';
 import LastRefreshed from './LastRefreshed';
+import ProductThumb from './ProductThumb';
 import ViewModeToggle, { type ViewMode } from './ViewModeToggle';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -619,7 +620,7 @@ export default function InventoryOverview() {
             <thead>
               <tr className="border-y border-gray-100">
                 <th className="w-6 px-1" />
-                <SortableHeader label="SKU" sortKey="sku" currentKey={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortableHeader label="SKU" sortKey="sku" currentKey={sortKey} dir={sortDir} onSort={handleSort} className="w-[176px]" />
                 <SortableHeader label="Product" sortKey="title" currentKey={sortKey} dir={sortDir} onSort={handleSort} />
                 <SortableHeader label="Status" sortKey="status" currentKey={sortKey} dir={sortDir} onSort={handleSort} />
                 <SortableHeader label="Avail" sortKey="availableUnits" currentKey={sortKey} dir={sortDir} onSort={handleSort} tooltip="Available + Inbound units. Available = on-hand minus reserved. Inbound = confirmed shipments in transit." />
@@ -893,7 +894,7 @@ function ReplenishmentActionPanel({
             </span>
           </td>
           <td className="px-3 py-2">
-            <span className="text-[11px] font-mono font-semibold text-gray-700">{item.sku.sku}</span>
+            <span className="inline-flex items-center gap-2"><ProductThumb asin={item.sku.asin} title={item.sku.title} size={22} /><span className="text-[11px] font-mono font-semibold text-gray-700">{item.sku.sku}</span></span>
           </td>
           <td className="px-3 py-2 max-w-[200px]">
             <span className="text-[10px] text-gray-600 truncate block">{item.sku.title}</span>
@@ -1184,8 +1185,13 @@ function RiskTableRow({
         </td>
 
         <td className="px-3 py-2.5">
-          <div className="text-xs font-semibold text-gray-800 font-mono">{sku.sku}</div>
-          <div className="text-[10px] text-gray-400">{sku.asin}</div>
+          <div className="flex items-center gap-2 min-w-0">
+            <ProductThumb asin={sku.asin} title={sku.title} size={22} />
+            <div className="min-w-0">
+              <div className="text-xs font-semibold text-gray-800 font-mono truncate">{sku.sku}</div>
+              <div className="text-[10px] text-gray-400 truncate">{sku.asin}</div>
+            </div>
+          </div>
         </td>
 
         <td className="px-3 py-2.5 text-xs text-gray-700 max-w-[180px] truncate">

@@ -8,6 +8,7 @@ import DeepDiveTable, {
   numberFormatter,
   pctShareFormatter,
 } from './deepdive/DeepDiveTable';
+import ProductThumb from './ProductThumb';
 import { useCurrency, type Currency } from '../contexts/CurrencyContext';
 import { useProductId } from '../contexts/ProductIdContext';
 import { productProfitData, skuProfitMap } from '../data/profitabilityDeepdiveData';
@@ -341,7 +342,16 @@ export default function ProfitabilityDeepdive() {
   const [waterfallProduct, setWaterfallProduct] = useState<ProductProfitRow | null>(null);
 
   const columns: ColumnDef[] = useMemo(() => [
-    { field: 'asin', headerName: bySku ? 'SKU' : 'ASIN', pinned: 'left', width: 130 },
+    { field: 'asin', headerName: bySku ? 'SKU' : 'ASIN', pinned: 'left', width: 160,
+      valueFormatter: ({ value, row }: { value: unknown; row?: unknown }) => {
+        const r = row as Record<string, unknown> | undefined;
+        return (
+          <span className="inline-flex items-center gap-2 min-w-0">
+            {/^B0/i.test(String(r?.asin ?? value).trim()) && <ProductThumb asin={String(r?.asin ?? value).trim()} title={r?.title as string | undefined} size={24} />}
+            <span className="truncate">{String(value)}</span>
+          </span>
+        );
+      } },
     // P&L waterfall action — prominent, right after ASIN
     { field: '_waterfall', headerName: 'P&L', width: 52, valueFormatter: ({ row }: { value: unknown; row: any }) => {
       if (row.asin === 'TOTAL' || row.sku) return '';

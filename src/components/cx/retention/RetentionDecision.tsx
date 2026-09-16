@@ -5,7 +5,8 @@ import {
   retentionCurves, subEconomics, CX_CONFIG, MAX_MATURITY, cohortRows, type CohortMetricKey,
   portfolioLtvCac, TIME_TO_SECOND_PURCHASE_DAYS, REPEAT_WINDOWS,
 } from '../../../data/cxData';
-import { MetricCard, money, pct, Thumb, Freshness, CX } from '../ui';
+import { MetricCard, money, pct, Freshness, CX } from '../ui';
+import ProductThumb from '../../ProductThumb';
 import { CohortCurveChart } from '../charts';
 
 type Lens = 'value' | 'retention' | 'profit';
@@ -179,7 +180,7 @@ export default function RetentionDecision() {
           <tbody>
             {ceiling.map((r) => (
               <tr key={r.asin} onClick={() => openProduct(r.asin)} className="border-b border-gray-50 last:border-0 hover:bg-cx-50/40 cursor-pointer transition-colors">
-                <td className="px-4 py-2.5"><div className="flex items-center gap-2.5 min-w-0"><Thumb hue={r.hue} /><div className="min-w-0"><div className="font-semibold text-gray-800 truncate">{r.title}</div><div className="text-[10px] text-gray-400 font-mono">{r.parentAsin}</div></div></div></td>
+                <td className="px-4 py-2.5"><div className="flex items-center gap-2.5 min-w-0"><ProductThumb asin={r.asin} title={r.title} size={32} /><div className="min-w-0"><div className="font-semibold text-gray-800 truncate">{r.title}</div><div className="text-[10px] text-gray-400 font-mono">{r.parentAsin}</div></div></div></td>
                 <td className="px-3 py-2.5 text-right tabular-nums font-semibold">{money(r.ltv12)}</td>
                 <td className="px-3 py-2.5 text-right tabular-nums">{money(r.contributionPerUnit, false)}</td>
                 <td className="px-3 py-2.5 text-right tabular-nums">{r.currentAcos == null ? <span className="text-gray-300">Not supplied</span> : `${r.currentAcos.toFixed(0)}%`}</td>

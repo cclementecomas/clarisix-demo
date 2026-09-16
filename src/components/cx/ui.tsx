@@ -44,13 +44,6 @@ export function Delta({ value, unit = '%', higherIsBetter = true, className = ''
   );
 }
 
-export function Thumb({ hue, size = 32 }: { hue: number; size?: number }) {
-  return (
-    <span className="inline-block rounded-md flex-shrink-0 ring-1 ring-black/5"
-      style={{ width: size, height: size, background: `linear-gradient(135deg, hsl(${hue} 62% 62%), hsl(${(hue + 28) % 360} 58% 48%))` }} />
-  );
-}
-
 const TONE: Record<string, string> = {
   good: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
   warn: 'bg-amber-50 text-amber-700 ring-amber-200',

@@ -8,6 +8,7 @@
 import { useMemo, useState } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { salesByMarketplace, salesByCategory, salesByASIN, type ASINDataItem } from '../data/dashboardData';
+import ProductThumb, { productImageFor } from './ProductThumb';
 import InfoTooltip from './InfoTooltip';
 import { fc } from '../utils/currency';
 import { useCurrency } from '../contexts/CurrencyContext';
@@ -285,9 +286,12 @@ function ASINBulletBar({
       onMouseLeave={() => setHovered(false)}
     >
       <div className="flex items-center gap-2">
-        <div className="w-[88px] text-right shrink-0">
-          <div className="text-[11px] text-gray-700 font-semibold leading-tight truncate">{item.name}</div>
-          <div className="text-[9px] text-gray-400 leading-tight truncate" title={item.productName}>{item.productName}</div>
+        <div className="w-[112px] flex items-center gap-1.5 shrink-0 min-w-0">
+          <ProductThumb asin={item.name} title={item.productName} size={20} preview={false} />
+          <div className="text-right min-w-0 flex-1">
+            <div className="text-[11px] text-gray-700 font-semibold leading-tight truncate">{item.name}</div>
+            <div className="text-[9px] text-gray-400 leading-tight truncate" title={item.productName}>{item.productName}</div>
+          </div>
         </div>
         <div className="relative flex-1 h-[18px] bg-gray-50 rounded-sm overflow-visible min-w-0">
           <div
@@ -314,7 +318,11 @@ function ASINBulletBar({
       </div>
 
       {hovered && (
-        <div className="absolute z-20 left-[100px] -top-[64px] bg-gray-900 text-white px-3 py-2 rounded-lg text-xs shadow-xl pointer-events-none whitespace-nowrap">
+        <div className="absolute z-20 left-[100px] -top-[64px] bg-gray-900 text-white px-3 py-2 rounded-lg text-xs shadow-xl pointer-events-none whitespace-nowrap flex items-start gap-2.5">
+          <span className="w-11 h-11 rounded-md bg-white ring-1 ring-white/20 flex items-center justify-center overflow-hidden flex-shrink-0 mt-0.5">
+            <img src={productImageFor(item.name)} alt="" className="w-full h-full object-contain" />
+          </span>
+          <div>
           <p className="font-medium mb-0.5">{item.name}</p>
           <p className="text-gray-400 mb-1">{item.productName}</p>
           <div className="flex items-center gap-3">
@@ -331,6 +339,7 @@ function ASINBulletBar({
           {item.contributionPct > 0 && (
             <p className="text-[10px] text-gray-400 mt-1">{item.contributionPct.toFixed(1)}% of total growth</p>
           )}
+          </div>
         </div>
       )}
     </div>

@@ -3,7 +3,8 @@ import { Search, X } from 'lucide-react';
 import { useCx } from '../../../contexts/CxContext';
 import DeepDiveTable, { type ColumnDef } from '../../deepdive/DeepDiveTable';
 import InfoTooltip from '../../InfoTooltip';
-import { EvidenceBanner, money, pct, Thumb, StatusChip, CX } from '../ui';
+import { EvidenceBanner, money, pct, StatusChip, CX } from '../ui';
+import ProductThumb from '../../ProductThumb';
 import { StackedBars } from '../charts';
 import {
   cxProducts, subQuality, productStatus, pctChange, share, portfolioTotals, weeklySeries, METRIC_DEFS, type CxProduct,
@@ -39,7 +40,7 @@ function buildRow(p: CxProduct) {
 const columns: ColumnDef[] = [
   { field: 'title', headerName: 'Product', pinned: 'left', width: 240,
     valueFormatter: ({ row }: any) => (
-      <span className="inline-flex items-center gap-2 min-w-0"><Thumb hue={row.hue} size={26} />
+      <span className="inline-flex items-center gap-2 min-w-0"><ProductThumb asin={row.asin} title={row.title} size={26} />
         <span className="min-w-0"><span className="block truncate font-semibold text-gray-800">{row.title}</span>
           <span className="block text-[10px] text-gray-400 font-mono">{row.parentAsin}</span></span></span>) },
   { field: 'marketplace', headerName: 'Marketplace', width: 128, group: 'Identity' },

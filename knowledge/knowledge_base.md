@@ -3361,6 +3361,42 @@ Follow-up (Sep 4 2026):
   design; the statement below still drives monthly/quarterly detail.
 
 ────────────────────────────────────────────────────────────────────────────
+Product image thumbnails wherever ASINs appear (Sep 16 2026)
+
+One reusable component: src/components/ProductThumb.tsx
+  • Tier 1 — inline micro-thumbnail (24–28px, white tile + subtle ring, object-contain) placed
+    INSIDE the pinned identity column so it survives horizontal scroll. No separate "Image" column.
+  • Tier 2 — hover preview: ~120px image + title + ASIN in a popover, PORTALED to <body> (same
+    trick as InfoTooltip) so DeepDiveTable's scroll container can't clip it; 150ms open delay.
+  • Image source: `imageUrl` prop if supplied, else a DETERMINISTIC placeholder derived from an
+    ASIN hash (productImageFor(asin)) → the same ASIN shows the same image on every page.
+    Placeholders: 10 local SVG product silhouettes in public/products/ (bottle, jar, box, pouch,
+    tube, can, dropper, spray, sachet, bag) — local, offline-safe, no external placeholder service.
+  • Never a broken-image icon: onError → hue swatch (productHue(asin), also ASIN-hashed).
+  • Real build: SP-API Catalog Items (getCatalogItem, includedData=images) main image, keyed by
+    ASIN + MARKETPLACE (images differ per marketplace); cache on the product master, refresh weekly.
+Wired via each table's pinned-column valueFormatter (no DeepDiveTable engine change):
+  Sales→Diagnostics (DeepDive.tsx) · Profitability→Deepdive · Inventory→Planner (risk table +
+  replenishment rows) · Content→Tracker (CopyableAsin now takes `title`) · Advertising→Overview
+  analyst rollups (one shared `name` column across Marketplace/Brand/Category/ASIN — the /^B0/
+  guard means only the ASIN table gets thumbs) · Advertising→Diagnostics in "Products / ASINs"
+  entity mode (product rows carry the ASIN in `row.name`; guarded on kind==='product') · all four CX tables
+  (the old cx/ui.tsx hue-only `Thumb` was replaced by ProductThumb and deleted — its `hue` field
+  in cxData is now unused but left in place).
+Guards / decisions:
+  • DeepDive tables render the thumb only for real ASINs (/^B0/i) — this keeps the pinned
+    "Total" footer row (label 'Total') and non-ASIN labels thumb-free. SKU child rows use the
+    parent's `row.asin`, so SKUs inherit the ASIN's image.
+  • Sales overview → "Sales by ASIN" bullet bars: inline 20px cue with preview={false}, and the
+    product image is folded INTO the chart's existing dark row tooltip — one popover, not two
+    (the tooltip block text also exists in the marketplace/category bullet bar; only the ASIN
+    variant got the image tile).
+  • The tiny Content case-batch ASIN list (10px rows) was intentionally left without thumbs.
+  • Inventory risk table is `table-fixed`; its SKU column had no set width and couldn't hold
+    thumb + SKU + ASIN (they wrapped / bled / truncated in turn). Fixed by giving the SKU
+    SortableHeader an explicit `className="w-[176px]"` — both identifiers now show in full.
+
+────────────────────────────────────────────────────────────────────────────
 Events / Prime Day — Full catalog vs Like-for-like toggle (Sep 7 2026)
 
 Added a page-level comparison-basis toggle to the Prime Day recap (Events module). "Full catalog"

@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { ArrowRight } from 'lucide-react';
 import { useCx } from '../../../contexts/CxContext';
 import { portfolioTotals, cxProducts, productStatus, pctChange, share, weeklySeries } from '../../../data/cxData';
-import { MetricCard, StatusChip, Delta, Thumb, money, pct, Freshness, CX } from '../ui';
+import { MetricCard, StatusChip, Delta, money, pct, Freshness, CX } from '../ui';
+import ProductThumb from '../../ProductThumb';
 import { StackedBars } from '../charts';
 
 type Lens = 'mix' | 'subs';
@@ -130,7 +131,7 @@ export default function OverviewDecision() {
           <tbody>
             {watch.map((p) => (
               <tr key={p.asin} onClick={() => openProduct(p.asin)} className="border-b border-gray-50 last:border-0 hover:bg-cx-50/40 cursor-pointer transition-colors">
-                <td className="px-4 py-2.5"><div className="flex items-center gap-2.5 min-w-0"><Thumb hue={p.hue} /><div className="min-w-0"><div className="font-semibold text-gray-800 truncate">{p.title}</div><div className="text-[10px] text-gray-400 font-mono">{p.parentAsin}</div></div></div></td>
+                <td className="px-4 py-2.5"><div className="flex items-center gap-2.5 min-w-0"><ProductThumb asin={p.asin} title={p.title} size={32} /><div className="min-w-0"><div className="font-semibold text-gray-800 truncate">{p.title}</div><div className="text-[10px] text-gray-400 font-mono">{p.parentAsin}</div></div></div></td>
                 <td className="px-3 py-2.5 text-right"><Delta value={pctChange(p.repeatCur, p.repeatPrev)} /></td>
                 <td className="px-3 py-2.5 text-right"><Delta value={pctChange(p.subCur, p.subPrev)} /></td>
                 <td className="px-3 py-2.5 text-right"><Delta value={pctChange(p.ntbCur, p.ntbPrev)} /></td>

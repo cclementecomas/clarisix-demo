@@ -4,7 +4,8 @@ import { useCx } from '../../../contexts/CxContext';
 import DeepDiveTable, { type ColumnDef } from '../../deepdive/DeepDiveTable';
 import InfoTooltip from '../../InfoTooltip';
 import { CohortMatrix } from './CohortMatrix';
-import { EvidenceBanner, money, Thumb } from '../ui';
+import { EvidenceBanner, money } from '../ui';
+import ProductThumb from '../../ProductThumb';
 import {
   COHORT_METRICS, METRIC_DEFS, cohortRows, cohortValue, subEconomics, type CohortMetricKey, type SubEconRow,
 } from '../../../data/cxData';
@@ -54,7 +55,7 @@ const CEIL_LABEL: Record<string, string> = { headroom: 'Headroom', near_limit: '
 
 const subCols: ColumnDef[] = [
   { field: 'title', headerName: 'Product', pinned: 'left', width: 240, valueFormatter: ({ row }: any) => (
-    <span className="inline-flex items-center gap-2 min-w-0"><Thumb hue={row.hue} size={26} /><span className="min-w-0"><span className="block truncate font-semibold text-gray-800">{row.title}</span><span className="block text-[10px] text-gray-400 font-mono">{row.childAsin}</span></span></span>) },
+    <span className="inline-flex items-center gap-2 min-w-0"><ProductThumb asin={row.asin} title={row.title} size={26} /><span className="min-w-0"><span className="block truncate font-semibold text-gray-800">{row.title}</span><span className="block text-[10px] text-gray-400 font-mono">{row.childAsin}</span></span></span>) },
   { field: 'marketplace', headerName: 'Marketplace', width: 128, group: 'Identity' },
   { field: 'asp', headerName: 'ASP', width: 88, group: 'Unit economics', valueFormatter: ({ value }: any) => money(value, false), tooltip: 'Average selling price.' },
   { field: 'contributionPerUnit', headerName: 'Contribution', width: 118, group: 'Unit economics', valueFormatter: ({ value }: any) => money(value, false), tooltip: 'Contribution per unit sold.' },

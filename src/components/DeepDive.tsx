@@ -35,6 +35,7 @@ import {
 import { useCurrency } from '../contexts/CurrencyContext';
 import { useProductId } from '../contexts/ProductIdContext';
 import LastRefreshed from './LastRefreshed';
+import ProductThumb from './ProductThumb';
 import ViewModeToggle, { type ViewMode } from './ViewModeToggle';
 
 type Row = Record<string, unknown>;
@@ -204,7 +205,16 @@ export default function DeepDive() {
   );
   const asinCols = useMemo<ColumnDef[]>(
     () => [
-      { field: 'asin', headerName: bySku ? 'SKU' : 'ASIN', pinned: 'left', width: 130 },
+      { field: 'asin', headerName: bySku ? 'SKU' : 'ASIN', pinned: 'left', width: 160,
+        valueFormatter: ({ value, row }: { value: unknown; row?: unknown }) => {
+          const r = row as Row | undefined;
+          return (
+            <span className="inline-flex items-center gap-2 min-w-0">
+              {/^B0/i.test(String(r?.asin ?? value).trim()) && <ProductThumb asin={String(r?.asin ?? value).trim()} title={r?.title as string | undefined} size={24} />}
+              <span className="truncate">{String(value)}</span>
+            </span>
+          );
+        } },
       { field: 'title', headerName: 'Title', width: 280 },
       ...metrics,
     ],

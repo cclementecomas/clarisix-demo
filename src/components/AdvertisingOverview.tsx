@@ -23,6 +23,7 @@ import type { Diagnostic } from '../data/advertisingDiagnostics';
 import AdvertisingScorecard from './advertising/AdvertisingScorecard';
 import WhereIsItHappening from './advertising/WhereIsItHappening';
 import LastRefreshed from './LastRefreshed';
+import ProductThumb from './ProductThumb';
 import ViewModeToggle, { type ViewMode } from './ViewModeToggle';
 import {
   adByMarketplace,
@@ -56,7 +57,14 @@ function useAdPerfCols(): ColumnDef[] {
     },
   });
   return [
-    { field: 'name', headerName: 'Name', pinned: 'left', width: 180, valueFormatter: ({ value }) => String(value ?? '') },
+    // Shared across Marketplace / Brand / Category / ASIN rollups — the thumb renders only for
+    // real ASINs (B0…), so marketplace / brand / category rows stay text-only.
+    { field: 'name', headerName: 'Name', pinned: 'left', width: 180, valueFormatter: ({ value }) => {
+      const name = String(value ?? '');
+      return /^B0/i.test(name)
+        ? <span className="inline-flex items-center gap-2 min-w-0"><ProductThumb asin={name} size={24} /><span className="truncate">{name}</span></span>
+        : name;
+    } },
     { field: 'spend', headerName: 'Spend', valueFormatter: cf, heat: 'down', subFields: [{ field: 'spendPoP', label: 'PoP', ...pctPP(true) }] },
     { field: 'sales', headerName: 'Sales', valueFormatter: cf, subFields: [{ field: 'salesPoP', label: 'PoP', ...pctPP(true) }] },
     {

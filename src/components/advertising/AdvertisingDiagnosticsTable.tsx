@@ -2,6 +2,7 @@
 // Decision-mode tabs, entity selector, simplified columns, severity sort.
 
 import { useMemo, useState } from 'react';
+import ProductThumb from '../ProductThumb';
 import { ArrowRight, ChevronDown, Search } from 'lucide-react';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import { fc } from '../../utils/currency';
@@ -215,8 +216,14 @@ function Row({ d, onClick, currency }: { d: Diagnostic; onClick: () => void; cur
   return (
     <tr onClick={onClick} className="border-b border-gray-50 cursor-pointer hover:bg-gray-50/60 transition-colors">
       <td className="px-3 py-2.5 align-top min-w-[200px] max-w-[280px]">
-        <div className="text-[12px] font-semibold text-gray-900 leading-tight truncate" title={d.row.name}>{d.row.name}</div>
-        {d.row.subLabel && <div className="text-[10px] text-gray-500 truncate">{d.row.subLabel}</div>}
+        <div className="flex items-center gap-2 min-w-0">
+          {/* Product rows carry the ASIN in `name` — show its thumbnail; other entity kinds stay text-only */}
+          {d.row.kind === 'product' && /^B0/i.test(d.row.name) && <ProductThumb asin={d.row.name} size={24} />}
+          <div className="min-w-0">
+            <div className="text-[12px] font-semibold text-gray-900 leading-tight truncate" title={d.row.name}>{d.row.name}</div>
+            {d.row.subLabel && <div className="text-[10px] text-gray-500 truncate">{d.row.subLabel}</div>}
+          </div>
+        </div>
       </td>
       <td className="px-3 py-2.5 align-top">
         <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">{ENTITY_KIND_LABEL[d.row.kind]}</span>
