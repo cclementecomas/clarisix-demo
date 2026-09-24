@@ -3427,6 +3427,9 @@ the chart — SALES_EVENTS anchored to the demo x labels per granularity (Black 
 Monday: day 'Nov 28'–'Dec 2' band, week W48, month Nov, quarter Q4; Prime Day: month Jul, quarter
 Q3); a label pair draws an amber ReferenceArea, a single label a dashed ReferenceLine; the tooltip
 shows the event name on those points. (2) A "Lines" dropdown (LinesPicker, multi-select) overlays
+shows the event name on those points. (2) [WITHHELD Sep 24 2026 — the picker button was removed from the UI on user feedback ("the way
+the lines behave is not the best"); the overlay-line machinery below stays wired with no default
+lines, ready for a better control.] A "Lines" dropdown (LinesPicker, multi-select) overlays
 metrics as lines: Conversion rate (default on), TACOS, ACOS, Ad spend, Orders, AOV, Sessions —
 CAPPED AT TWO lines at once (MAX_LINES; further options are disabled in the picker) to avoid a
 spaghetti chart, and EACH selected line gets its own VISIBLE right axis in its colour (two right

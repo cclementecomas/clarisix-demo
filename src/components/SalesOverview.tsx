@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Customized, LabelList, ReferenceArea, ReferenceLine } from 'recharts';
-import { TrendingUp, TrendingDown, Lightbulb, SlidersHorizontal, Check } from 'lucide-react';
+import { TrendingUp, TrendingDown, Lightbulb } from 'lucide-react';
 import { salesOverviewByGranularity, type Granularity, type SalesDataPoint } from '../data/dashboardData';
 import { organicAdInsight, organicGrowthPct, adGrowthPct, adDependencyPct } from '../data/salesOverviewInsights';
 import InfoTooltip from './InfoTooltip';
@@ -129,7 +129,6 @@ function BarTotalLabels({ data, currency, ...chartProps }: { data: SalesDataPoin
 // ── Overlay lines: metrics the user can draw over the bars, each on its own scale ──
 type OverlayKey = 'cr' | 'tacos' | 'acos' | 'adSpend' | 'orders' | 'aov' | 'sessions';
 interface OverlayDef { key: OverlayKey; label: string; color: string; fmt: (v: number, c: Currency) => string }
-const MAX_LINES = 2;
 const OVERLAYS: OverlayDef[] = [
   { key: 'cr',       label: 'Conversion rate', color: '#0F766E', fmt: (v) => `${v.toFixed(2)}%` },
   { key: 'tacos',    label: 'TACOS',           color: '#D55E00', fmt: (v) => `${v.toFixed(1)}%` },
@@ -160,28 +159,6 @@ function enrich(p: SalesDataPoint, i: number, inEvent: boolean) {
   return { ...p, adSpend, tacos: (adSpend / total) * 100, acos: (adSpend / p.adSales) * 100, cr, aov, orders, sessions: orders / (cr / 100) };
 }
 
-function LinesPicker({ selected, onToggle }: { selected: Set<OverlayKey>; onToggle: (k: OverlayKey) => void }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="relative">
-      <button onClick={() => setOpen((v) => !v)} className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border transition-colors ${open || selected.size ? 'border-cx-300 text-cx-700 bg-cx-50' : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}>
-        <SlidersHorizontal className="w-3.5 h-3.5" />Lines{selected.size ? <span className="text-[10px] font-bold bg-cx-500 text-white rounded px-1">{selected.size}</span> : null}
-      </button>
-      {open && (
-        <div className="absolute right-0 mt-1 z-30 w-52 bg-white border border-gray-200 rounded-lg shadow-xl p-1.5">
-          <p className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">Overlay as line</p>
-          {OVERLAYS.map((o) => { const on = selected.has(o.key); const full = !on && selected.size >= MAX_LINES; return (
-            <button key={o.key} onClick={() => !full && onToggle(o.key)} disabled={full} title={full ? `Up to ${MAX_LINES} lines at once` : undefined} className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs ${full ? 'text-gray-300 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-50'}`}>
-              <span className={`w-3.5 h-3.5 rounded border flex items-center justify-center ${on ? 'bg-cx-500 border-cx-500' : 'border-gray-300'}`}>{on && <Check className="w-2.5 h-2.5 text-white" />}</span>
-              <span className="w-3 h-[2px] rounded" style={{ backgroundColor: o.color }} /><span className="flex-1 text-left">{o.label}</span>
-            </button>); })}
-          <p className="px-2 pt-1 text-[10px] text-gray-400">Up to {MAX_LINES} lines at once — each gets its own axis on the right.</p>
-        </div>
-      )}
-    </div>
-  );
-}
-
 export default function SalesOverview() {
   const { currency } = useCurrency();
   const [granularity, setGranularity] = useState<Granularity>('month');
@@ -192,8 +169,8 @@ export default function SalesOverview() {
     [data]
   );
   const { popPct, lyPct } = COMPARISON_BY_GRANULARITY[granularity];
-  const [overlays, setOverlays] = useState<Set<OverlayKey>>(() => new Set<OverlayKey>(['cr']));
-  const toggleOverlay = (k: OverlayKey) => setOverlays((prev) => { const n = new Set(prev); if (n.has(k)) n.delete(k); else if (n.size < MAX_LINES) n.add(k); return n; });
+  // Overlay lines are wired but the picker is withheld for now — default to none.
+  const [overlays] = useState<Set<OverlayKey>>(() => new Set<OverlayKey>());
   const spans = useMemo(() => eventSpans(granularity, data.map((d) => d.label)), [granularity, data]);
   const eventFor = (label: string) => { const i = data.findIndex((d) => d.label === label); return spans.find((sp) => i >= sp.i1 && i <= sp.i2)?.name; };
   const chartData = useMemo(() => data.map((p, i) => enrich(p, i, spans.some((sp) => i >= sp.i1 && i <= sp.i2))), [data, spans]);
@@ -220,7 +197,6 @@ export default function SalesOverview() {
           <p className="text-sm text-gray-400 mt-0.5">Total sales</p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-        <LinesPicker selected={overlays} onToggle={toggleOverlay} />
         <div className="flex items-center bg-gray-100 rounded-lg p-0.5">
           {granularityOptions.map((opt) => (
             <button
