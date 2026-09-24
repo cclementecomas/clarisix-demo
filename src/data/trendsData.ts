@@ -37,7 +37,10 @@ export type TrendDimension =
   | 'marketplace'
   | 'brand'
   | 'category'
-  | 'subcategory';
+  | 'subcategory'
+  | 'tag'
+  | 'asin'
+  | 'sku';
 
 export type TrendGranularity = 'day' | 'week' | 'month' | 'quarter';
 
@@ -103,6 +106,9 @@ export const dimensionOptions: TrendDimensionOption[] = [
   { value: 'brand', label: 'Brand' },
   { value: 'category', label: 'Category' },
   { value: 'subcategory', label: 'Sub-category' },
+  { value: 'tag', label: 'Tag' },
+  { value: 'asin', label: 'ASIN' },
+  { value: 'sku', label: 'SKU' },
 ];
 
 const dimensionValues: Record<TrendDimension, string[]> = {
@@ -110,6 +116,10 @@ const dimensionValues: Record<TrendDimension, string[]> = {
   brand: ['AquaPure', 'FreshTech', 'NovaBright', 'EcoBlend', 'ZenCore'],
   category: ['Personal Care', 'Home & Kitchen', 'Electronics Pro', 'Electronics Lite', 'Fashion Bags', 'Wellness'],
   subcategory: ['Premium', 'Standard', 'Economy', 'Deluxe', 'Mini', 'Pro'],
+  // Same vocab as the global filters / product mapping so the pivot reconciles with the rest of the app.
+  tag: ['Bestseller', 'New', 'Seasonal', 'Replenishable', 'Hero', 'Long tail'],
+  asin: ['B0DEMO001X', 'B0DEMO002X', 'B0DEMO003X', 'B0DEMO004X', 'B0DEMO005X', 'B0DEMO006X', 'B0DEMO007X', 'B0DEMO008X'],
+  sku: ['SKU-001', 'SKU-002', 'SKU-003', 'SKU-004', 'SKU-005', 'SKU-006', 'SKU-007', 'SKU-008'],
 };
 
 const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];

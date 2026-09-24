@@ -3360,6 +3360,17 @@ Follow-up (Sep 4 2026):
   old yearly→fy2025 pin) so the cascade always tracks the chosen year. The cascade is annual by
   design; the statement below still drives monthly/quarterly detail.
 
+Sales → Trends: Tag / ASIN / SKU dimensions (Sep 24 2026)
+
+trendsData.ts: TrendDimension union, dimensionOptions and dimensionValues gained `tag`, `asin`
+and `sku`. generateTrendData() is dimension-agnostic (it reads dimensionValues[dimension]), so no
+component change was needed — the Trends pivot, chart and metric matrix all pick the new
+dimensions up. Member vocab reuses what already exists elsewhere: tags from the global Tag filter
+/ product mapping (Bestseller, New, Seasonal, Replenishable + Hero, Long tail), the eight demo ASINs
+(B0DEMO001X–008X) and their SKU codes (SKU-001–008). Real build: tag = the user's product-mapping
+tag; ASIN / SKU = catalog identifiers, honouring the ASIN-vs-SKU product-id preference in Settings.
+
+────────────────────────────────────────────────────────────────────────────
 Advertising → Attribution & Halo — built + Amazon source map (Sep 21 2026)
 
 Replaces the "coming soon" stub (App.tsx route → components/advertising/AttributionHalo.tsx;
