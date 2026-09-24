@@ -3360,6 +3360,83 @@ Follow-up (Sep 4 2026):
   old yearly→fy2025 pin) so the cascade always tracks the chosen year. The cascade is annual by
   design; the statement below still drives monthly/quarterly detail.
 
+Advertising → Attribution & Halo — built + Amazon source map (Sep 21 2026)
+
+Replaces the "coming soon" stub (App.tsx route → components/advertising/AttributionHalo.tsx;
+'Attribution & Halo' removed from Advertising comingSoonSubs). Data: src/data/attributionData.ts
+(synthetic, shaped exactly like the Amazon columns below). VERIFIED against the Amazon Ads API
+reporting v3 docs / Amazon's docs repo threads before building — every variable has a real source.
+
+SOURCE MAP (Amazon Ads API, reporting v3, POST /reporting/reports; DAILY or SUMMARY time unit)
+Report ids: spPurchasedProduct (Sponsored Products) · sbPurchasedProduct (Sponsored Brands) ·
+sdPurchasedProduct (Sponsored Display) · spAdvertisedProduct (SP, for same-SKU splits per ad).
+ Variable (UI)              Ad type  Amazon column(s)                                  Notes
+ Ad type                    all      report id / campaign type                          —
+ Campaign                   all      campaignName, campaignId (adGroupName/Id available)  —
+ Advertised ASIN            SP       spPurchasedProduct.advertisedAsin (+advertisedSku)  SB/SD do NOT expose it
+                            SB/SD    — (not exposed)                                     UI shows "not exposed by Amazon"
+ Purchased ASIN             SP       spPurchasedProduct.purchasedAsin                    —
+                            SB       sbPurchasedProduct.purchasedAsin (+productName)     —
+                            SD       sdPurchasedProduct.purchasedAsin                    —
+ Attribution (Promoted/Halo) SP      purchasedAsin === advertisedAsin ⇒ Promoted; else Halo. Equivalently the
+                                     *SameSku vs *OtherSku metric families (purchasesSameSku*, purchasesOtherSku*,
+                                     salesOtherSku*, unitsSoldOtherSku*).
+                            SB       sbPurchasedProduct.attributionType = PROMOTED | BRAND_HALO
+                            SD       sdPurchasedProduct.asinBrandHalo
+ PPC units (14d)            SP       unitsSoldClicks14d                                  1d/7d/14d/30d variants exist
+                            SB/SD    units (14-day)                                      14-day is the ONLY window
+ PPC sales (14d)            SP       sales14d (sales1d/7d/14d/30d exist)                 —
+                            SB       sales14d                                            —
+                            SD       sales (14-day)                                      —
+ % of campaign / % of advertised     derived: pair sales14d ÷ campaign (or advertised-ASIN) sales14d
+ Halo %                     derived: Σ halo sales14d ÷ Σ sales14d (SP: salesOtherSku14d ÷ sales14d)
+ Conversions by window      SP       purchases1d, purchases7d, purchases14d, purchases30d (cumulative)
+ Window buckets (exclusive) SP       1 day = purchases1d; 2–7 = purchases7d−purchases1d;
+                                     8–14 = purchases14d−purchases7d; 15–30 = purchases30d−purchases14d.
+                                     Amazon attributes NOTHING after day 30 → the competitor's "14+ days"
+                                     bucket is really 15–30 days; we label it honestly.
+ "Converts within 1 day" / "Lands after day 7"   derived from the buckets above (SP only).
+ Parent ASIN                —        NOT in Ads reports; joined from the catalog (SP-API Catalog Items /
+                                     Listings) — in the demo: attributionData.PARENT_OF.
+ Product image              —        SP-API Catalog Items main image (see ProductThumb note).
+Honesty rules encoded in the page: all ad types compared on the shared 14-day window; the
+advertised→purchased pairing and the day-by-day timing are SP-only; SB/SD show Promoted vs Brand-
+halo per purchased ASIN. A banner on the page states this. Decision framing on the page: Promoted vs
+Halo share KPIs, biggest halo pair, "% landing after day 7 ⇒ a day-7 ACOS is overstated by ~that".
+UI (v2 after a self-critique — the first cut read as a generic tile-strip + thumbnail wall):
+Decision view = the TWO reads as distinct visuals ("Where ad sales land": halo % with a
+promoted|halo split bar + biggest halo sentence; "When they land": within-1-day % with a 4-bucket
+timing bar + the "after day 7 ⇒ ACOS overstated" line), one muted coverage footnote (not a banner),
+"Halo by campaign" = ONE row per campaign (ad-type chip, sales, promoted|halo bar, halo %, biggest
+halo destination) that expands to pairs grouped by advertised ASIN (thumb shown once per group;
+SB/SD groups say Amazon doesn't report the advertised ASIN), and "Conversion timing by product
+family" = 100%-stacked bars per parent (catalog names via PARENT_NAME, slowest first, after-day-7
+% called out). Analyst view = advertised→purchased DeepDiveTable (dead columns removed: share only
+on children, halo % / ASINs-bought only on parents, attribution chip column) + per-ASIN window
+counts with a mini timing bar. Colour semantics fixed page-wide: promoted = Clarisix blue, halo =
+Clarisix orange, timing = single blue ramp; no heatmap on halo (not a "good" metric); donut and
+six-tile KPI strip removed. Every timing bar (the two reads, per-family, per-ASIN) shows a portaled
+hover card with the exact % AND count for all four buckets (WindowBar counts/title props).
+
+────────────────────────────────────────────────────────────────────────────
+Sales → Overview chart: event annotations + selectable overlay lines (Sep 17 2026)
+
+SalesOverview.tsx: the dashed growth "trend arrow" (GrowthTrendOverlay + its growth calc) was
+REMOVED. In its place, the same approach as the Agency sales trend: (1) sales EVENTS annotated on
+the chart — SALES_EVENTS anchored to the demo x labels per granularity (Black Friday → Cyber
+Monday: day 'Nov 28'–'Dec 2' band, week W48, month Nov, quarter Q4; Prime Day: month Jul, quarter
+Q3); a label pair draws an amber ReferenceArea, a single label a dashed ReferenceLine; the tooltip
+shows the event name on those points. (2) A "Lines" dropdown (LinesPicker, multi-select) overlays
+metrics as lines: Conversion rate (default on), TACOS, ACOS, Ad spend, Orders, AOV, Sessions —
+CAPPED AT TWO lines at once (MAX_LINES; further options are disabled in the picker) to avoid a
+spaghetti chart, and EACH selected line gets its own VISIBLE right axis in its colour (two right
+axes sit side by side) so every line is readable against its own scale; tooltip lists each line
+with its own format. Chart is now a recharts ComposedChart
+(bars + lines); the recharts Legend was replaced by a manual legend that includes lines + events.
+Overlay values are DERIVED deterministically from each point for the demo (enrich(): ROAS-based ad
+spend, CR with an event lift, AOV, orders, sessions) — the real build reads them from the marts.
+
+────────────────────────────────────────────────────────────────────────────
 ────────────────────────────────────────────────────────────────────────────
 Product image thumbnails wherever ASINs appear (Sep 16 2026)
 

@@ -8,6 +8,7 @@ import BreakdownCharts from './components/BreakdownCharts';
 import DeepDive from './components/DeepDive';
 import AdvertisingOverview from './components/AdvertisingOverview';
 import AdvertisingDeepDive from './components/AdvertisingDeepDive';
+import AttributionHalo from './components/advertising/AttributionHalo';
 import Budgets from './components/Budgets';
 import InventoryOverview from './components/InventoryOverview';
 import InventoryPerformance from './components/InventoryPerformance';
@@ -279,12 +280,7 @@ export default function App() {
       );
     }
     if (activeSection === 'Advertising' && activeSub === 'Attribution & Halo') {
-      return (
-        <ComingSoon
-          title="Attribution & Halo"
-          description="Advertised-ASIN to purchased-ASIN matrix, halo ratios, and an honest read on whether campaigns are profitable once cross-catalog sales are counted."
-        />
-      );
+      return <AttributionHalo />;
     }
     if (activeSection === 'Advertising' && activeSub === 'Dayparting / Intraday') {
       return (

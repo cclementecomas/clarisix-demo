@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Customized, LabelList } from 'recharts';
-import { TrendingUp, TrendingDown, Lightbulb } from 'lucide-react';
+import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Customized, LabelList, ReferenceArea, ReferenceLine } from 'recharts';
+import { TrendingUp, TrendingDown, Lightbulb, SlidersHorizontal, Check } from 'lucide-react';
 import { salesOverviewByGranularity, type Granularity, type SalesDataPoint } from '../data/dashboardData';
 import { organicAdInsight, organicGrowthPct, adGrowthPct, adDependencyPct } from '../data/salesOverviewInsights';
 import InfoTooltip from './InfoTooltip';
@@ -41,48 +41,32 @@ const granularityOptions: { value: Granularity; label: string }[] = [
   { value: 'quarter', label: 'Quarter' },
 ];
 
-function createCustomTooltip(currency: Currency) {
-  return function CustomTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ name: string; value: number; color: string }>; label?: string }) {
-    if (active && payload && payload.length) {
-      const total = payload.reduce((sum, entry) => sum + entry.value, 0);
-      return (
-        <div className="bg-gray-900 text-white px-4 py-3 rounded-lg text-xs shadow-xl min-w-[160px]">
-          <p className="font-semibold mb-2 text-sm">{label}</p>
-          {payload.reverse().map((entry) => {
-            const percentage = ((entry.value / total) * 100).toFixed(0);
-            return (
-              <p key={entry.name} className="flex items-center justify-between gap-4 py-0.5">
-                <span className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-sm" style={{ backgroundColor: entry.color }} />
-                  {entry.name}
-                </span>
-                <span className="font-medium">{fc(entry.value, currency)} ({percentage}%)</span>
-              </p>
-            );
-          })}
-          <div className="border-t border-gray-700 mt-2 pt-2 flex justify-between">
-            <span className="font-medium">Total</span>
-            <span className="font-bold">{fc(total, currency)}</span>
+function createCustomTooltip(currency: Currency, overlays: OverlayDef[], eventFor: (label: string) => string | undefined) {
+  return function CustomTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ name: string; value: number; color: string; dataKey?: string }>; label?: string }) {
+    if (!active || !payload?.length) return null;
+    const bars = payload.filter((e) => e.dataKey === 'organicSales' || e.dataKey === 'adSales');
+    const lines = payload.filter((e) => overlays.some((o) => o.key === e.dataKey));
+    const total = bars.reduce((sum, e) => sum + e.value, 0);
+    const ev = label ? eventFor(label) : undefined;
+    return (
+      <div className="bg-gray-900 text-white px-4 py-3 rounded-lg text-xs shadow-xl min-w-[180px]">
+        <p className="font-semibold mb-2 text-sm flex items-center gap-2">{label}{ev && <span className="px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 text-[10px] font-bold">{ev}</span>}</p>
+        {[...bars].reverse().map((entry) => (
+          <p key={entry.name} className="flex items-center justify-between gap-4 py-0.5">
+            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm" style={{ backgroundColor: entry.color }} />{entry.name}</span>
+            <span className="font-medium">{fc(entry.value, currency)} ({total ? ((entry.value / total) * 100).toFixed(0) : 0}%)</span>
+          </p>
+        ))}
+        <div className="border-t border-gray-700 mt-2 pt-2 flex justify-between"><span className="font-medium">Total</span><span className="font-bold">{fc(total, currency)}</span></div>
+        {lines.length > 0 && (
+          <div className="border-t border-gray-700 mt-2 pt-2 space-y-0.5">
+            {lines.map((entry) => { const o = overlays.find((x) => x.key === entry.dataKey)!; return (
+              <p key={entry.dataKey} className="flex items-center justify-between gap-4"><span className="flex items-center gap-1.5"><span className="w-3 h-[2px] rounded" style={{ backgroundColor: o.color }} />{o.label}</span><span className="font-medium">{o.fmt(entry.value, currency)}</span></p>); })}
           </div>
-        </div>
-      );
-    }
-    return null;
+        )}
+      </div>
+    );
   };
-}
-
-function CustomLegend({ payload }: { payload?: Array<{ value: string; color: string }> }) {
-  if (!payload) return null;
-  return (
-    <div className="flex items-center justify-center gap-5 mt-2">
-      {payload.map((entry) => (
-        <div key={entry.value} className="flex items-center gap-1.5 text-xs text-gray-500">
-          <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: entry.color }} />
-          <span>{entry.value}</span>
-        </div>
-      ))}
-    </div>
-  );
 }
 
 function CustomBarLabel({ x, y, width, height, value, currency }: { x?: number; y?: number; width?: number; height?: number; value: number; currency: Currency }) {
@@ -142,73 +126,59 @@ function BarTotalLabels({ data, currency, ...chartProps }: { data: SalesDataPoin
   );
 }
 
-function GrowthTrendOverlay({ data, growth, ...chartProps }: { data: SalesDataPoint[]; growth: number } & Record<string, any>) {
-  const xAxis = chartProps.xAxisMap && (Object.values(chartProps.xAxisMap)[0] as any);
-  const yAxis = chartProps.yAxisMap && (Object.values(chartProps.yAxisMap)[0] as any);
+// ── Overlay lines: metrics the user can draw over the bars, each on its own scale ──
+type OverlayKey = 'cr' | 'tacos' | 'acos' | 'adSpend' | 'orders' | 'aov' | 'sessions';
+interface OverlayDef { key: OverlayKey; label: string; color: string; fmt: (v: number, c: Currency) => string }
+const MAX_LINES = 2;
+const OVERLAYS: OverlayDef[] = [
+  { key: 'cr',       label: 'Conversion rate', color: '#0F766E', fmt: (v) => `${v.toFixed(2)}%` },
+  { key: 'tacos',    label: 'TACOS',           color: '#D55E00', fmt: (v) => `${v.toFixed(1)}%` },
+  { key: 'acos',     label: 'ACOS',            color: '#C68900', fmt: (v) => `${v.toFixed(1)}%` },
+  { key: 'adSpend',  label: 'Ad spend',        color: '#64748B', fmt: (v, c) => fc(v, c) },
+  { key: 'orders',   label: 'Orders',          color: '#166534', fmt: (v) => Math.round(v).toLocaleString('en-US') },
+  { key: 'aov',      label: 'AOV',             color: '#BE123C', fmt: (v, c) => fc(v, c, { compact: false, decimals: 2 }) },
+  { key: 'sessions', label: 'Sessions',        color: '#334155', fmt: (v) => Math.round(v).toLocaleString('en-US') },
+];
 
-  if (!xAxis?.scale || !yAxis?.scale || !data || data.length < 2) return null;
+// ── Events, anchored to the x labels of each granularity (a pair = a band, a single = a marker) ──
+const SALES_EVENTS: { name: string; anchors: Partial<Record<Granularity, [string, string]>> }[] = [
+  { name: 'Black Friday → Cyber Monday', anchors: { day: ['Nov 28', 'Dec 2'], week: ['W48', 'W48'], month: ['Nov', 'Nov'], quarter: ['Q4', 'Q4'] } },
+  { name: 'Prime Day', anchors: { month: ['Jul', 'Jul'], quarter: ['Q3', 'Q3'] } },
+];
+function eventSpans(gran: Granularity, labels: string[]) {
+  return SALES_EVENTS.flatMap((e) => { const a = e.anchors[gran]; if (!a) return []; const i1 = labels.indexOf(a[0]), i2 = labels.indexOf(a[1]); return i1 < 0 || i2 < 0 ? [] : [{ name: e.name, x1: a[0], x2: a[1], i1, i2 }]; });
+}
 
-  const xScale = xAxis.scale;
-  const yScale = yAxis.scale;
-  const bandwidth = xScale.bandwidth?.() || 0;
-  const halfBand = bandwidth / 2;
+// Demo derivation of the overlay metrics from each point (deterministic; a real build reads them from the marts).
+function enrich(p: SalesDataPoint, i: number, inEvent: boolean) {
+  const total = p.adSales + p.organicSales;
+  const roas = 3.1 + 0.35 * Math.sin(i * 0.9);
+  const adSpend = p.adSales / roas;
+  const cr = 2.9 + 0.5 * Math.sin(i * 0.7) + (inEvent ? 0.9 : 0);
+  const aov = 44 + 3 * Math.sin(i * 0.5) - (inEvent ? 3 : 0);
+  const orders = total / aov;
+  return { ...p, adSpend, tacos: (adSpend / total) * 100, acos: (adSpend / p.adSales) * 100, cr, aov, orders, sessions: orders / (cr / 100) };
+}
 
-  const firstTotal = data[0].adSales + data[0].organicSales;
-  const lastTotal = data[data.length - 1].adSales + data[data.length - 1].organicSales;
-
-  const offset = 36;
-  const x1 = xScale(data[0].label) + halfBand;
-  const y1 = yScale(firstTotal) - offset;
-  const x2 = xScale(data[data.length - 1].label) + halfBand;
-  const y2 = yScale(lastTotal) - offset;
-
-  const dx = x2 - x1;
-  const dy = y2 - y1;
-  const len = Math.sqrt(dx * dx + dy * dy);
-  if (len === 0) return null;
-
-  const sx = x1 - (dx / len) * 20;
-  const sy = y1 - (dy / len) * 20;
-  const ex = x2 + (dx / len) * 30;
-  const ey = y2 + (dy / len) * 30;
-
-  const mx = (sx + ex) / 2;
-  const my = (sy + ey) / 2;
-
-  const isPositive = growth >= 0;
-  const color = isPositive ? '#166534' : '#991B1B';
-  const bubbleR = 24;
-
-  const angle = Math.atan2(ey - sy, ex - sx);
-  const arrowLen = 10;
-  const arrowSpread = Math.PI / 6;
-
+function LinesPicker({ selected, onToggle }: { selected: Set<OverlayKey>; onToggle: (k: OverlayKey) => void }) {
+  const [open, setOpen] = useState(false);
   return (
-    <g>
-      <line
-        x1={sx} y1={sy} x2={ex} y2={ey}
-        stroke={color} strokeWidth={2} strokeDasharray="6 4"
-      />
-      <polygon
-        points={`
-          ${ex},${ey}
-          ${ex - arrowLen * Math.cos(angle - arrowSpread)},${ey - arrowLen * Math.sin(angle - arrowSpread)}
-          ${ex - arrowLen * Math.cos(angle + arrowSpread)},${ey - arrowLen * Math.sin(angle + arrowSpread)}
-        `}
-        fill={color}
-      />
-      <circle cx={mx} cy={my} r={bubbleR} fill={color} />
-      <text
-        x={mx} y={my + 4}
-        textAnchor="middle"
-        fill="white"
-        fontSize={11}
-        fontWeight="bold"
-        style={{ fontFamily: 'system-ui, sans-serif' }}
-      >
-        {isPositive ? '+' : ''}{growth.toFixed(1)}%
-      </text>
-    </g>
+    <div className="relative">
+      <button onClick={() => setOpen((v) => !v)} className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border transition-colors ${open || selected.size ? 'border-cx-300 text-cx-700 bg-cx-50' : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}>
+        <SlidersHorizontal className="w-3.5 h-3.5" />Lines{selected.size ? <span className="text-[10px] font-bold bg-cx-500 text-white rounded px-1">{selected.size}</span> : null}
+      </button>
+      {open && (
+        <div className="absolute right-0 mt-1 z-30 w-52 bg-white border border-gray-200 rounded-lg shadow-xl p-1.5">
+          <p className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">Overlay as line</p>
+          {OVERLAYS.map((o) => { const on = selected.has(o.key); const full = !on && selected.size >= MAX_LINES; return (
+            <button key={o.key} onClick={() => !full && onToggle(o.key)} disabled={full} title={full ? `Up to ${MAX_LINES} lines at once` : undefined} className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs ${full ? 'text-gray-300 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-50'}`}>
+              <span className={`w-3.5 h-3.5 rounded border flex items-center justify-center ${on ? 'bg-cx-500 border-cx-500' : 'border-gray-300'}`}>{on && <Check className="w-2.5 h-2.5 text-white" />}</span>
+              <span className="w-3 h-[2px] rounded" style={{ backgroundColor: o.color }} /><span className="flex-1 text-left">{o.label}</span>
+            </button>); })}
+          <p className="px-2 pt-1 text-[10px] text-gray-400">Up to {MAX_LINES} lines at once — each gets its own axis on the right.</p>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -222,16 +192,13 @@ export default function SalesOverview() {
     [data]
   );
   const { popPct, lyPct } = COMPARISON_BY_GRANULARITY[granularity];
-
-  const calculateGrowth = () => {
-    if (data.length < 2) return 0;
-    const firstTotal = data[0].adSales + data[0].organicSales;
-    const lastTotal = data[data.length - 1].adSales + data[data.length - 1].organicSales;
-    return ((lastTotal - firstTotal) / firstTotal) * 100;
-  };
-
-  const growth = calculateGrowth();
-  const CustomTooltip = createCustomTooltip(currency);
+  const [overlays, setOverlays] = useState<Set<OverlayKey>>(() => new Set<OverlayKey>(['cr']));
+  const toggleOverlay = (k: OverlayKey) => setOverlays((prev) => { const n = new Set(prev); if (n.has(k)) n.delete(k); else if (n.size < MAX_LINES) n.add(k); return n; });
+  const spans = useMemo(() => eventSpans(granularity, data.map((d) => d.label)), [granularity, data]);
+  const eventFor = (label: string) => { const i = data.findIndex((d) => d.label === label); return spans.find((sp) => i >= sp.i1 && i <= sp.i2)?.name; };
+  const chartData = useMemo(() => data.map((p, i) => enrich(p, i, spans.some((sp) => i >= sp.i1 && i <= sp.i2))), [data, spans]);
+  const activeOverlays = OVERLAYS.filter((o) => overlays.has(o.key));
+  const CustomTooltip = createCustomTooltip(currency, OVERLAYS, eventFor);
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm flex-1 min-w-0">
@@ -239,7 +206,7 @@ export default function SalesOverview() {
         <div className="min-w-0">
           <div className="flex items-center gap-1.5 mb-1">
             <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Sales Overview</h2>
-            <InfoTooltip content="Stacked bar chart of organic vs. ad-attributed sales. Slope shows trend over the selected granularity." />
+            <InfoTooltip content="Stacked bars of organic vs. ad-attributed sales. Use “Lines” to overlay metrics (each on its own scale); sales events are marked on the chart." />
           </div>
           <div className="flex items-baseline gap-4 flex-wrap">
             <p className="text-3xl font-bold text-gray-800 tabular-nums">
@@ -252,7 +219,9 @@ export default function SalesOverview() {
           </div>
           <p className="text-sm text-gray-400 mt-0.5">Total sales</p>
         </div>
-        <div className="flex items-center bg-gray-100 rounded-lg p-0.5 flex-shrink-0">
+        <div className="flex items-center gap-2 flex-shrink-0">
+        <LinesPicker selected={overlays} onToggle={toggleOverlay} />
+        <div className="flex items-center bg-gray-100 rounded-lg p-0.5">
           {granularityOptions.map((opt) => (
             <button
               key={opt.value}
@@ -266,6 +235,7 @@ export default function SalesOverview() {
               {opt.label}
             </button>
           ))}
+        </div>
         </div>
       </div>
 
@@ -285,58 +255,35 @@ export default function SalesOverview() {
 
       <div className="h-[280px]">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 50, right: 10, left: 0, bottom: 0 }} barCategoryGap="20%">
+          <ComposedChart data={chartData} margin={{ top: 50, right: 10, left: 0, bottom: 0 }} barCategoryGap="20%">
             <CartesianGrid strokeDasharray="3 3" stroke="#EEF2F6" vertical={false} />
-            <XAxis
-              dataKey="label"
-              axisLine={false}
-              tickLine={false}
-              tick={{ fill: '#93A4B8', fontSize: 11 }}
-            />
-            <YAxis
-              axisLine={false}
-              tickLine={false}
-              tick={{ fill: '#93A4B8', fontSize: 11 }}
-              tickFormatter={tickFmt(currency)}
-              width={55}
-            />
+            <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: '#93A4B8', fontSize: 11 }} />
+            <YAxis axisLine={false} tickLine={false} tick={{ fill: '#93A4B8', fontSize: 11 }} tickFormatter={tickFmt(currency)} width={55} />
+            {activeOverlays.map((o) => (
+              <YAxis key={o.key} yAxisId={o.key} orientation="right" axisLine={false} tickLine={false} width={46} tickCount={4} domain={[0, 'auto']} tick={{ fill: o.color, fontSize: 10 }} tickFormatter={(v: number) => (['cr', 'tacos', 'acos'].includes(o.key) ? `${Math.round(v * 10) / 10}%` : o.fmt(v, currency))} />
+            ))}
+            {spans.map((sp) => sp.x1 === sp.x2
+              ? <ReferenceLine key={sp.name} x={sp.x1} stroke="#F59E0B" strokeDasharray="4 3" label={{ value: sp.name, position: 'top', fill: '#92400E', fontSize: 10, fontWeight: 700 }} />
+              : <ReferenceArea key={sp.name} x1={sp.x1} x2={sp.x2} fill="#FEF3C7" fillOpacity={0.9} label={{ value: sp.name, position: 'insideTop', fill: '#92400E', fontSize: 10, fontWeight: 700 }} />)}
             <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(14, 90, 138, 0.04)' }} />
-            <Legend content={<CustomLegend />} />
-            <Bar
-              dataKey="organicSales"
-              name="Organic Sales"
-              stackId="sales"
-              fill="#0E5A8A"
-              radius={[0, 0, 0, 0]}
-            >
-              <LabelList
-                content={(props: any) => <CustomBarLabel {...props} currency={currency} />}
-              />
+            <Bar dataKey="organicSales" name="Organic Sales" stackId="sales" fill="#0E5A8A" radius={[0, 0, 0, 0]}>
+              <LabelList content={(props: any) => <CustomBarLabel {...props} currency={currency} />} />
             </Bar>
-            <Bar
-              dataKey="adSales"
-              name="Ad Sales"
-              stackId="sales"
-              fill="#4B9DCC"
-              radius={[4, 4, 0, 0]}
-            >
-              <LabelList
-                dataKey="adSales"
-                content={(props: any) => <CustomBarLabel {...props} currency={currency} />}
-              />
+            <Bar dataKey="adSales" name="Ad Sales" stackId="sales" fill="#4B9DCC" radius={[4, 4, 0, 0]}>
+              <LabelList dataKey="adSales" content={(props: any) => <CustomBarLabel {...props} currency={currency} />} />
             </Bar>
-            <Customized
-              component={(props: any) => (
-                <BarTotalLabels {...props} data={data} currency={currency} />
-              )}
-            />
-            <Customized
-              component={(props: any) => (
-                <GrowthTrendOverlay {...props} data={data} growth={growth} />
-              )}
-            />
-          </BarChart>
+            <Customized component={(props: any) => <BarTotalLabels {...props} data={data} currency={currency} />} />
+            {activeOverlays.map((o) => (
+              <Line key={o.key} yAxisId={o.key} type="monotone" dataKey={o.key} name={o.label} stroke={o.color} strokeWidth={2} dot={false} activeDot={{ r: 3 }} isAnimationActive={false} />
+            ))}
+          </ComposedChart>
         </ResponsiveContainer>
+      </div>
+      <div className="flex items-center justify-center gap-5 mt-2 flex-wrap text-xs text-gray-500">
+        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: '#0E5A8A' }} />Organic Sales</span>
+        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: '#4B9DCC' }} />Ad Sales</span>
+        {activeOverlays.map((o) => <span key={o.key} className="flex items-center gap-1.5"><span className="w-3.5 h-[2px] rounded" style={{ backgroundColor: o.color }} />{o.label}</span>)}
+        {spans.map((sp) => <span key={sp.name} className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-amber-100 ring-1 ring-amber-300" />{sp.name}</span>)}
       </div>
       <div className="flex justify-end mt-3">
         <LastRefreshed offsetMinutes={12} />

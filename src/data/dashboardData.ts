@@ -440,7 +440,6 @@ export const menuItems = [
     // Everything except Overview, Diagnostics and Budget & Pacing is still a stub.
     comingSoonSubs: [
       'Keywords & Search Terms',
-      'Attribution & Halo',
       'Dayparting / Intraday',
       'DSP',
       'AMC',
